@@ -126,6 +126,29 @@ Results saved as:
 └── 📄 config.json
 ```
 
+## 📊 Validation Model Performance
+
+After training is completed, you can run validation to assess model performance on each fold:
+```
+python -m scripts.evaluate <EXPERIMENT_NAME>
+```
+
+This script automatically loads checkpoints for all folds and reports:
+* Validation Loss
+* Evaluation Metric (e.g., mIoU)
+
+Example Console Output:
+```
+┌────────┬────────────┬───────────┬────────────────────┬──────────┐
+│        │ Total Loss │ Dice Loss │ Cross Entropy Loss │   mIoU   │
+├────────┼────────────┼───────────┼────────────────────┼──────────┤
+│ Fold 1 │ 0.068619   │ 0.130197  │ 0.007042           │ 0.949898 │
+│ Fold 2 │ 0.075404   │ 0.146048  │ 0.004760           │ 0.948226 │
+│ Fold 3 │ 0.070967   │ 0.133843  │ 0.008092           │ 0.936442 │
+│ Fold 4 │ 0.074820   │ 0.145908  │ 0.003733           │ 0.950953 │
+└────────┴────────────┴───────────┴────────────────────┴──────────┘
+```
+
 ## 🔍 Inference
 
 ```
@@ -144,6 +167,13 @@ Outputs:
 ├── 📂 Fold_2
 ├── 📂 Fold_3
 └── 📂 Fold_4
+```
+
+## 👁️ Visualize Predictions
+
+You can visualize the segmentation predictions together with ground truth masks:
+```
+python -m scripts.visualize <EXPERIMENT_NAME>
 ```
 
 ## 📝 Notes

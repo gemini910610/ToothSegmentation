@@ -24,7 +24,7 @@ def save_image(image, predict, mask, output_dir, filename):
     
     image.save(os.path.join(output_dir, filename))
 
-def predict_patient(patient, output_dir, config):
+def predict_patient(model, patient, output_dir, config):
     os.makedirs(output_dir, exist_ok=True)
 
     dataset = CBCTDataset(config.DATASET, [patient])
@@ -86,4 +86,4 @@ if __name__ == '__main__':
             output_dir = os.path.join('outputs', experiment_name, f'Fold_{fold}', patient)
             os.makedirs(output_dir, exist_ok=True)
 
-            predict_patient(patient, output_dir, config)
+            predict_patient(model, patient, output_dir, config)

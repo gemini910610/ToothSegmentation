@@ -1,7 +1,10 @@
+__pycache__/
 bone_mask/
 bone_tooth_mask/
+clean_pycache.sh
 dataset/
 logs/
 outputs/
+pyproject.toml
 splits/
-clean_pycache.sh
+uv.lock
