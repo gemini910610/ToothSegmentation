@@ -51,7 +51,8 @@ seed = 42
 num_workers = 4
 
 # Data Configuration
-dataset = "bone_tooth_mask"
+datasets = ["bone_tooth_mask"]
+split_filename = "bone_tooth_mask"
 num_folds = 4
 batch_size = 16
 
@@ -97,7 +98,7 @@ python -m scripts.prepare_kfold
 ```
 Generates:
 ```
-splits/<DATASET_NAME>.json
+splits/<SPLIT_FILENAME>.json
 {
     "1": ["data_1", ...],
     "2": ["data_2", ...],
@@ -129,7 +130,7 @@ Results saved as:
 ├── 📂 Fold_2
 ├── 📂 Fold_3
 ├── 📂 Fold_4
-├── 📄 <DATASET_NAME>.json
+├── 📄 <SPLIT_FILENAME>.json
 └── 📄 config.toml
 ```
 

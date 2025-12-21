@@ -1,4 +1,3 @@
-import os
 import torch
 import tomllib
 
@@ -12,7 +11,6 @@ def load_config(load_path):
 
     config.fold = MISSING
     config.device = 'cuda' if torch.cuda.is_available() else 'cpu'
-    config.split_filename = os.path.join('splits', f'{config.dataset}.json')
 
     OmegaConf.set_struct(config, True)
 
@@ -30,7 +28,7 @@ if __name__ == '__main__':
             else:
                 yield key, value
 
-    config = load_config('configs/unet.toml')
+    config = load_config('configs/config.toml')
     config.fold = 1
 
     table = Table(['Parameter', 'Value'])

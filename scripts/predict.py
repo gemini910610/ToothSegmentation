@@ -29,10 +29,10 @@ def save_compare(image, predict, mask, output_dir, filename):
     
     image.save(os.path.join(output_dir, filename))
 
-def predict_patient(model, patient, output_dir, config):
+def predict_patient(model, dataset, patient, output_dir, config):
     os.makedirs(output_dir, exist_ok=True)
 
-    dataset_dir = os.path.join('datasets', config.dataset)
+    dataset_dir = os.path.join('datasets', dataset)
     dataset = CBCTDataset(dataset_dir, [patient])
     loader = DataLoader(dataset, config.batch_size, shuffle=False)
 
@@ -90,10 +90,11 @@ if __name__ == '__main__':
 
         model = load_model(config)
 
-        _, val_patients = get_fold(config.split_filename, fold)
-        for patient in val_patients:
-            output_dir = os.path.join('outputs', experiment_name, f'Fold_{fold}', patient)
-            os.makedirs(os.path.join(output_dir, 'predict'), exist_ok=True)
-            os.makedirs(os.path.join(output_dir, 'compare'), exist_ok=True)
+        _, val_dataset_patients = get_fold(config.split_filename, fold)
+        for dataset, patients in val_dataset_patients.items():
+            for patient in patients:
+                output_dir = os.path.join('outputs', experiment_name, f'Fold_{fold}', dataset, patient)
+                os.makedirs(os.path.join(output_dir, 'predict'), exist_ok=True)
+                os.makedirs(os.path.join(output_dir, 'compare'), exist_ok=True)
 
-            predict_patient(model, patient, output_dir, config)
+                predict_patient(model, dataset, patient, output_dir, config)

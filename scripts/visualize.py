@@ -177,11 +177,14 @@ class MainWindow(MainWindowUI):
         self.patient_selector.setEnabled(True)
 
 def get_patient_fold_mapping(config):
-    return {
-        patient: fold
-        for fold in range(1, config.num_folds + 1)
-        for patient in get_fold(config.split_filename, fold)[1]
-    }
+    raise NotImplementedError('get_patient_fold_mapping(config) is currently disabled and under refactor.')
+    
+    # previous implementation (for reference)
+    # return {
+    #     patient: fold
+    #     for fold in range(1, config.num_folds + 1)
+    #     for patient in get_fold(config.split_filename, fold)[1]
+    # }
 
 if __name__ == '__main__':
     from argparse import ArgumentParser

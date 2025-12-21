@@ -3,19 +3,27 @@ import json
 import os
 import torch
 
-from torch.utils.data import Dataset, DataLoader
+from collections import defaultdict
+from torch.utils.data import Dataset, DataLoader, ConcatDataset
 
 def get_fold(split_file, fold_id):
-    with open(split_file) as file:
+    with open(os.path.join('splits', f'{split_file}.json')) as file:
         folds = json.load(file)
-    train_patients = []
-    val_patients = []
-    for fold, patients in folds.items():
-        patient_list = val_patients if str(fold_id) == fold else train_patients
-        patient_list.extend(patients)
-    train_patients.sort(key=lambda x: int(x[5:]))
-    val_patients.sort(key=lambda x: int(x[5:]))
-    return train_patients, val_patients
+    train_dataset_patients = defaultdict(list)
+    val_dataset_patients = defaultdict(list)
+    for fold, dataset_patients in folds.items():
+        patient_list = val_dataset_patients if str(fold_id) == fold else train_dataset_patients
+        for dataset, patients in dataset_patients.items():
+            patient_list[dataset].extend(patients)
+    train_dataset_patients = {
+        dataset: sorted(patients, key=lambda x: int(x[5:])) # data_XX
+        for dataset, patients in train_dataset_patients.items()
+    }
+    val_dataset_patients = {
+        dataset: sorted(patients, key=lambda x: int(x[5:])) # data_XX
+        for dataset, patients in val_dataset_patients.items()
+    }
+    return train_dataset_patients, val_dataset_patients
 
 class CBCTDataset(Dataset):
     def __init__(self, dataset_dir, patients, binary=False):
@@ -50,15 +58,32 @@ class CBCTDataset(Dataset):
         return image, mask, filename
 
 def get_loader(config):
-    train_patients, val_patients = get_fold(config.split_filename, config.fold)
+    train_dataset_patients, val_dataset_patients = get_fold(config.split_filename, config.fold)
 
-    dataset_dir = os.path.join('datasets', config.dataset)
+    train_datasets = []
+    val_datasets = []
+    for dataset in config.datasets:
+        train_patients = train_dataset_patients[dataset]
+        val_patients = val_dataset_patients[dataset]
 
-    train_dataset = CBCTDataset(dataset_dir, train_patients)
-    train_loader = DataLoader(train_dataset, config.batch_size, shuffle=True, num_workers=config.num_workers, pin_memory=True)
+        dataset_dir = os.path.join('datasets', dataset)
 
-    val_dataset = CBCTDataset(dataset_dir, val_patients)
-    val_loader = DataLoader(val_dataset, config.batch_size, shuffle=False, num_workers=config.num_workers, pin_memory=True)
+        train_dataset = CBCTDataset(dataset_dir, train_patients)
+        val_dataset = CBCTDataset(dataset_dir, val_patients)
+
+        train_datasets.append(train_dataset)
+        val_datasets.append(val_dataset)
+    
+    train_dataset = ConcatDataset(train_datasets)
+    val_dataset = ConcatDataset(val_datasets)
+
+    loader_parameters = {
+        'batch_size': config.batch_size,
+        'num_workers': config.num_workers,
+        'pin_memory': True
+    }
+    train_loader = DataLoader(train_dataset, shuffle=True, **loader_parameters)
+    val_loader = DataLoader(val_dataset, shuffle=False, **loader_parameters)
 
     return train_loader, val_loader
 
@@ -66,7 +91,7 @@ if __name__ == '__main__':
     from src.utils import Table
     from src.config import load_config
 
-    config = load_config('configs/unet.toml')
+    config = load_config('configs/config.toml')
     config.fold = 1
 
     train_loader, val_loader = get_loader(config)
