@@ -46,15 +46,22 @@ class MultipleLoss(nn.Module):
         }
 
 class DeepSupervisionLoss(MultipleLoss):
+    def __init__(self, num_classes, dice_weight=0.5, cross_entropy_weight=0.5, ds_weighted=False):
+        super().__init__(num_classes, dice_weight, cross_entropy_weight)
+        self.ds_weighted = ds_weighted
     def forward(self, predicts, targets):
         loss = {
             'Total Loss': 0,
             'Dice Loss': 0,
             'Cross Entropy Loss': 0
         }
+        loss_weight = 1
         for side_predicts in predicts:
             loss_dict = super().forward(side_predicts, targets)
             for name, value in loss_dict.items():
+                if self.ds_weighted:
+                    value *= loss_weight
+                    loss_weight /= 2
                 loss[name] += value
         return loss
 
