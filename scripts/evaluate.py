@@ -49,7 +49,7 @@ def load_model(config):
 if __name__ == '__main__':
     from argparse import ArgumentParser
     from src.config import load_config
-    from src.utils import track, Table
+    from src.console import track, Table
     from src.metrics import get_metric
     from src.losses import get_loss
     from src.dataset import get_loader

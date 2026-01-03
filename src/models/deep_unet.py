@@ -97,7 +97,7 @@ class DeepUNet(nn.Module):
 if __name__ == '__main__':
     from src.dataset import get_loader
     from src.config import load_config
-    from src.utils import Table
+    from src.console import Table
 
     config = load_config('configs/deep_unet.toml')
     config.fold = 1

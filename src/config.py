@@ -17,7 +17,7 @@ def load_config(load_path):
     return config
 
 if __name__ == '__main__':
-    from src.utils import Table
+    from src.console import Table
     from omegaconf.dictconfig import DictConfig
 
     def get_items(config, prefix=''):

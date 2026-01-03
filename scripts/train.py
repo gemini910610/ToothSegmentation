@@ -1,5 +1,5 @@
 from src.trainer import Trainer
-from src.utils import Table
+from src.console import Table
 
 def train(config):
     Table(

@@ -4,7 +4,8 @@ import torch
 from collections import defaultdict
 from torch import amp
 from torch.utils.tensorboard import SummaryWriter
-from src.utils import track, Table, get_optimizer
+from src.console import track, Table
+from src.optimizers import get_optimizer
 from src.dataset import get_loader
 from src.models import get_model
 from src.losses import get_loss

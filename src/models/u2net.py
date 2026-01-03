@@ -665,7 +665,7 @@ class U2Net(nn.Module):
 if __name__ == "__main__":
     from src.dataset import get_loader
     from src.config import load_config
-    from src.utils import Table
+    from src.console import Table
 
     config = load_config('configs/u2net.toml')
     config.fold = 1

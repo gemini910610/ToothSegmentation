@@ -6,7 +6,7 @@ from torchvision.transforms import ToPILImage
 from PIL import ImageFont
 from PIL.ImageDraw import Draw
 from src.dataset import CBCTDataset
-from src.utils import track
+from src.console import track
 from src.models import get_model
 from torch.utils.data import DataLoader
 

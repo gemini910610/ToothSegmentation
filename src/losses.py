@@ -78,7 +78,7 @@ if __name__ == '__main__':
 
     from src.dataset import get_loader
     from src.models import get_model
-    from src.utils import Table
+    from src.console import Table
     from src.config import load_config
 
     config = load_config('configs/unet.toml')
