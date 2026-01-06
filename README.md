@@ -4,6 +4,7 @@
 
 ```
 📁 scripts
+├── 📄 dcm2png.py           # Converts DICOM series into PNG slices
 ├── 📄 download.py          # Downloads experiment logs from a remote server via SFTP
 ├── 📄 evaluate.py          # Runs model evaluation for each fold, computes losses and metrics (e.g., mIoU)
 ├── 📄 predict.py           # Inference script for generating segmentation results
@@ -28,7 +29,7 @@
 
 ## 📁 Dataset Preparation
 
-Your dataset must follow:
+The dataset must follow the directory structure below:
 ```
 📁 datasets/<DATASET_NAME>
 ├── 📂 image
@@ -44,7 +45,14 @@ Your dataset must follow:
 ```
 **Requirements**
 * Images and masks must share identical folder/file names.
-* Masks should contain pixel labels `{0, 1, 2}` for 3 classes.
+* Mask images must contain pixel labels `{0, 1, 2}` corresponding 3 classes.
+
+### DICOM to PNG Conversion
+
+You can use the following script to convert DICOM series into PNG slices:
+```
+python -m scripts.dcm2png <DICOM_DIR> <DATASET_NAME>
+```
 
 ## ⚙️ Configuration (`configs/config.toml`)
 

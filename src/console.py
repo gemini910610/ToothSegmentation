@@ -96,3 +96,9 @@ class Table:
         for row in self.rows:
             self._display_rows(row, widths)
         self._display_line('└─┴┘', widths)
+    def __enter__(self):
+        return self
+    def __exit__(self, exc_type, exc, tb):
+        if exc_type is None:
+            self.display()
+        return False

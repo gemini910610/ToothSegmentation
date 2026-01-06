@@ -31,7 +31,7 @@ if __name__ == '__main__':
     config = load_config('configs/config.toml')
     config.fold = 1
 
-    table = Table(['Parameter', 'Value'])
-    for key, value in get_items(config):
-        table.add_row([key, value])
-    table.display()
+    Table(
+        ['Parameter', 'Value'],
+        *get_items(config)
+    ).display()

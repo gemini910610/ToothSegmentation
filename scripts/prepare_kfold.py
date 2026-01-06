@@ -34,15 +34,14 @@ k_fold = GroupKFold(config.num_folds)
 
 folds = {}
 
-table = Table(['Fold', 'Train', 'Val'])
-for fold, (train_indices, val_indices) in enumerate(k_fold.split(range(len(groups)), groups=groups), start=1):
-    val_patients = set(pairs[index] for index in val_indices)
-    val_patients = sorted(val_patients, key=lambda x: (x[0], int(x[1][5:])))
-    folds[str(fold)] = defaultdict(list)
-    for dataset, patients in val_patients:
-        folds[str(fold)][dataset].append(patients)
-    table.add_row([f'Fold {fold}', len(train_indices), len(val_indices)])
-table.display()
+with Table(['Fold', 'Train', 'Val']) as table:
+    for fold, (train_indices, val_indices) in enumerate(k_fold.split(range(len(groups)), groups=groups), start=1):
+        val_patients = set(pairs[index] for index in val_indices)
+        val_patients = sorted(val_patients, key=lambda x: (x[0], int(x[1][5:])))
+        folds[str(fold)] = defaultdict(list)
+        for dataset, patients in val_patients:
+            folds[str(fold)][dataset].append(patients)
+        table.add_row([f'Fold {fold}', len(train_indices), len(val_indices)])
 
 for fold, dataset_patients in folds.items():
     print(f'   Fold {fold}')
