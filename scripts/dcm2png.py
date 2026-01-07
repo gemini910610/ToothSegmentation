@@ -71,22 +71,20 @@ if __name__ == '__main__':
 
     parser = ArgumentParser()
     parser.add_argument('dicom', type=str)
-    parser.add_argument('dataset', type=str)
+    parser.add_argument('output', type=str)
     parser.add_argument('--min', type=int, default=-1000)
     parser.add_argument('--max', type=int, default=4500)
     parser.add_argument('--spacing', type=float, default=0.25)
     args = parser.parse_args()
 
     dicom_root = args.dicom
-    dataset_name = args.dataset
+    output_dir = args.output
     min_value = args.min
     max_value = args.max
     new_spacing = [args.spacing, args.spacing, args.spacing]
 
-    output_dir = f'datasets/{dataset_name}/image'
-
     if os.path.exists(output_dir):
-        raise FileExistsError(f'dataset "{dataset_name}" already exists')
+        raise FileExistsError(f'folder "{output_dir}" already exists')
 
     with Table(['Data ID', 'Source Path']) as table:
         patients = collect_patients(dicom_root, lambda x: 'IOS' in str(x))

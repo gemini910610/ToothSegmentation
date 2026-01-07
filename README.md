@@ -4,10 +4,11 @@
 
 ```
 📁 scripts
+├── 📄 compare.py           # Compares predictions with ground-truth masks
 ├── 📄 dcm2png.py           # Converts DICOM series into PNG slices
 ├── 📄 download.py          # Downloads experiment logs from a remote server via SFTP
 ├── 📄 evaluate.py          # Runs model evaluation for each fold, computes losses and metrics (e.g., mIoU)
-├── 📄 predict.py           # Inference script for generating segmentation results
+├── 📄 inference.py         # Generates segmentation masks by inference
 ├── 📄 prepare_kfold.py     # Data splitting for K-Fold cross-validation
 ├── 📄 run_experiment.py    # Main script to run complete experimental workflows
 ├── 📄 train.py             # Entry point for single model training
@@ -51,8 +52,21 @@ The dataset must follow the directory structure below:
 
 You can use the following script to convert DICOM series into PNG slices:
 ```
-python -m scripts.dcm2png <DICOM_DIR> <DATASET_NAME>
+python -m scripts.dcm2png <DICOM_DIR> datasets/<DATASET_NAME>/image
 ```
+This command converts each DICOM series into slice-wise PNG images and saves them under:
+```
+datasets/<DATASET_NAME>/image/data_<ID>/*.png
+```
+
+### Inference (Generate Masks)
+
+You can use a trained model checkpoint to perform inference-only segmentation:
+```
+python -m scripts.inference <EXPERIMENT_NAME> datasets/<DATASET_NAME>/image datasets/<DATASET_NAME>/mask --fold <FOLD>
+```
+Notes
+* `--fold <FOLD>` is used to select the trained model checkpoint from logs/<EXPERIMENT_NAME>/Fold_<FOLD>/best.pth
 
 ## ⚙️ Configuration (`configs/config.toml`)
 
@@ -179,10 +193,10 @@ Example Console Output:
 └────────┴────────────┴───────────┴────────────────────┴──────────┘
 ```
 
-## 🔍 Inference
+## 🔍 Compare Predictions with Ground Truth
 
 ```
-python -m scripts.predict <EXPERIMENT_NAME>
+python -m scripts.compare <EXPERIMENT_NAME>
 ```
 Outputs:
 ```

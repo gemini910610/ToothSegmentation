@@ -26,10 +26,9 @@ def get_fold(split_file, fold_id):
     return train_dataset_patients, val_dataset_patients
 
 class CBCTDataset(Dataset):
-    def __init__(self, dataset_dir, patients, binary=False):
+    def __init__(self, dataset_dir, patients):
         self.dataset_dir = dataset_dir
         self.patients = patients
-        self.binary = binary
 
         self.filenames = []
         for patient in patients:
@@ -37,25 +36,28 @@ class CBCTDataset(Dataset):
             filenames.sort(key=lambda x: int(x[:-4]))
             filenames = [f'{patient}/{filename}' for filename in filenames]
             self.filenames.extend(filenames)
-        
+
         self.length = len(self.filenames)
     def __len__(self):
         return self.length
     def __getitem__(self, index):
         filename = self.filenames[index]
-
-        image = cv2.imread(f'{self.dataset_dir}/image/{filename}', cv2.IMREAD_GRAYSCALE)
+        image_path = os.path.join(self.dataset_dir, 'image', filename)
+        image = CBCTDataset.load_image(image_path)
+        mask_path = os.path.join(self.dataset_dir, 'mask', filename)
+        mask = CBCTDataset.load_mask(mask_path)
+        return image, mask, filename
+    def load_image(image_path):
+        image = cv2.imread(image_path, cv2.IMREAD_GRAYSCALE)
         image = torch.from_numpy(image)
         image = image / 255
         image = image.unsqueeze(0)
-
-        mask = cv2.imread(f'{self.dataset_dir}/mask/{filename}', cv2.IMREAD_GRAYSCALE)
+        return image
+    def load_mask(mask_path):
+        mask = cv2.imread(mask_path, cv2.IMREAD_GRAYSCALE)
         mask = torch.from_numpy(mask)
-        if self.binary:
-            mask = mask == 255
         mask = mask.long()
-
-        return image, mask, filename
+        return mask
 
 def get_loader(config):
     train_dataset_patients, val_dataset_patients = get_fold(config.split_filename, config.fold)

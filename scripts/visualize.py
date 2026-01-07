@@ -197,7 +197,7 @@ if __name__ == '__main__':
         raise FileNotFoundError(
             f'Output of experiment "{experiment_name}" not found.\033[0m\n'
             'Try using the following command to generating segmentation results:\n'
-            f'\033[36mpython scripts/predict.py {experiment_name}\033[0m'
+            f'\033[36mpython scripts/compare.py {experiment_name}\033[0m'
         )
 
     config = load_config(os.path.join('logs', experiment_name, 'config.toml'))
