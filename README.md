@@ -4,6 +4,8 @@
 
 ```
 📁 scripts
+├── 📂 tools
+│   └── 📄 visualize.py     # Visualizes model predictions alongside ground-truth masks for qualitative analysis
 ├── 📄 compare.py           # Compares predictions with ground-truth masks
 ├── 📄 dcm2png.py           # Converts DICOM series into PNG slices
 ├── 📄 download.py          # Downloads experiment logs from a remote server via SFTP
@@ -11,8 +13,7 @@
 ├── 📄 inference.py         # Generates segmentation masks by inference
 ├── 📄 prepare_kfold.py     # Data splitting for K-Fold cross-validation
 ├── 📄 run_experiment.py    # Main script to run complete experimental workflows
-├── 📄 train.py             # Entry point for single model training
-└── 📄 visualize.py         # Visualizes model predictions alongside ground-truth masks for qualitative analysis
+└── 📄 train.py             # Entry point for single model training
 📁 src
 ├── 📂 models
 │   ├── 📄 unet.py          # U-Net model architecture definition
@@ -223,7 +224,7 @@ Outputs:
 
 You can visualize the segmentation predictions together with ground truth masks:
 ```
-python -m scripts.visualize <EXPERIMENT_NAME>
+python -m scripts.tools.visualize <EXPERIMENT_NAME>
 ```
 
 ## 🔐 Remote Server Connection
