@@ -4,29 +4,31 @@
 
 ```
 📁 scripts
+├── 📂 post_processing
+│   └── 📄 connected_component.py   # Connected component post-processing for tooth instance analysis
 ├── 📂 tools
-│   └── 📄 visualize.py     # Visualizes model predictions alongside ground-truth masks for qualitative analysis
-├── 📄 compare.py           # Compares predictions with ground-truth masks
-├── 📄 dcm2png.py           # Converts DICOM series into PNG slices
-├── 📄 download.py          # Downloads experiment logs from a remote server via SFTP
-├── 📄 evaluate.py          # Runs model evaluation for each fold, computes losses and metrics (e.g., mIoU)
-├── 📄 inference.py         # Generates segmentation masks by inference
-├── 📄 prepare_kfold.py     # Data splitting for K-Fold cross-validation
-├── 📄 run_experiment.py    # Main script to run complete experimental workflows
-└── 📄 train.py             # Entry point for single model training
+│   └── 📄 visualize.py             # Visualizes model predictions alongside ground-truth masks for qualitative analysis
+├── 📄 compare.py                   # Compares predictions with ground-truth masks
+├── 📄 dcm2png.py                   # Converts DICOM series into PNG slices
+├── 📄 download.py                  # Downloads experiment logs from a remote server via SFTP
+├── 📄 evaluate.py                  # Runs model evaluation for each fold, computes losses and metrics (e.g., mIoU)
+├── 📄 inference.py                 # Generates segmentation masks by inference
+├── 📄 prepare_kfold.py             # Data splitting for K-Fold cross-validation
+├── 📄 run_experiment.py            # Main script to run complete experimental workflows
+└── 📄 train.py                     # Entry point for single model training
 📁 src
 ├── 📂 models
-│   ├── 📄 unet.py          # U-Net model architecture definition
-│   └── 📄 ...              # Additional model implementation
-├── 📄 config.py            # Configuration settings and hyperparameters
-├── 📄 console.py           # Console output helpers (progress tracking and table-style summaries)
-├── 📄 dataset.py           # Custom Dataset and DataLoader implementation
-├── 📄 downloader.py        # Utilities for downloading experiment directories from a remote server using SFTP
-├── 📄 losses.py            # Custom loss functions
-├── 📄 metrics.py           # Evaluation metrics (e.g., mIoU)
-├── 📄 optimizers.py        # Optimizer construction utilities
-├── 📄 summary.py           # TensorBoard log parsing and scalar summary utilities
-└── 📄 trainer.py           # Handles training and validation loops
+│   ├── 📄 unet.py                  # U-Net model architecture definition
+│   └── 📄 ...                      # Additional model implementation
+├── 📄 config.py                    # Configuration settings and hyperparameters
+├── 📄 console.py                   # Console output helpers (progress tracking and table-style summaries)
+├── 📄 dataset.py                   # Custom Dataset and DataLoader implementation
+├── 📄 downloader.py                # Utilities for downloading experiment directories from a remote server using SFTP
+├── 📄 losses.py                    # Custom loss functions
+├── 📄 metrics.py                   # Evaluation metrics (e.g., mIoU)
+├── 📄 optimizers.py                # Optimizer construction utilities
+├── 📄 summary.py                   # TensorBoard log parsing and scalar summary utilities
+└── 📄 trainer.py                   # Handles training and validation loops
 ```
 
 ## 📁 Dataset Preparation
@@ -66,8 +68,8 @@ You can use a trained model checkpoint to perform inference-only segmentation:
 ```
 python -m scripts.inference <EXPERIMENT_NAME> datasets/<DATASET_NAME>/image datasets/<DATASET_NAME>/mask --fold <FOLD>
 ```
-Notes
-* `--fold <FOLD>` is used to select the trained model checkpoint from logs/<EXPERIMENT_NAME>/Fold_<FOLD>/best.pth
+Optional arguments:
+* `--fold <FOLD>`: Specify which fold checkpoint to use for inference.
 
 ## ⚙️ Configuration (`configs/config.toml`)
 
@@ -149,8 +151,10 @@ splits/<SPLIT_FILENAME>.json
 **Train a single fold**
 
 ```
-python -m scripts.train --fold 1
+python -m scripts.train --fold <FOLD>
 ```
+Optional arguments:
+* `--fold <FOLD>`: Train a specific fold defined in the K-Fold split.
 
 **Run full experiment (all folds)**
 
@@ -196,6 +200,7 @@ Example Console Output:
 
 ## 🔍 Compare Predictions with Ground Truth
 
+This step exports slice-wise comparison images and 3D volumes for further post-processing and visualization.
 ```
 python -m scripts.compare <EXPERIMENT_NAME>
 ```
@@ -220,12 +225,43 @@ Outputs:
 └── 📂 Fold_4
 ```
 
+## 🧩 Post-processing
+
+### Connected Component
+
+```
+python -m scripts.post_processing.connected_component <EXPERIMENT_NAME> <LABEL> [--threshold <THRESHOLD>] [--keep]
+```
+Optional arguments:
+* `--threshold <THRESHOLD>`: Minimum voxel count to retain a connected component (default: `3500`).
+* `--keep`: Preserve removed components with label `-1` instead of discarding them.
+
+Outputs:
+```
+📁 outputs/<EXPERIMENT_NAME>
+├── 📂 Fold_1
+│   ├── 📂 <DATASET_NAME_1>
+│   │   ├── 📂 data_1
+│   │   │   └── 📄 cc_volume_<LABEL>.npy
+│   │   └── 📂 ...
+│   └── 📂 <DATASET_NAME_2>
+├── 📂 Fold_2
+├── 📂 Fold_3
+└── 📂 Fold_4
+```
+
 ## 👁️ Visualize Predictions
 
-You can visualize the segmentation predictions together with ground truth masks:
+You can visualize ground truth, prediction, and connected component results side by side:
 ```
-python -m scripts.tools.visualize <EXPERIMENT_NAME>
+python -m scripts.tools.visualize <EXPERIMENT_NAME> [--left {gt,predict,cc}] [--right {gt,predict,cc}] [--cc-label <LABEL_1> [<LABEL_2>]]
 ```
+Optional arguments:
+* `--left {gt,predict,cc}`: Display mode for the left view (default: `predict`).
+* `--right {gt,predict,cc}`: Display mode for the right view (default: `gt`).
+* `--cc-label <LABEL_1> [<LABEL_2>]`: Connected component labels used for visualization.
+    * If only one view is set to `cc`, the first label is used.
+    * If both views are set to `cc`, the first and second labels are applied to the left and right views, respectively.
 
 ## 🔐 Remote Server Connection
 
