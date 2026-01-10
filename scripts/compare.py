@@ -58,11 +58,15 @@ def predict_patient(model, dataset, patient, output_dir, config):
             mask = mask / 2
             save_compare(image, predict, mask, os.path.join(output_dir, 'compare'), image_filename)
 
-    volume = torch.cat(volume)
-    numpy.save(os.path.join(output_dir, 'volume.npy'), volume.numpy())
+    volume = torch.cat(volume) # (B, H, W)
+    volume = volume.numpy()
+    volume = volume.transpose(2, 1, 0) # (W, H, Z)
+    numpy.save(os.path.join(output_dir, 'volume.npy'), volume)
 
-    ground_truth = torch.cat(ground_truth)
-    numpy.save(os.path.join(output_dir, 'ground_truth.npy'), ground_truth.numpy())
+    ground_truth = torch.cat(ground_truth) # (B, H, W)
+    ground_truth = ground_truth.numpy()
+    ground_truth = ground_truth.transpose(2, 1, 0) # (W, H, Z)
+    numpy.save(os.path.join(output_dir, 'ground_truth.npy'), ground_truth)
 
 if __name__ == '__main__':
     from argparse import ArgumentParser

@@ -30,7 +30,7 @@ def load_volume(volume_dir):
         raise ValueError(f'No DICOM series found in "{volume_dir}"')
     series_id = series_ids[0]
     filenames = reader.GetGDCMSeriesFileNames(volume_dir, series_id)
-    filenames = [filename for filename in filenames[::-1] if filename.endswith('.dcm')]
+    filenames = [filename for filename in filenames if filename.endswith('.dcm')]
     reader.SetFileNames(filenames)
     volume = reader.Execute()
     return volume
@@ -61,7 +61,7 @@ def resample_volume(volume, new_spacing=[0.25, 0.25, 0.25]):
 def save_volume(volume, output_dir):
     os.makedirs(output_dir, exist_ok=True)
     volume = SimpleITK.GetArrayFromImage(volume)
-    for index, image in enumerate(volume):
+    for index, image in enumerate(volume, 1):
         image_path = os.path.join(output_dir, f'{index}.png')
         cv2.imwrite(image_path, image, [cv2.IMWRITE_PNG_COMPRESSION, 0])
 

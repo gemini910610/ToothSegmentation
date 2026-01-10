@@ -1,7 +1,8 @@
 import os
 import numpy
+import skimage
 
-from PySide6.QtWidgets import QMainWindow, QWidget, QHBoxLayout, QComboBox
+from PySide6.QtWidgets import QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QComboBox, QLabel, QGroupBox
 from PySide6.QtCore import Signal, QThread
 from PySide6.QtGui import QVector3D
 from pyqtgraph.opengl import GLViewWidget, GLVolumeItem
@@ -14,6 +15,7 @@ class Label:
 class Color:
     TOOTH = (235, 223, 180, 255)
     BONE = (212, 161, 230, 75)
+    REMOVED = (0, 0, 0, 255)
 
 class ViewSetting:
     VIEW_WIDTH = 640
@@ -21,41 +23,80 @@ class ViewSetting:
 
     BACKGROUND = 'white'
 
+class Mode:
+    GROUND_TRUTH = 'gt'
+    PREDICT = 'predict'
+    CONNECTED_COMPONENT = 'cc'
+
 class DataManager:
-    def __init__(self, experiment_name, patient_mapping, base_output_dir='outputs'):
+    def __init__(self, experiment_name, patient_mapping, modes, cc_label, base_output_dir='outputs'):
         self.experiment_name = experiment_name
         self.patient_mapping = {
             patient: fold
             for patient, fold in sorted(patient_mapping.items(), key=lambda x: (x[0].split('/')[0], int(x[0].split('_')[-1])))
         }
         self.patients = list(self.patient_mapping.keys())
+        self.modes = modes
+        self.cc_label = cc_label
         self.base_output_dir = base_output_dir
 
     def load_data(self, patient):
         fold = self.patient_mapping[patient]
         base_dir = os.path.join(self.base_output_dir, self.experiment_name, f'Fold_{fold}', patient)
 
-        predict_volume = numpy.load(os.path.join(base_dir, 'volume.npy'))
-        ground_truth_volume = numpy.load(os.path.join(base_dir, 'ground_truth.npy'))
+        volumes = []
+        index = 0
+        for mode in self.modes:
+            match mode:
+                case Mode.GROUND_TRUTH:
+                    volume_path = os.path.join(base_dir, 'ground_truth.npy')
+                case Mode.PREDICT:
+                    volume_path = os.path.join(base_dir, 'volume.npy')
+                case Mode.CONNECTED_COMPONENT:
+                    volume_path = os.path.join(base_dir, f'cc_volume_{self.cc_label[index]}.npy')
+                    index += 1
+            volume = numpy.load(volume_path)
+            volumes.append(volume)
 
-        return predict_volume, ground_truth_volume
+        return volumes
 
 class VolumeLoader(QThread):
-    finished = Signal(object, object) # predict volume, ground truth volume
-    def __init__(self, data_manager, patient):
+    finished = Signal(object, object, int) # left volume, right volume, tooth count
+    def __init__(self, data_manager, patient, left_mode, right_mode):
         super().__init__()
         self.data_manager = data_manager
         self.patient = patient
+        self.left_mode = left_mode
+        self.right_mode = right_mode
 
     def run(self):
-        predict_volume, ground_truth_volume = self.data_manager.load_data(self.patient)
-        predict_volume = self._process_volume(predict_volume)
-        ground_truth_volume = self._process_volume(ground_truth_volume)
-        self.finished.emit(predict_volume, ground_truth_volume)
+        left_volume, right_volume = self.data_manager.load_data(self.patient)
+        left_volume, left_count = self._make_rgba(left_volume, self.left_mode)
+        right_volume, right_count = self._make_rgba(right_volume, self.right_mode)
+        if self.left_mode == Mode.CONNECTED_COMPONENT and self.right_mode == Mode.CONNECTED_COMPONENT:
+            if self.data_manager.cc_label[0] == 1:
+                count = left_count
+            elif self.data_manager.cc_label[1] == 1:
+                count = right_count
+        elif self.left_mode == Mode.CONNECTED_COMPONENT and self.data_manager.cc_label[0] == 1:
+            count = left_count
+        elif self.right_mode == Mode.CONNECTED_COMPONENT and self.data_manager.cc_label[0] == 1:
+            count = right_count
+        else:
+            count = -1
+        self.finished.emit(left_volume, right_volume, count)
+    
+    def _make_rgba(self, volume, mode):
+        match mode:
+            case Mode.GROUND_TRUTH:
+                return self._process_volume(volume), None
+            case Mode.PREDICT:
+                return self._process_volume(volume), None
+            case Mode.CONNECTED_COMPONENT:
+                return self._process_volume_cc(volume)
 
     def _process_volume(self, volume):
-        volume = volume.transpose(2, 1, 0) # (W, H, Z)
-        volume = numpy.flip(volume, 2) # upside down
+        # volume = volume.transpose(2, 1, 0) # (W, H, Z)
 
         tooth_mask = volume == Label.TOOTH # (W, H, Z)
         bone_mask = volume == Label.BONE # (W, H, Z)
@@ -67,6 +108,49 @@ class VolumeLoader(QThread):
         rgba[bone_surface] = Color.BONE
 
         return rgba
+    
+    def _glasbey_palette(self, num_colors):
+        levels = numpy.linspace(0, 1, 32)
+        candidates = numpy.array(numpy.meshgrid(levels, levels, levels)).reshape(3, -1).T
+        candidates_lab = skimage.color.rgb2lab(candidates.reshape(-1, 1, 1, 3)).reshape(-1, 3)
+
+        lightness = candidates_lab[:, 0]
+        mask = (lightness > 50) & (lightness < 80)
+        candidates = candidates[mask]
+        candidates_lab = candidates_lab[mask]
+
+        initial = numpy.array([[1, 1, 1]])
+        palette_lab = skimage.color.rgb2lab(initial.reshape(-1, 1, 1, 3)).reshape(-1, 3)
+        palette = []
+
+        for _ in range(num_colors):
+            distance = numpy.min(numpy.linalg.norm(candidates_lab[:,None,:] - palette_lab[None,:,:], axis=2), axis=1)
+            index = numpy.argmax(distance)
+            palette.append(candidates[index])
+            palette_lab = numpy.vstack([palette_lab, candidates_lab[index]])
+
+        return [
+            (int(r * 255), int(g * 255), int(b * 255), 255)
+            for r, g, b in palette
+        ]
+
+    def _process_volume_cc(self, volume):
+        # volume = volume.transpose(2, 1, 0) # (W, H, Z)
+
+        component_count = volume.max()
+
+        rgba = numpy.zeros((*volume.shape, 4), dtype=numpy.uint8) # (W, H, Z, 4)
+
+        if component_count == 0:
+            return rgba, 0
+
+        palette = self._glasbey_palette(component_count)
+
+        rgba[volume == -1] = Color.REMOVED
+        for label in range(1, component_count + 1):
+            rgba[volume == label] = palette[label - 1]
+
+        return rgba, component_count
 
 class SyncGLView(GLViewWidget):
     viewChanged = Signal(object)
@@ -130,6 +214,14 @@ class SyncGLView(GLViewWidget):
             self.opts[key] = options[key]
         self.update()
 
+class SyncGLViewBox(QGroupBox):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.view = SyncGLView()
+        layout = QVBoxLayout()
+        layout.addWidget(self.view)
+        self.setLayout(layout)
+
 class MainWindowUI(QMainWindow):
     def __init__(self):
         super().__init__()
@@ -137,24 +229,33 @@ class MainWindowUI(QMainWindow):
         self.move(0, 0)
 
         widget = QWidget()
-        layout = QHBoxLayout(widget)
+        layout = QVBoxLayout(widget)
         self.setCentralWidget(widget)
 
+        top_layout = QHBoxLayout()
         self.patient_selector = QComboBox()
-        self.predict_view = SyncGLView()
-        self.ground_truth_view = SyncGLView()
+        self.tooth_count_label = QLabel('Tooth Count: -')
+        top_layout.addWidget(self.patient_selector)
+        top_layout.addWidget(self.tooth_count_label)
+        top_layout.addStretch()
+        layout.addLayout(top_layout)
 
-        layout.addWidget(self.patient_selector)
-        layout.addWidget(self.predict_view)
-        layout.addWidget(self.ground_truth_view)
+        bottom_layout = QHBoxLayout()
+        self.left_view = SyncGLViewBox()
+        self.right_view = SyncGLViewBox()
+        bottom_layout.addWidget(self.left_view)
+        bottom_layout.addWidget(self.right_view)
+        layout.addLayout(bottom_layout)
 
-        self.predict_view.viewChanged.connect(self.ground_truth_view.apply_opts)
-        self.ground_truth_view.viewChanged.connect(self.predict_view.apply_opts)
+        self.left_view.view.viewChanged.connect(self.right_view.view.apply_opts)
+        self.right_view.view.viewChanged.connect(self.left_view.view.apply_opts)
 
 class MainWindow(MainWindowUI):
-    def __init__(self, data_manager):
+    def __init__(self, data_manager, left_mode, right_mode):
         super().__init__()
         self.data_manager = data_manager
+        self.left_mode = left_mode
+        self.right_mode = right_mode
 
         self.setWindowTitle(self.data_manager.experiment_name)
 
@@ -162,17 +263,26 @@ class MainWindow(MainWindowUI):
         self.patient_selector.setCurrentIndex(-1)
         self.patient_selector.currentIndexChanged.connect(self._load_patient)
 
+        titles = {
+            Mode.GROUND_TRUTH: 'Ground Truth',
+            Mode.PREDICT: 'Predict',
+            Mode.CONNECTED_COMPONENT: 'Connected Component'
+        }
+        self.left_view.setTitle(titles[left_mode])
+        self.right_view.setTitle(titles[right_mode])
+
     def _load_patient(self, index):
         patient = self.data_manager.patients[index]
         self.patient_selector.setEnabled(False)
-        self.thread = VolumeLoader(self.data_manager, patient)
+        self.thread = VolumeLoader(self.data_manager, patient, self.left_mode, self.right_mode)
         self.thread.finished.connect(self._on_volume_loaded)
         self.thread.finished.connect(self.thread.deleteLater)
         self.thread.start()
 
-    def _on_volume_loaded(self, predict_volume, ground_truth_volume):
-        self.predict_view.update_volume(predict_volume)
-        self.ground_truth_view.update_volume(ground_truth_volume)
+    def _on_volume_loaded(self, left_volume, right_volume, tooth_count):
+        self.left_view.view.update_volume(left_volume)
+        self.right_view.view.update_volume(right_volume)
+        self.tooth_count_label.setText(f'Tooth Count: {tooth_count if tooth_count > 0 else "-"}')
         self.patient_selector.setEnabled(True)
 
 def get_patient_fold_mapping(config, base_output_dir='outputs'):
@@ -190,9 +300,15 @@ if __name__ == '__main__':
 
     parser = ArgumentParser()
     parser.add_argument('exp', type=str)
+    parser.add_argument('--left', default=Mode.PREDICT, choices=[Mode.GROUND_TRUTH, Mode.PREDICT, Mode.CONNECTED_COMPONENT])
+    parser.add_argument('--right', default=Mode.GROUND_TRUTH, choices=[Mode.GROUND_TRUTH, Mode.PREDICT, Mode.CONNECTED_COMPONENT])
+    parser.add_argument('--cc-label', nargs='+', default=[1, 2], type=int)
     args = parser.parse_args()
 
     experiment_name = args.exp
+    left_mode = args.left
+    right_mode = args.right
+    cc_label = args.cc_label
     if not os.path.exists(os.path.join('outputs', experiment_name)):
         raise FileNotFoundError(
             f'Output of experiment "{experiment_name}" not found.\033[0m\n'
@@ -205,8 +321,8 @@ if __name__ == '__main__':
 
     app = QApplication([])
 
-    data_manager = DataManager(experiment_name, patient_fold_map)
-    window = MainWindow(data_manager)
+    data_manager = DataManager(experiment_name, patient_fold_map, [left_mode, right_mode], cc_label)
+    window = MainWindow(data_manager, left_mode, right_mode)
 
     window.show()
 
