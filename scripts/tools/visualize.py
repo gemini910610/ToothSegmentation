@@ -27,6 +27,7 @@ class Mode:
     GROUND_TRUTH = 'gt'
     PREDICT = 'predict'
     CONNECTED_COMPONENT = 'cc'
+    POST_PROCESSING = 'pp'
 
 class DataManager:
     def __init__(self, experiment_name, patient_mapping, modes, cc_label, base_output_dir='outputs'):
@@ -55,6 +56,8 @@ class DataManager:
                 case Mode.CONNECTED_COMPONENT:
                     volume_path = os.path.join(base_dir, f'cc_volume_{self.cc_label[index]}.npy')
                     index += 1
+                case Mode.POST_PROCESSING:
+                    volume_path = os.path.join(base_dir, 'pp_volume.npy')
             volume = numpy.load(volume_path)
             volumes.append(volume)
 
@@ -94,10 +97,10 @@ class VolumeLoader(QThread):
                 return self._process_volume(volume), None
             case Mode.CONNECTED_COMPONENT:
                 return self._process_volume_cc(volume)
+            case Mode.POST_PROCESSING:
+                return self._process_volume_cc(volume, translucent=True)
 
     def _process_volume(self, volume):
-        # volume = volume.transpose(2, 1, 0) # (W, H, Z)
-
         tooth_mask = volume == Label.TOOTH # (W, H, Z)
         bone_mask = volume == Label.BONE # (W, H, Z)
         erosion = ndimage.binary_erosion(bone_mask)
@@ -134,9 +137,7 @@ class VolumeLoader(QThread):
             for r, g, b in palette
         ]
 
-    def _process_volume_cc(self, volume):
-        # volume = volume.transpose(2, 1, 0) # (W, H, Z)
-
+    def _process_volume_cc(self, volume, translucent=False):
         component_count = volume.max()
 
         rgba = numpy.zeros((*volume.shape, 4), dtype=numpy.uint8) # (W, H, Z, 4)
@@ -147,8 +148,14 @@ class VolumeLoader(QThread):
         palette = self._glasbey_palette(component_count)
 
         rgba[volume == -1] = Color.REMOVED
-        for label in range(1, component_count + 1):
+        for label in range(2 if translucent else 1, component_count + 1):
             rgba[volume == label] = palette[label - 1]
+
+        if translucent:
+            bone_mask = volume == 1
+            erosion = ndimage.binary_erosion(bone_mask)
+            bone_surface = bone_mask & (~erosion)
+            rgba[bone_surface] = Color.BONE
 
         return rgba, component_count
 
@@ -266,7 +273,8 @@ class MainWindow(MainWindowUI):
         titles = {
             Mode.GROUND_TRUTH: 'Ground Truth',
             Mode.PREDICT: 'Predict',
-            Mode.CONNECTED_COMPONENT: 'Connected Component'
+            Mode.CONNECTED_COMPONENT: 'Connected Component',
+            Mode.POST_PROCESSING: 'Post Processing'
         }
         self.left_view.setTitle(titles[left_mode])
         self.right_view.setTitle(titles[right_mode])
@@ -300,8 +308,8 @@ if __name__ == '__main__':
 
     parser = ArgumentParser()
     parser.add_argument('exp', type=str)
-    parser.add_argument('--left', default=Mode.PREDICT, choices=[Mode.GROUND_TRUTH, Mode.PREDICT, Mode.CONNECTED_COMPONENT])
-    parser.add_argument('--right', default=Mode.GROUND_TRUTH, choices=[Mode.GROUND_TRUTH, Mode.PREDICT, Mode.CONNECTED_COMPONENT])
+    parser.add_argument('--left', default=Mode.PREDICT, choices=[Mode.GROUND_TRUTH, Mode.PREDICT, Mode.CONNECTED_COMPONENT, Mode.POST_PROCESSING])
+    parser.add_argument('--right', default=Mode.GROUND_TRUTH, choices=[Mode.GROUND_TRUTH, Mode.PREDICT, Mode.CONNECTED_COMPONENT, Mode.POST_PROCESSING])
     parser.add_argument('--cc-label', nargs='+', default=[1, 2], type=int)
     args = parser.parse_args()
 
