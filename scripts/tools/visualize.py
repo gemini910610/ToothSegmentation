@@ -29,7 +29,15 @@ class Mode:
     CONNECTED_COMPONENT = 'cc'
     POST_PROCESSING = 'pp'
     WATERSHED = 'watershed'
-    FINAL = 'final'
+
+    def items():
+        return [
+            Mode.GROUND_TRUTH,
+            Mode.PREDICT,
+            Mode.CONNECTED_COMPONENT,
+            Mode.WATERSHED,
+            Mode.POST_PROCESSING
+        ]
 
 class DataManager:
     def __init__(self, experiment_name, patient_mapping, modes, cc_label, base_output_dir='outputs'):
@@ -62,8 +70,6 @@ class DataManager:
                     volume_path = os.path.join(base_dir, 'pp_volume.npy')
                 case Mode.WATERSHED:
                     volume_path = os.path.join(base_dir, 'watershed_volume.npy')
-                case Mode.FINAL:
-                    volume_path = os.path.join(base_dir, 'final_volume.npy')
             volume = numpy.load(volume_path)
             volumes.append(volume)
 
@@ -111,8 +117,6 @@ class VolumeLoader(QThread):
                 return self._process_volume_cc(volume, translucent=True)
             case Mode.WATERSHED:
                 return self._process_volume_cc(volume)
-            case Mode.FINAL:
-                return self._process_volume_cc(volume, translucent=True)
 
     def _process_volume(self, volume):
         tooth_mask = volume == Label.TOOTH # (W, H, Z)
@@ -289,8 +293,7 @@ class MainWindow(MainWindowUI):
             Mode.PREDICT: 'Predict',
             Mode.CONNECTED_COMPONENT: 'Connected Component',
             Mode.POST_PROCESSING: 'Post Processing',
-            Mode.WATERSHED: 'Watershed',
-            Mode.FINAL: 'Final'
+            Mode.WATERSHED: 'Watershed'
         }
         self.left_view.setTitle(titles[left_mode])
         self.right_view.setTitle(titles[right_mode])
@@ -324,8 +327,8 @@ if __name__ == '__main__':
 
     parser = ArgumentParser()
     parser.add_argument('exp', type=str)
-    parser.add_argument('--left', default=Mode.PREDICT, choices=[Mode.GROUND_TRUTH, Mode.PREDICT, Mode.CONNECTED_COMPONENT, Mode.POST_PROCESSING, Mode.WATERSHED, Mode.FINAL])
-    parser.add_argument('--right', default=Mode.GROUND_TRUTH, choices=[Mode.GROUND_TRUTH, Mode.PREDICT, Mode.CONNECTED_COMPONENT, Mode.POST_PROCESSING, Mode.WATERSHED, Mode.FINAL])
+    parser.add_argument('--left', default=Mode.PREDICT, choices=Mode.items())
+    parser.add_argument('--right', default=Mode.GROUND_TRUTH, choices=Mode.items())
     parser.add_argument('--cc-label', nargs='+', default=[1, 2], type=int)
     args = parser.parse_args()
 

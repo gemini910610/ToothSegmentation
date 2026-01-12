@@ -6,7 +6,8 @@
 📁 scripts
 ├── 📂 post_processing
 │   ├── 📄 __main__.py              # Post-processing pipeline
-│   └── 📄 connected_component.py   # Connected component analysis under a specific threshold
+│   ├── 📄 connected_component.py   # Connected component analysis under a specific threshold
+│   └── 📄 watershed.py             # Watershed-based separation of connected tooth components
 ├── 📂 tools
 │   └── 📄 visualize.py             # Visualizes model predictions alongside ground-truth masks for qualitative analysis
 ├── 📄 compare.py                   # Compares predictions with ground-truth masks
@@ -272,15 +273,37 @@ Outputs:
 └── 📂 Fold_4
 ```
 
+### Watershed
+
+```
+python -m scripts.post_processing.watershed UNet_baseline [--threshold <TOOTH_THRESHOLD>]
+```
+Optional arguments:
+* `--threshold <TOOTH_THRESHOLD>`: Component size threshold used for connected component analysis on tooth predictions (default: `3500`).
+
+Outputs:
+```
+📁 outputs/<EXPERIMENT_NAME>
+├── 📂 Fold_1
+│   ├── 📂 <DATASET_NAME_1>
+│   │   ├── 📂 data_1
+│   │   │   └── 📄 watershed_volume.npy
+│   │   └── 📂 ...
+│   └── 📂 <DATASET_NAME_2>
+├── 📂 Fold_2
+├── 📂 Fold_3
+└── 📂 Fold_4
+```
+
 ## 👁️ Visualize Predictions
 
 You can visualize ground truth, prediction, and connected component results side by side:
 ```
-python -m scripts.tools.visualize <EXPERIMENT_NAME> [--left {gt,predict,cc,pp}] [--right {gt,predict,cc,pp}] [--cc-label <LABEL_1> [<LABEL_2>]]
+python -m scripts.tools.visualize <EXPERIMENT_NAME> [--left {gt,predict,cc,watershed,pp}] [--right {gt,predict,cc,watershed,pp}] [--cc-label <LABEL_1> [<LABEL_2>]]
 ```
 Optional arguments:
-* `--left {gt,predict,cc,pp}`: Display mode for the left view (default: `predict`).
-* `--right {gt,predict,cc,pp}`: Display mode for the right view (default: `gt`).
+* `--left {gt,predict,cc,watershed,pp}`: Display mode for the left view (default: `predict`).
+* `--right {gt,predict,cc,watershed,pp}`: Display mode for the right view (default: `gt`).
 * `--cc-label <LABEL_1> [<LABEL_2>]`: Connected component labels used for visualization.
     * If only one view is set to `cc`, the first label is used.
     * If both views are set to `cc`, the first and second labels are applied to the left and right views, respectively.

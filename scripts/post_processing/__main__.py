@@ -37,5 +37,5 @@ for fold in range(1, config.num_folds + 1):
 
             volume = bone_volume + tooth_volume
 
-            pp_path = os.path.join('outputs', experiment_name, f'Fold_{fold}', dataset, patient, 'final_volume.npy')
+            pp_path = os.path.join('outputs', experiment_name, f'Fold_{fold}', dataset, patient, 'pp_volume.npy')
             numpy.save(pp_path, volume)
