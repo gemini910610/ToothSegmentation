@@ -28,6 +28,8 @@ class Mode:
     PREDICT = 'predict'
     CONNECTED_COMPONENT = 'cc'
     POST_PROCESSING = 'pp'
+    WATERSHED = 'watershed'
+    FINAL = 'final'
 
 class DataManager:
     def __init__(self, experiment_name, patient_mapping, modes, cc_label, base_output_dir='outputs'):
@@ -58,6 +60,10 @@ class DataManager:
                     index += 1
                 case Mode.POST_PROCESSING:
                     volume_path = os.path.join(base_dir, 'pp_volume.npy')
+                case Mode.WATERSHED:
+                    volume_path = os.path.join(base_dir, 'watershed_volume.npy')
+                case Mode.FINAL:
+                    volume_path = os.path.join(base_dir, 'final_volume.npy')
             volume = numpy.load(volume_path)
             volumes.append(volume)
 
@@ -85,10 +91,14 @@ class VolumeLoader(QThread):
             count = left_count
         elif self.right_mode == Mode.CONNECTED_COMPONENT and self.data_manager.cc_label[0] == 1:
             count = right_count
+        elif self.left_mode == Mode.WATERSHED:
+            count = left_count
+        elif self.right_mode == Mode.WATERSHED:
+            count = right_count
         else:
             count = -1
         self.finished.emit(left_volume, right_volume, count)
-    
+
     def _make_rgba(self, volume, mode):
         match mode:
             case Mode.GROUND_TRUTH:
@@ -98,6 +108,10 @@ class VolumeLoader(QThread):
             case Mode.CONNECTED_COMPONENT:
                 return self._process_volume_cc(volume)
             case Mode.POST_PROCESSING:
+                return self._process_volume_cc(volume, translucent=True)
+            case Mode.WATERSHED:
+                return self._process_volume_cc(volume)
+            case Mode.FINAL:
                 return self._process_volume_cc(volume, translucent=True)
 
     def _process_volume(self, volume):
@@ -111,7 +125,7 @@ class VolumeLoader(QThread):
         rgba[bone_surface] = Color.BONE
 
         return rgba
-    
+
     def _glasbey_palette(self, num_colors):
         levels = numpy.linspace(0, 1, 32)
         candidates = numpy.array(numpy.meshgrid(levels, levels, levels)).reshape(3, -1).T
@@ -274,7 +288,9 @@ class MainWindow(MainWindowUI):
             Mode.GROUND_TRUTH: 'Ground Truth',
             Mode.PREDICT: 'Predict',
             Mode.CONNECTED_COMPONENT: 'Connected Component',
-            Mode.POST_PROCESSING: 'Post Processing'
+            Mode.POST_PROCESSING: 'Post Processing',
+            Mode.WATERSHED: 'Watershed',
+            Mode.FINAL: 'Final'
         }
         self.left_view.setTitle(titles[left_mode])
         self.right_view.setTitle(titles[right_mode])
@@ -308,8 +324,8 @@ if __name__ == '__main__':
 
     parser = ArgumentParser()
     parser.add_argument('exp', type=str)
-    parser.add_argument('--left', default=Mode.PREDICT, choices=[Mode.GROUND_TRUTH, Mode.PREDICT, Mode.CONNECTED_COMPONENT, Mode.POST_PROCESSING])
-    parser.add_argument('--right', default=Mode.GROUND_TRUTH, choices=[Mode.GROUND_TRUTH, Mode.PREDICT, Mode.CONNECTED_COMPONENT, Mode.POST_PROCESSING])
+    parser.add_argument('--left', default=Mode.PREDICT, choices=[Mode.GROUND_TRUTH, Mode.PREDICT, Mode.CONNECTED_COMPONENT, Mode.POST_PROCESSING, Mode.WATERSHED, Mode.FINAL])
+    parser.add_argument('--right', default=Mode.GROUND_TRUTH, choices=[Mode.GROUND_TRUTH, Mode.PREDICT, Mode.CONNECTED_COMPONENT, Mode.POST_PROCESSING, Mode.WATERSHED, Mode.FINAL])
     parser.add_argument('--cc-label', nargs='+', default=[1, 2], type=int)
     args = parser.parse_args()
 

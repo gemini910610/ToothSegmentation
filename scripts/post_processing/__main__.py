@@ -2,6 +2,7 @@ import os
 import numpy
 
 from .connected_component import filter_connected_component
+from .watershed import split_component
 from src.config import load_config
 from src.dataset import get_fold
 from src.console import track
@@ -30,10 +31,11 @@ for fold in range(1, config.num_folds + 1):
             bone_volume = filter_connected_component(bone_volume, bone_threshold, binary=True)
 
             tooth_volume = volume == 1
-            tooth_volume = filter_connected_component(tooth_volume, tooth_threshold)
+            tooth_volume = filter_connected_component(tooth_volume, tooth_threshold, binary=True)
+            tooth_volume = split_component(tooth_volume)
             tooth_volume = numpy.where(tooth_volume > 0, tooth_volume + 1, 0)
 
             volume = bone_volume + tooth_volume
 
-            pp_path = os.path.join('outputs', experiment_name, f'Fold_{fold}', dataset, patient, 'pp_volume.npy')
+            pp_path = os.path.join('outputs', experiment_name, f'Fold_{fold}', dataset, patient, 'final_volume.npy')
             numpy.save(pp_path, volume)

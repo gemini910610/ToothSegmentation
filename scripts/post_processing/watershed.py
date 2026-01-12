@@ -1,7 +1,10 @@
-import cc3d
 import numpy
 
-def filter_connected_component(volume, voxel_threshold, binary=False, keep=False):
+from scipy import ndimage
+from skimage.morphology import h_maxima
+from skimage.segmentation import watershed
+
+def split_component(volume):
     origin_shape = volume.shape
     coordinates = numpy.argwhere(volume)
     x0, y0, z0 = coordinates.min(axis=0)
@@ -17,19 +20,13 @@ def filter_connected_component(volume, voxel_threshold, binary=False, keep=False
 
     volume = volume[x0:x1, y0:y1, z0:z1]
 
-    components = cc3d.connected_components(volume, connectivity=6)
-    if binary:
-        labels, counts = numpy.unique(components, return_counts=True)
-        valid_labels = labels[(labels != 0) & (counts >= voxel_threshold)]
-        volume = numpy.isin(components, valid_labels).astype(numpy.uint8)
-    else:
-        counts = numpy.bincount(components.ravel())
-        valid = counts >= voxel_threshold
-        valid[0] = False # background
-        lookup_table = numpy.full_like(counts, -1 if keep else 0, dtype=numpy.int32)
-        lookup_table[0] = 0 # background
-        lookup_table[valid] = numpy.arange(1, valid.sum() + 1, dtype=numpy.int32)
-        volume = lookup_table[components]
+    distance = ndimage.distance_transform_edt(volume)
+    distance = ndimage.gaussian_filter(distance, sigma=1)
+
+    peaks = h_maxima(distance, h=3) & volume
+    markers, _ = ndimage.label(peaks)
+
+    volume = watershed(-distance, markers, mask=volume)
 
     origin_volume = numpy.zeros(origin_shape, dtype=numpy.int32)
     origin_volume[x0:x1, y0:y1, z0:z1] = volume
@@ -43,18 +40,15 @@ if __name__ == '__main__':
     from src.config import load_config
     from src.console import track
     from src.dataset import get_fold
+    from .connected_component import filter_connected_component
 
     parser = ArgumentParser()
     parser.add_argument('exp', type=str)
-    parser.add_argument('target', type=int)
     parser.add_argument('--threshold', type=int, default=3500)
-    parser.add_argument('--keep', action='store_true')
     args = parser.parse_args()
 
     experiment_name = args.exp
-    target = args.target
     voxel_threshold = args.threshold
-    keep = args.keep
 
     config = load_config(os.path.join('logs', experiment_name, 'config.toml'))
 
@@ -64,8 +58,10 @@ if __name__ == '__main__':
             for patient in track(patients, desc=f'Fold {fold} {dataset}'):
                 predict_path = os.path.join('outputs', experiment_name, f'Fold_{fold}', dataset, patient, 'volume.npy')
                 volume = numpy.load(predict_path)
-                volume = volume == target
-                volume = filter_connected_component(volume, voxel_threshold, keep)
 
-                cc_path = os.path.join('outputs', experiment_name, f'Fold_{fold}', dataset, patient, f'cc_volume_{target}.npy')
-                numpy.save(cc_path, volume)
+                volume = volume == 1
+                volume = filter_connected_component(volume, voxel_threshold, binary=True)
+                volume = split_component(volume)
+
+                pp_path = os.path.join('outputs', experiment_name, f'Fold_{fold}', dataset, patient, 'watershed_volume.npy')
+                numpy.save(pp_path, volume)
