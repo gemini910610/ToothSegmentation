@@ -26,13 +26,15 @@ def get_fold(split_file, fold_id):
     return train_dataset_patients, val_dataset_patients
 
 class CBCTDataset(Dataset):
-    def __init__(self, dataset_dir, patients):
+    def __init__(self, dataset_dir, patients, return_mask=True):
         self.dataset_dir = dataset_dir
         self.patients = patients
+        self.return_mask = return_mask
 
         self.filenames = []
         for patient in patients:
-            filenames = os.listdir(f'{dataset_dir}/image/{patient}')
+            folder_path = os.path.join(dataset_dir, 'mask' if return_mask else 'image', patient)
+            filenames = os.listdir(folder_path)
             filenames.sort(key=lambda x: int(x[:-4]))
             filenames = [f'{patient}/{filename}' for filename in filenames]
             self.filenames.extend(filenames)
@@ -45,7 +47,12 @@ class CBCTDataset(Dataset):
         image_path = os.path.join(self.dataset_dir, 'image', filename)
         image = CBCTDataset.load_image(image_path)
         mask_path = os.path.join(self.dataset_dir, 'mask', filename)
-        mask = CBCTDataset.load_mask(mask_path)
+        if os.path.exists(mask_path):
+            mask = CBCTDataset.load_mask(mask_path)
+        elif not self.return_mask:
+            mask = torch.zeros_like(image).squeeze(0)
+        else:
+            raise FileNotFoundError(f'Mask of "{filename}" not found.')
         return image, mask, filename
     def load_image(image_path):
         image = cv2.imread(image_path, cv2.IMREAD_GRAYSCALE)
@@ -59,7 +66,7 @@ class CBCTDataset(Dataset):
         mask = mask.long()
         return mask
 
-def get_loader(config):
+def get_loader(config, return_mask=True):
     train_dataset_patients, val_dataset_patients = get_fold(config.split_filename, config.fold)
 
     train_datasets = []
@@ -70,8 +77,8 @@ def get_loader(config):
 
         dataset_dir = os.path.join('datasets', dataset)
 
-        train_dataset = CBCTDataset(dataset_dir, train_patients)
-        val_dataset = CBCTDataset(dataset_dir, val_patients)
+        train_dataset = CBCTDataset(dataset_dir, train_patients, return_mask)
+        val_dataset = CBCTDataset(dataset_dir, val_patients, return_mask)
 
         train_datasets.append(train_dataset)
         val_datasets.append(val_dataset)

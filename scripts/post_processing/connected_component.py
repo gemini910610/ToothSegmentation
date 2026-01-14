@@ -65,7 +65,7 @@ if __name__ == '__main__':
                 predict_path = os.path.join('outputs', experiment_name, f'Fold_{fold}', dataset, patient, 'volume.npy')
                 volume = numpy.load(predict_path)
                 volume = volume == target
-                volume = filter_connected_component(volume, voxel_threshold, keep)
+                volume = filter_connected_component(volume, voxel_threshold, keep=keep)
 
                 cc_path = os.path.join('outputs', experiment_name, f'Fold_{fold}', dataset, patient, f'cc_volume_{target}.npy')
                 numpy.save(cc_path, volume)

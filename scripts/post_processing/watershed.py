@@ -14,9 +14,9 @@ def split_component(volume):
     y0 = max(y0 - 10, 0)
     z0 = max(z0 - 10, 0)
 
-    x1 = min(x1 + 10, volume.shape[0])
-    y1 = min(y1 + 10, volume.shape[1])
-    z1 = min(z1 + 10, volume.shape[2])
+    x1 = min(x1 + 10 + 1, volume.shape[0])
+    y1 = min(y1 + 10 + 1, volume.shape[1])
+    z1 = min(z1 + 10 + 1, volume.shape[2])
 
     volume = volume[x0:x1, y0:y1, z0:z1]
 
@@ -56,11 +56,17 @@ if __name__ == '__main__':
         _, valid_dataset_patients = get_fold(config.split_filename, fold)
         for dataset, patients in valid_dataset_patients.items():
             for patient in track(patients, desc=f'Fold {fold} {dataset}'):
-                predict_path = os.path.join('outputs', experiment_name, f'Fold_{fold}', dataset, patient, 'volume.npy')
-                volume = numpy.load(predict_path)
+                cc_volume_path = os.path.join('outputs', experiment_name, f'Fold_{fold}', dataset, patient, 'cc_volume_1.npy')
+                if os.path.exists(cc_volume_path):
+                    volume = numpy.load(cc_volume_path)
+                    volume = volume > 1
+                else:
+                    predict_path = os.path.join('outputs', experiment_name, f'Fold_{fold}', dataset, patient, 'volume.npy')
+                    volume = numpy.load(predict_path)
 
-                volume = volume == 1
-                volume = filter_connected_component(volume, voxel_threshold, binary=True)
+                    volume = volume == 1
+                    volume = filter_connected_component(volume, voxel_threshold, binary=True)
+
                 volume = split_component(volume)
 
                 pp_path = os.path.join('outputs', experiment_name, f'Fold_{fold}', dataset, patient, 'watershed_volume.npy')

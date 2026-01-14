@@ -32,7 +32,7 @@ def predict_patient(model, dataset, patient, output_dir, config):
     os.makedirs(output_dir, exist_ok=True)
 
     dataset_dir = os.path.join('datasets', dataset)
-    dataset = CBCTDataset(dataset_dir, [patient])
+    dataset = CBCTDataset(dataset_dir, [patient], return_mask=False)
     loader = DataLoader(dataset, config.batch_size, shuffle=False)
 
     volume = []
