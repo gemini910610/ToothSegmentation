@@ -13,7 +13,7 @@ pairs = []
 groups = []
 
 for dataset in config.datasets:
-    image_dir = os.path.join('datasets', dataset, 'image')
+    image_dir = os.path.join('datasets', dataset, 'mask')
 
     folders = os.listdir(image_dir)
     folders.sort(key=lambda x: int(x[5:])) # data_XX
