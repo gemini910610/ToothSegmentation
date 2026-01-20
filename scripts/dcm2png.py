@@ -49,6 +49,8 @@ def resample_volume(volume, new_spacing=[0.25, 0.25, 0.25]):
     new_size = [int(size) for size in new_size]
     new_spacing = [float(spacing) for spacing in new_spacing]
 
+    volume = SimpleITK.Flip(volume, [False, False, True])
+
     resample = SimpleITK.ResampleImageFilter()
     resample.SetReferenceImage(volume)
     resample.SetOutputSpacing(new_spacing)
@@ -56,6 +58,7 @@ def resample_volume(volume, new_spacing=[0.25, 0.25, 0.25]):
     resample.SetInterpolator(SimpleITK.sitkLinear)
 
     volume = resample.Execute(volume)
+    volume = SimpleITK.Flip(volume, [False, False, True])
     return volume
 
 def save_volume(volume, output_dir):
@@ -89,6 +92,9 @@ if __name__ == '__main__':
     with Table(['Data ID', 'Source Path']) as table:
         patients = collect_patients(dicom_root, lambda x: 'IOS' in str(x))
         for index, patient in enumerate(track(patients), 1):
+            data = re.search(r'data_(\d+)', str(patient))
+            if data is not None:
+                index = data.group(1)
             volume = load_volume(patient)
             volume = preprocess_volume(volume, min_value, max_value)
             volume = resample_volume(volume, new_spacing)
