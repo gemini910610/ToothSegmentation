@@ -166,8 +166,21 @@ class VolumeLoader(QThread):
         palette = self._glasbey_palette(component_count)
 
         rgba[volume == -1] = Color.REMOVED
+        counts = []
         for label in range(2 if translucent else 1, component_count + 1):
-            rgba[volume == label] = palette[label - 1]
+            color = palette[label - 1]
+            mask = volume == label
+            rgba[mask] = color
+            counts.append((mask.sum(), color))
+        counts.sort()
+        print(self.patient)
+        print('─' * 72)
+        for i in range(0, len(counts), 9):
+            print('\t'.join(
+                f'\033[38;2;{r};{g};{b}m{count}\033[0m'
+                for count, (r, g, b, _) in counts[i:i+9]
+            ))
+        print('─' * 72)
 
         if translucent:
             bone_mask = volume == 1
