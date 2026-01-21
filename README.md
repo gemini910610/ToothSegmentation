@@ -9,6 +9,7 @@
 │   ├── 📄 connected_component.py   # Connected component analysis under a specific threshold
 │   └── 📄 watershed.py             # Watershed-based separation of connected tooth components
 ├── 📂 tools
+│   ├── 📄 visualize_tooth.py       # Inspects connected components and reapplies watershed
 │   └── 📄 visualize.py             # Visualizes model predictions alongside ground-truth masks for qualitative analysis
 ├── 📄 compare.py                   # Compares predictions with ground-truth masks
 ├── 📄 dcm2png.py                   # Converts DICOM series into PNG slices
@@ -233,7 +234,7 @@ Outputs:
 python -m scripts.post_processing <EXPERIMENT_NAME> [--tooth-threshold <TOOTH_THRESHOLD>] [--bone-threshold <BONE_THRESHOLD>]
 ```
 Optional arguments:
-* `--tooth-threshold <TOOTH_THRESHOLD>`: Component size threshold used for connected component analysis on tooth predictions (default: `3500`).
+* `--tooth-threshold <TOOTH_THRESHOLD>`: Component size threshold used for connected component analysis on tooth predictions (default: `7500`).
 * `--bone-threshold <BONE_THRESHOLD>`: Component size threshold used for connected component analysis on bone predictions (default: `3500`).
 
 Outputs:
@@ -256,7 +257,7 @@ Outputs:
 python -m scripts.post_processing.connected_component <EXPERIMENT_NAME> <LABEL> [--threshold <THRESHOLD>] [--keep]
 ```
 Optional arguments:
-* `--threshold <THRESHOLD>`: Minimum voxel count to retain a connected component (default: `3500`).
+* `--threshold <THRESHOLD>`: Minimum voxel count to retain a connected component (default: `7500`).
 * `--keep`: Preserve removed components with label `-1` instead of discarding them.
 
 Outputs:
@@ -279,7 +280,7 @@ Outputs:
 python -m scripts.post_processing.watershed UNet_baseline [--threshold <TOOTH_THRESHOLD>]
 ```
 Optional arguments:
-* `--threshold <TOOTH_THRESHOLD>`: Component size threshold used for connected component analysis on tooth predictions (default: `3500`).
+* `--threshold <TOOTH_THRESHOLD>`: Component size threshold used for connected component analysis on tooth predictions (default: `7500`).
 
 Outputs:
 ```
@@ -307,6 +308,16 @@ Optional arguments:
 * `--cc-label <LABEL_1> [<LABEL_2>]`: Connected component labels used for visualization.
     * If only one view is set to `cc`, the first label is used.
     * If both views are set to `cc`, the first and second labels are applied to the left and right views, respectively.
+
+## 👁️ Visualize Tooth Instance
+
+You can visualize connected components and watershed results for a single volume:
+```
+python -m scripts.tools.visualize_tooth <EXPERIMENT_NAME> <DATASET_NAME>/data_<ID> [--label <COMPONENT_LABEL>] [--cluster <CLUSTER>]
+```
+Optional arguments:
+* `--label <COMPONENT_LABEL>`: Connected component label to visualize.
+* `--cluster <CLUSTER>`: Number of clusters used to reapply watershed.
 
 ## 🔐 Remote Server Connection
 

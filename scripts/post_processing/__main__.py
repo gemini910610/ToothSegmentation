@@ -10,7 +10,7 @@ from argparse import ArgumentParser
 
 parser = ArgumentParser()
 parser.add_argument('exp', type=str)
-parser.add_argument('--tooth-threshold', type=int, default=3500)
+parser.add_argument('--tooth-threshold', type=int, default=7500)
 parser.add_argument('--bone-threshold', type=int, default=3500)
 args = parser.parse_args()
 

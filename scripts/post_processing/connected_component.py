@@ -47,7 +47,7 @@ if __name__ == '__main__':
     parser = ArgumentParser()
     parser.add_argument('exp', type=str)
     parser.add_argument('target', type=int)
-    parser.add_argument('--threshold', type=int, default=3500)
+    parser.add_argument('--threshold', type=int, default=7500)
     parser.add_argument('--keep', action='store_true')
     args = parser.parse_args()
 
