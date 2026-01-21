@@ -72,19 +72,13 @@ class UNet(nn.Module):
         return x
 
 if __name__ == '__main__':
-    from src.dataset import get_loader
     from src.config import load_config
 
     config = load_config('configs/unet.toml')
-    config.fold = 1
-
-    loader, _ = get_loader(config)
 
     model = UNet(**config.model.parameters).to(config.device)
 
-    for images, _, _ in loader:
-        images = images.to(config.device)
-        break
+    images = torch.zeros(config.batch_size, 1, 640, 640, device=config.device)
 
     with torch.autocast(config.device):
         predicts = model(images)

@@ -83,13 +83,14 @@ if __name__ == '__main__':
     ensure_experiment_exists(experiment_name)
 
     config = load_config(os.path.join('logs', experiment_name, 'config.toml'))
+    config.split_file_path = os.path.join('logs', experiment_name, f'{config.split_filename}.json')
 
     for fold in range(1, config.num_folds + 1):
         config.fold = fold
 
         model = load_model(config)
 
-        _, val_dataset_patients = get_fold(config.split_filename, fold)
+        _, val_dataset_patients = get_fold(config.split_file_path, fold)
         for dataset, patients in val_dataset_patients.items():
             for patient in patients:
                 output_dir = os.path.join('outputs', experiment_name, f'Fold_{fold}', dataset, patient)

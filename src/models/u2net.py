@@ -663,20 +663,14 @@ class U2Net(nn.Module):
         # return F.sigmoid(d1), F.sigmoid(d2), F.sigmoid(d3), F.sigmoid(d4), F.sigmoid(d5), F.sigmoid(d6)
 
 if __name__ == "__main__":
-    from src.dataset import get_loader
     from src.config import load_config
     from src.console import Table
 
     config = load_config('configs/u2net.toml')
-    config.fold = 1
-
-    loader, _ = get_loader(config)
 
     model = U2Net(**config.model.parameters).to(config.device)
 
-    for images, _, _ in loader:
-        images = images.to(config.device)
-        break
+    images = torch.zeros(config.batch_size, 1, 640, 640, device=config.device)
 
     with torch.autocast(config.device):
         predicts = model(images)

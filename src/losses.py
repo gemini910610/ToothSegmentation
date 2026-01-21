@@ -75,6 +75,7 @@ def get_loss(config):
 
 if __name__ == '__main__':
     import torch
+    import os
 
     from src.dataset import get_loader
     from src.models import get_model
@@ -83,6 +84,7 @@ if __name__ == '__main__':
 
     config = load_config('configs/unet.toml')
     config.fold = 1
+    config.split_file_path = os.path.join('splits', f'{config.split_filename}.json')
 
     loader, _ = get_loader(config)
     model = get_model(config).to(config.device)

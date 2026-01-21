@@ -11,6 +11,8 @@ def train(config):
     trainer.fit(config.num_epochs)
 
 if __name__ == '__main__':
+    import os
+
     from argparse import ArgumentParser
     from src.config import load_config
 
@@ -21,5 +23,6 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     config.fold = args.fold
+    config.split_file_path = os.path.join('splits', f'{config.split_filename}.json')
 
     train(config)

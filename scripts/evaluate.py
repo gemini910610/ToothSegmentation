@@ -57,6 +57,7 @@ if __name__ == '__main__':
     ensure_experiment_exists(experiment_name)
 
     config = load_config(os.path.join('logs', experiment_name, 'config.toml'))
+    config.split_file_path = os.path.join('logs', experiment_name, f'{config.split_filename}.json')
 
     metric_fn = get_metric(config).to(config.device)
     criterion = get_loss(config).to(config.device)

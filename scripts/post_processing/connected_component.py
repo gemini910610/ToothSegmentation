@@ -57,9 +57,10 @@ if __name__ == '__main__':
     keep = args.keep
 
     config = load_config(os.path.join('logs', experiment_name, 'config.toml'))
+    config.split_file_path = os.path.join('logs', experiment_name, f'{config.split_filename}.json')
 
     for fold in range(1, config.num_folds + 1):
-        _, valid_dataset_patients = get_fold(config.split_filename, fold)
+        _, valid_dataset_patients = get_fold(config.split_file_path, fold)
         for dataset, patients in valid_dataset_patients.items():
             for patient in track(patients, desc=f'Fold {fold} {dataset}'):
                 predict_path = os.path.join('outputs', experiment_name, f'Fold_{fold}', dataset, patient, 'volume.npy')

@@ -6,8 +6,8 @@ import torch
 from collections import defaultdict
 from torch.utils.data import Dataset, DataLoader, ConcatDataset
 
-def get_fold(split_file, fold_id):
-    with open(os.path.join('splits', f'{split_file}.json')) as file:
+def get_fold(split_file_path, fold_id):
+    with open(split_file_path) as file:
         folds = json.load(file)
     train_dataset_patients = defaultdict(list)
     val_dataset_patients = defaultdict(list)
@@ -67,7 +67,7 @@ class CBCTDataset(Dataset):
         return mask
 
 def get_loader(config, return_mask=True):
-    train_dataset_patients, val_dataset_patients = get_fold(config.split_filename, config.fold)
+    train_dataset_patients, val_dataset_patients = get_fold(config.split_file_path, config.fold)
 
     train_datasets = []
     val_datasets = []
@@ -102,6 +102,7 @@ if __name__ == '__main__':
 
     config = load_config('configs/config.toml')
     config.fold = 1
+    config.split_file_path = os.path.join('splits', f'{config.split_filename}.json')
 
     train_loader, val_loader = get_loader(config)
 

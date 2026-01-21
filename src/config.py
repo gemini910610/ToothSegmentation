@@ -10,6 +10,7 @@ def load_config(load_path):
     config = OmegaConf.create(content)
 
     config.fold = MISSING
+    config.split_file_path = MISSING
     config.device = 'cuda' if torch.cuda.is_available() else 'cpu'
 
     OmegaConf.set_struct(config, True)
@@ -17,6 +18,8 @@ def load_config(load_path):
     return config
 
 if __name__ == '__main__':
+    import os
+
     from src.console import Table
     from omegaconf.dictconfig import DictConfig
 
@@ -30,6 +33,7 @@ if __name__ == '__main__':
 
     config = load_config('configs/config.toml')
     config.fold = 1
+    config.split_file_path = os.path.join('splits', f'{config.split_filename}.json')
 
     Table(
         ['Parameter', 'Value'],
