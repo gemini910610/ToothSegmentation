@@ -75,61 +75,7 @@ class DataManager:
 
         return volumes
 
-class VolumeLoader(QThread):
-    finished = Signal(object, object, int) # left volume, right volume, tooth count
-    def __init__(self, data_manager, patient, left_mode, right_mode):
-        super().__init__()
-        self.data_manager = data_manager
-        self.patient = patient
-        self.left_mode = left_mode
-        self.right_mode = right_mode
-
-    def run(self):
-        left_volume, right_volume = self.data_manager.load_data(self.patient)
-        left_volume, left_count = self._make_rgba(left_volume, self.left_mode)
-        right_volume, right_count = self._make_rgba(right_volume, self.right_mode)
-        if self.left_mode == Mode.CONNECTED_COMPONENT and self.right_mode == Mode.CONNECTED_COMPONENT:
-            if self.data_manager.cc_label[0] == 1:
-                count = left_count
-            elif self.data_manager.cc_label[1] == 1:
-                count = right_count
-        elif self.left_mode == Mode.CONNECTED_COMPONENT and self.data_manager.cc_label[0] == 1:
-            count = left_count
-        elif self.right_mode == Mode.CONNECTED_COMPONENT and self.data_manager.cc_label[0] == 1:
-            count = right_count
-        elif self.left_mode == Mode.WATERSHED:
-            count = left_count
-        elif self.right_mode == Mode.WATERSHED:
-            count = right_count
-        else:
-            count = -1
-        self.finished.emit(left_volume, right_volume, count)
-
-    def _make_rgba(self, volume, mode):
-        match mode:
-            case Mode.GROUND_TRUTH:
-                return self._process_volume(volume), None
-            case Mode.PREDICT:
-                return self._process_volume(volume), None
-            case Mode.CONNECTED_COMPONENT:
-                return self._process_volume_cc(volume)
-            case Mode.POST_PROCESSING:
-                return self._process_volume_cc(volume, translucent=True)
-            case Mode.WATERSHED:
-                return self._process_volume_cc(volume)
-
-    def _process_volume(self, volume):
-        tooth_mask = volume == Label.TOOTH # (W, H, Z)
-        bone_mask = volume == Label.BONE # (W, H, Z)
-        erosion = ndimage.binary_erosion(bone_mask)
-        bone_surface = bone_mask & (~erosion) # (W, H, Z)
-
-        rgba = numpy.zeros((*volume.shape, 4), dtype=numpy.uint8) # (W, H, Z, 4)
-        rgba[tooth_mask] = Color.TOOTH
-        rgba[bone_surface] = Color.BONE
-
-        return rgba
-
+class VolumeColorizer:
     def _glasbey_palette(self, num_colors):
         levels = numpy.linspace(0, 1, 32)
         candidates = numpy.array(numpy.meshgrid(levels, levels, levels)).reshape(3, -1).T
@@ -155,25 +101,38 @@ class VolumeLoader(QThread):
             for r, g, b in palette
         ]
 
-    def _process_volume_cc(self, volume, translucent=False):
-        component_count = volume.max()
+    def color_volume(self, volume, display_bone=False):
+        rgba = numpy.zeros((*volume.shape, 4), dtype=numpy.uint8)
 
-        rgba = numpy.zeros((*volume.shape, 4), dtype=numpy.uint8) # (W, H, Z, 4)
+        tooth_mask = volume == Label.TOOTH
+        rgba[tooth_mask] = Color.TOOTH
 
-        if component_count == 0:
-            return rgba, 0
+        if display_bone:
+            bone_mask = volume == Label.BONE
+            erosion = ndimage.binary_erosion(bone_mask)
+            bone_surface = bone_mask & (~erosion)
+            rgba[bone_surface] = Color.BONE
+
+        return rgba
+
+    def color_components(self, volume, display_bone=False):
+        max_label = volume.max()
+        component_count = max_label - 1 if display_bone else max_label
 
         palette = self._glasbey_palette(component_count)
 
-        rgba[volume == -1] = Color.REMOVED
+        lookup_table = numpy.zeros((max_label + 1, 4), dtype=numpy.uint8)
+        start_label = 2 if display_bone else 1
+        lookup_table[start_label:] = palette
+        rgba = lookup_table[volume]
+
+        label_counts = numpy.bincount(volume.ravel())
+
         counts = []
-        for label in range(2 if translucent else 1, component_count + 1):
-            color = palette[label - 1]
-            mask = volume == label
-            rgba[mask] = color
-            counts.append((mask.sum(), color))
+        for label in range(start_label, start_label + component_count):
+            counts.append((label_counts[label], lookup_table[label]))
         counts.sort()
-        print(self.patient)
+
         print('─' * 72)
         for i in range(0, len(counts), 9):
             print('\t'.join(
@@ -182,7 +141,7 @@ class VolumeLoader(QThread):
             ))
         print('─' * 72)
 
-        if translucent:
+        if display_bone:
             bone_mask = volume == 1
             erosion = ndimage.binary_erosion(bone_mask)
             bone_surface = bone_mask & (~erosion)
@@ -190,12 +149,56 @@ class VolumeLoader(QThread):
 
         return rgba, component_count
 
+class VolumeLoader(QThread):
+    finished = Signal(object, object, int) # left volume, right volume, tooth count
+    def __init__(self, data_manager, patient, left_mode, right_mode):
+        super().__init__()
+        self.data_manager = data_manager
+        self.patient = patient
+        self.left_mode = left_mode
+        self.right_mode = right_mode
+        self.colorizer = VolumeColorizer()
+
+    def run(self):
+        left_volume, right_volume = self.data_manager.load_data(self.patient)
+        left_volume, left_count = self._make_rgba(left_volume, self.left_mode)
+        right_volume, right_count = self._make_rgba(right_volume, self.right_mode)
+        if self.left_mode == Mode.CONNECTED_COMPONENT and self.right_mode == Mode.CONNECTED_COMPONENT:
+            if self.data_manager.cc_label[0] == 1:
+                count = left_count
+            elif self.data_manager.cc_label[1] == 1:
+                count = right_count
+        elif self.left_mode == Mode.CONNECTED_COMPONENT and self.data_manager.cc_label[0] == 1:
+            count = left_count
+        elif self.right_mode == Mode.CONNECTED_COMPONENT and self.data_manager.cc_label[0] == 1:
+            count = right_count
+        elif self.left_mode == Mode.WATERSHED:
+            count = left_count
+        elif self.right_mode == Mode.WATERSHED:
+            count = right_count
+        else:
+            count = -1
+        self.finished.emit(left_volume, right_volume, count)
+
+    def _make_rgba(self, volume, mode):
+        match mode:
+            case Mode.GROUND_TRUTH:
+                return self.colorizer.color_volume(volume, display_bone=True), None
+            case Mode.PREDICT:
+                return self.colorizer.color_volume(volume, display_bone=True), None
+            case Mode.CONNECTED_COMPONENT:
+                return self.colorizer.color_components(volume)
+            case Mode.WATERSHED:
+                return self.colorizer.color_components(volume)
+            case Mode.POST_PROCESSING:
+                return self.colorizer.color_components(volume, display_bone=True)
+
 class SyncGLView(GLViewWidget):
     viewChanged = Signal(object)
-    def __init__(self, *args, **kwargs):
+    def __init__(self, size=(ViewSetting.VIEW_WIDTH, ViewSetting.VIEW_HEIGHT), *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.setBackgroundColor(ViewSetting.BACKGROUND)
-        self.setFixedSize(ViewSetting.VIEW_WIDTH, ViewSetting.VIEW_HEIGHT)
+        self.setFixedSize(*size)
 
         self.item = None
         self.volume_shape = None
@@ -235,14 +238,6 @@ class SyncGLView(GLViewWidget):
         super().wheelEvent(event)
         self._sync_change()
 
-    def mousePressEvent(self, event):
-        super().mousePressEvent(event)
-        self._sync_change()
-
-    def mouseReleaseEvent(self, event):
-        super().mouseReleaseEvent(event)
-        self._sync_change()
-
     def contextMenuEvent(self, event):
         self._reset_camera()
         self._sync_change()
@@ -253,12 +248,28 @@ class SyncGLView(GLViewWidget):
         self.update()
 
 class SyncGLViewBox(QGroupBox):
-    def __init__(self, *args, **kwargs):
+    def __init__(self, size=(ViewSetting.VIEW_WIDTH, ViewSetting.VIEW_HEIGHT), *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.view = SyncGLView()
+        self.view = SyncGLView(size)
         layout = QVBoxLayout()
         layout.addWidget(self.view)
         self.setLayout(layout)
+
+class VolumeViewer(QWidget):
+    def __init__(self, count=2, size=(ViewSetting.VIEW_WIDTH, ViewSetting.VIEW_HEIGHT)):
+        super().__init__()
+
+        layout = QHBoxLayout()
+        self.views = [SyncGLViewBox(size) for _ in range(count)]
+        for view in self.views:
+            layout.addWidget(view)
+        self.setLayout(layout)
+
+        for source_view in self.views:
+            for destination_view in self.views:
+                if source_view == destination_view:
+                    continue
+                source_view.view.viewChanged.connect(destination_view.view.apply_opts)
 
 class MainWindowUI(QMainWindow):
     def __init__(self):
@@ -278,15 +289,8 @@ class MainWindowUI(QMainWindow):
         top_layout.addStretch()
         layout.addLayout(top_layout)
 
-        bottom_layout = QHBoxLayout()
-        self.left_view = SyncGLViewBox()
-        self.right_view = SyncGLViewBox()
-        bottom_layout.addWidget(self.left_view)
-        bottom_layout.addWidget(self.right_view)
-        layout.addLayout(bottom_layout)
-
-        self.left_view.view.viewChanged.connect(self.right_view.view.apply_opts)
-        self.right_view.view.viewChanged.connect(self.left_view.view.apply_opts)
+        self.volume_viewer = VolumeViewer()
+        layout.addWidget(self.volume_viewer)
 
 class MainWindow(MainWindowUI):
     def __init__(self, data_manager, left_mode, right_mode):
@@ -308,8 +312,8 @@ class MainWindow(MainWindowUI):
             Mode.POST_PROCESSING: 'Post Processing',
             Mode.WATERSHED: 'Watershed'
         }
-        self.left_view.setTitle(titles[left_mode])
-        self.right_view.setTitle(titles[right_mode])
+        self.volume_viewer.views[0].setTitle(titles[left_mode])
+        self.volume_viewer.views[1].setTitle(titles[right_mode])
 
     def _load_patient(self, index):
         patient = self.data_manager.patients[index]
@@ -320,8 +324,8 @@ class MainWindow(MainWindowUI):
         self.thread.start()
 
     def _on_volume_loaded(self, left_volume, right_volume, tooth_count):
-        self.left_view.view.update_volume(left_volume)
-        self.right_view.view.update_volume(right_volume)
+        self.volume_viewer.views[0].view.update_volume(left_volume)
+        self.volume_viewer.views[1].view.update_volume(right_volume)
         self.tooth_count_label.setText(f'Tooth Count: {tooth_count if tooth_count > 0 else "-"}')
         self.patient_selector.setEnabled(True)
 

@@ -4,22 +4,36 @@ from scipy import ndimage
 from skimage.morphology import h_maxima
 from skimage.segmentation import watershed
 
+def split_k_component(volume, h, k=None):
+    distance = ndimage.distance_transform_edt(volume).astype(numpy.float32, copy=False)
+    distance = ndimage.gaussian_filter(distance, sigma=1)
+
+    peaks = h_maxima(distance, h) & volume
+
+    if k is None:
+        markers, _ = ndimage.label(peaks)
+    else:
+        coordinates = numpy.argwhere(peaks)
+        peak_distance = distance[*coordinates.T]
+        top_k = numpy.argpartition(peak_distance, -k)[-k:]
+        coordinates = coordinates[top_k]
+        markers = numpy.zeros_like(volume, dtype=numpy.int32)
+        for i, coordinate in enumerate(coordinates, 1):
+            markers[*coordinate] = i
+
+    volume = watershed(-distance, markers, mask=volume)
+
+    return volume
+
 def split_component(volume):
     component_count = volume.max()
-    new_volume = numpy.zeros_like(volume)
+    new_volume = numpy.zeros_like(volume, dtype=numpy.int32)
 
     index = 1
     components = ndimage.find_objects(volume, max_label=component_count)
     for label, slices in enumerate(components, 1):
         roi = volume[slices] == label
-
-        distance = ndimage.distance_transform_edt(roi).astype(numpy.float32, copy=False)
-        distance = ndimage.gaussian_filter(distance, sigma=1)
-
-        peaks = h_maxima(distance, h=3) & roi
-        markers, _ = ndimage.label(peaks)
-
-        split_components = watershed(-distance, markers, mask=roi)
+        split_components = split_k_component(roi, h=3)
         new_roi = new_volume[slices]
         mask = split_components > 0
         new_roi[mask] = split_components[mask] + (index - 1)
