@@ -29,6 +29,7 @@ class Mode:
     CONNECTED_COMPONENT = 'cc'
     POST_PROCESSING = 'pp'
     WATERSHED = 'watershed'
+    REFINE = 'refine'
 
     def items():
         return [
@@ -36,7 +37,8 @@ class Mode:
             Mode.PREDICT,
             Mode.CONNECTED_COMPONENT,
             Mode.WATERSHED,
-            Mode.POST_PROCESSING
+            Mode.POST_PROCESSING,
+            Mode.REFINE
         ]
 
 class DataManager:
@@ -45,6 +47,7 @@ class DataManager:
         self.patient_mapping = {
             patient: fold
             for patient, fold in sorted(patient_mapping.items(), key=lambda x: (x[0].split('/')[0], int(x[0].split('_')[-1])))
+            if Mode.REFINE not in modes or os.path.exists(os.path.join(base_output_dir, experiment_name, f'Fold_{fold}', patient, 'refine_volume.npy'))
         }
         self.patients = list(self.patient_mapping.keys())
         self.modes = modes
@@ -66,14 +69,21 @@ class DataManager:
                 case Mode.CONNECTED_COMPONENT:
                     volume_path = os.path.join(base_dir, f'cc_volume_{self.cc_label[index]}.npy')
                     index += 1
-                case Mode.POST_PROCESSING:
-                    volume_path = os.path.join(base_dir, 'pp_volume.npy')
                 case Mode.WATERSHED:
                     volume_path = os.path.join(base_dir, 'watershed_volume.npy')
+                case Mode.REFINE:
+                    volume_path = os.path.join(base_dir, 'refine_volume.npy')
+                case Mode.POST_PROCESSING:
+                    volume_path = os.path.join(base_dir, 'pp_volume.npy')
             volume = numpy.load(volume_path)
             volumes.append(volume)
 
         return volumes
+
+    def save_data(self, patient, volume, filename):
+        fold = self.patient_mapping[patient]
+        file_path = os.path.join(self.base_output_dir, self.experiment_name, f'Fold_{fold}', patient, filename)
+        numpy.save(file_path, volume)
 
 class VolumeColorizer:
     def _glasbey_palette(self, num_colors):
@@ -131,7 +141,7 @@ class VolumeColorizer:
         counts = []
         for label in range(start_label, start_label + component_count):
             counts.append((label_counts[label], lookup_table[label]))
-        counts.sort()
+        counts.sort(key=lambda x: x[0])
 
         print('─' * 72)
         for i in range(0, len(counts), 9):
@@ -189,6 +199,8 @@ class VolumeLoader(QThread):
             case Mode.CONNECTED_COMPONENT:
                 return self.colorizer.color_components(volume)
             case Mode.WATERSHED:
+                return self.colorizer.color_components(volume)
+            case Mode.REFINE:
                 return self.colorizer.color_components(volume)
             case Mode.POST_PROCESSING:
                 return self.colorizer.color_components(volume, display_bone=True)
@@ -310,7 +322,8 @@ class MainWindow(MainWindowUI):
             Mode.PREDICT: 'Predict',
             Mode.CONNECTED_COMPONENT: 'Connected Component',
             Mode.POST_PROCESSING: 'Post Processing',
-            Mode.WATERSHED: 'Watershed'
+            Mode.WATERSHED: 'Watershed',
+            Mode.REFINE: 'Refine'
         }
         self.volume_viewer.views[0].setTitle(titles[left_mode])
         self.volume_viewer.views[1].setTitle(titles[right_mode])

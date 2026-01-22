@@ -3,9 +3,10 @@ import numpy
 
 def filter_connected_component(volume, voxel_threshold, binary=False, keep=False):
     origin_shape = volume.shape
-    coordinates = numpy.argwhere(volume)
+    coordinates = numpy.flatnonzero(volume)
+    coordinates = numpy.column_stack(numpy.unravel_index(coordinates, volume.shape))
     x0, y0, z0 = coordinates.min(axis=0)
-    x1, y1, z1 = coordinates.max(axis=0)
+    x1, y1, z1 = coordinates.max(axis=0) + 1
 
     x0 = max(x0 - 10, 0)
     y0 = max(y0 - 10, 0)
@@ -33,7 +34,6 @@ def filter_connected_component(volume, voxel_threshold, binary=False, keep=False
 
     origin_volume = numpy.zeros(origin_shape, dtype=numpy.int32)
     origin_volume[x0:x1, y0:y1, z0:z1] = volume
-
     return origin_volume
 
 if __name__ == '__main__':

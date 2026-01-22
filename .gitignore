@@ -6,5 +6,6 @@ datasets/
 logs/
 outputs/
 pyproject.toml
+refine/
 splits/
 uv.lock

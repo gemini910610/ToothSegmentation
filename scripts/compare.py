@@ -28,7 +28,7 @@ def save_compare(image, predict, mask, output_dir, filename):
     
     image.save(os.path.join(output_dir, filename))
 
-def predict_patient(model, dataset, patient, output_dir, config):
+def predict_patient(model, dataset, patient, output_dir, config, no_image=False):
     os.makedirs(output_dir, exist_ok=True)
 
     dataset_dir = os.path.join('datasets', dataset)
@@ -49,23 +49,26 @@ def predict_patient(model, dataset, patient, output_dir, config):
         volume.append(predicts)
         ground_truth.append(masks)
 
-        images = images.squeeze(1).cpu()
+        if not no_image:
+            images = images.squeeze(1).cpu()
 
-        for filename, image, predict, mask in zip(filenames, images, predicts, masks):
-            image_filename = os.path.basename(filename)
-            save_image(predict.to(torch.uint8), os.path.join(output_dir, 'predict'), image_filename)
-            predict = predict / 2
-            mask = mask / 2
-            save_compare(image, predict, mask, os.path.join(output_dir, 'compare'), image_filename)
+            for filename, image, predict, mask in zip(filenames, images, predicts, masks):
+                image_filename = os.path.basename(filename)
+                save_image(predict.to(torch.uint8), os.path.join(output_dir, 'predict'), image_filename)
+                predict = predict / 2
+                mask = mask / 2
+                save_compare(image, predict, mask, os.path.join(output_dir, 'compare'), image_filename)
 
     volume = torch.cat(volume) # (B, H, W)
     volume = volume.numpy()
     volume = volume.transpose(2, 1, 0) # (W, H, Z)
+    volume = volume.astype(numpy.uint8)
     numpy.save(os.path.join(output_dir, 'volume.npy'), volume)
 
     ground_truth = torch.cat(ground_truth) # (B, H, W)
     ground_truth = ground_truth.numpy()
     ground_truth = ground_truth.transpose(2, 1, 0) # (W, H, Z)
+    ground_truth = ground_truth.astype(numpy.uint8)
     numpy.save(os.path.join(output_dir, 'ground_truth.npy'), ground_truth)
 
 if __name__ == '__main__':
@@ -77,9 +80,11 @@ if __name__ == '__main__':
 
     parser = ArgumentParser()
     parser.add_argument('exp', type=str)
+    parser.add_argument('--no-image', action='store_true')
     args = parser.parse_args()
 
     experiment_name = args.exp
+    no_image = args.no_image
     ensure_experiment_exists(experiment_name)
 
     config = load_config(os.path.join('logs', experiment_name, 'config.toml'))
@@ -94,7 +99,8 @@ if __name__ == '__main__':
         for dataset, patients in val_dataset_patients.items():
             for patient in patients:
                 output_dir = os.path.join('outputs', experiment_name, f'Fold_{fold}', dataset, patient)
-                os.makedirs(os.path.join(output_dir, 'predict'), exist_ok=True)
-                os.makedirs(os.path.join(output_dir, 'compare'), exist_ok=True)
+                if not no_image:
+                    os.makedirs(os.path.join(output_dir, 'predict'), exist_ok=True)
+                    os.makedirs(os.path.join(output_dir, 'compare'), exist_ok=True)
 
-                predict_patient(model, dataset, patient, output_dir, config)
+                predict_patient(model, dataset, patient, output_dir, config, no_image)

@@ -30,7 +30,7 @@ if __name__ == '__main__':
     if label != -1:
         volume = cc_volume == label
         if cluster > 1:
-            volume = split_k_component(volume, h=1, k=cluster)
+            volume = split_k_component(volume, h=1, k=cluster, crop=True)
         volume = volume.astype(numpy.int32)
 
     colorizer = VolumeColorizer()

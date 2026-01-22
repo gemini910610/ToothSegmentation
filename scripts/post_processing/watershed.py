@@ -4,7 +4,15 @@ from scipy import ndimage
 from skimage.morphology import h_maxima
 from skimage.segmentation import watershed
 
-def split_k_component(volume, h, k=None):
+def split_k_component(volume, h, k=None, crop=False):
+    if crop:
+        origin_shape = volume.shape
+        coordinates = numpy.flatnonzero(volume)
+        coordinates = numpy.column_stack(numpy.unravel_index(coordinates, volume.shape))
+        x0, y0, z0 = coordinates.min(axis=0)
+        x1, y1, z1 = coordinates.max(axis=0) + 1
+        volume = volume[x0:x1, y0:y1, z0:z1]
+
     distance = ndimage.distance_transform_edt(volume).astype(numpy.float32, copy=False)
     distance = ndimage.gaussian_filter(distance, sigma=1)
 
@@ -13,17 +21,21 @@ def split_k_component(volume, h, k=None):
     if k is None:
         markers, _ = ndimage.label(peaks)
     else:
-        coordinates = numpy.argwhere(peaks)
+        coordinates = numpy.flatnonzero(peaks)
+        coordinates = numpy.column_stack(numpy.unravel_index(coordinates, peaks.shape))
         peak_distance = distance[*coordinates.T]
         top_k = numpy.argpartition(peak_distance, -k)[-k:]
         coordinates = coordinates[top_k]
         markers = numpy.zeros_like(volume, dtype=numpy.int32)
-        for i, coordinate in enumerate(coordinates, 1):
-            markers[*coordinate] = i
+        markers[*coordinates.T] = numpy.arange(1, len(coordinates) + 1, dtype=numpy.int32)
 
     volume = watershed(-distance, markers, mask=volume)
+    if not crop:
+        return volume
 
-    return volume
+    new_volume = numpy.zeros(origin_shape, dtype=numpy.int32)
+    new_volume[x0:x1, y0:y1, z0:z1] = volume
+    return new_volume
 
 def split_component(volume):
     component_count = volume.max()
