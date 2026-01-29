@@ -2,7 +2,7 @@ import os
 import numpy
 import skimage
 
-from PySide6.QtWidgets import QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QComboBox, QLabel, QGroupBox
+from PySide6.QtWidgets import QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QComboBox, QLabel, QGroupBox
 from PySide6.QtCore import Signal, QThread
 from PySide6.QtGui import QVector3D
 from pyqtgraph.opengl import GLViewWidget, GLVolumeItem
@@ -86,7 +86,8 @@ class DataManager:
         numpy.save(file_path, volume)
 
 class VolumeColorizer:
-    def _glasbey_palette(self, num_colors):
+    @staticmethod
+    def glasbey_palette(num_colors):
         levels = numpy.linspace(0, 1, 32)
         candidates = numpy.array(numpy.meshgrid(levels, levels, levels)).reshape(3, -1).T
         candidates_lab = skimage.color.rgb2lab(candidates.reshape(-1, 1, 1, 3)).reshape(-1, 3)
@@ -111,7 +112,8 @@ class VolumeColorizer:
             for r, g, b in palette
         ]
 
-    def color_volume(self, volume, display_bone=False):
+    @staticmethod
+    def color_volume(volume, display_bone=False):
         rgba = numpy.zeros((*volume.shape, 4), dtype=numpy.uint8)
 
         tooth_mask = volume == Label.TOOTH
@@ -125,11 +127,12 @@ class VolumeColorizer:
 
         return rgba
 
-    def color_components(self, volume, display_bone=False):
+    @staticmethod
+    def color_components(volume, display_bone=False):
         max_label = volume.max()
         component_count = max_label - 1 if display_bone else max_label
 
-        palette = self._glasbey_palette(component_count)
+        palette = VolumeColorizer.glasbey_palette(component_count)
 
         lookup_table = numpy.zeros((max_label + 1, 4), dtype=numpy.uint8)
         start_label = 2 if display_bone else 1
@@ -167,7 +170,6 @@ class VolumeLoader(QThread):
         self.patient = patient
         self.left_mode = left_mode
         self.right_mode = right_mode
-        self.colorizer = VolumeColorizer()
 
     def run(self):
         left_volume, right_volume = self.data_manager.load_data(self.patient)
@@ -193,17 +195,17 @@ class VolumeLoader(QThread):
     def _make_rgba(self, volume, mode):
         match mode:
             case Mode.GROUND_TRUTH:
-                return self.colorizer.color_volume(volume, display_bone=True), None
+                return VolumeColorizer.color_volume(volume, display_bone=True), None
             case Mode.PREDICT:
-                return self.colorizer.color_volume(volume, display_bone=True), None
+                return VolumeColorizer.color_volume(volume, display_bone=True), None
             case Mode.CONNECTED_COMPONENT:
-                return self.colorizer.color_components(volume)
+                return VolumeColorizer.color_components(volume)
             case Mode.WATERSHED:
-                return self.colorizer.color_components(volume)
+                return VolumeColorizer.color_components(volume)
             case Mode.REFINE:
-                return self.colorizer.color_components(volume)
+                return VolumeColorizer.color_components(volume)
             case Mode.POST_PROCESSING:
-                return self.colorizer.color_components(volume, display_bone=True)
+                return VolumeColorizer.color_components(volume, display_bone=True)
 
 class SyncGLView(GLViewWidget):
     viewChanged = Signal(object)
@@ -215,26 +217,29 @@ class SyncGLView(GLViewWidget):
         self.item = None
         self.volume_shape = None
 
-    def update_volume(self, volume):
+    def update_volume(self, volume, reset=True):
         self.volume_shape = volume.shape[:3]
         width, height, depth = self.volume_shape
 
-        if self.item is not None:
+        if reset and self.item is not None:
             self.removeItem(self.item)
 
-        self.item = GLVolumeItem(volume, smooth=True)
-        self.item.translate(-width / 2, -height / 2, -depth / 2)
-        self.item.rotate(90, 0, 0, 1)
-        self.addItem(self.item)
+        if reset:
+            self.item = GLVolumeItem(volume, smooth=True)
+            self.item.translate(-width / 2, -height / 2, -depth / 2)
+            self.item.rotate(90, 0, 0, 1)
+            self.addItem(self.item)
 
-        self._reset_camera()
+            self._reset_camera()
+        else:
+            self.item.setData(volume)
 
     def _reset_camera(self):
-        width, _, depth = self.volume_shape
+        width, height, depth = self.volume_shape
         fov = self.opts['fov']
         self.setCameraPosition(
             pos=QVector3D(0, 0, 0),
-            distance=max(width, depth) / 2 / numpy.tan(numpy.radians(fov / 2)),
+            distance=height / 2 + max(width, depth) / 2 / numpy.tan(numpy.radians(fov / 2)),
             elevation=0,
             azimuth=0
         )
@@ -282,6 +287,22 @@ class VolumeViewer(QWidget):
                 if source_view == destination_view:
                     continue
                 source_view.view.viewChanged.connect(destination_view.view.apply_opts)
+
+    @staticmethod
+    def display_volumes(volumes, count=None, size=(ViewSetting.VIEW_WIDTH, ViewSetting.VIEW_HEIGHT), title=None):
+        app = QApplication([])
+
+        window = VolumeViewer(count if count is not None else len(volumes), size)
+        window.move(0, 0)
+        if title is not None:
+            window.setWindowTitle(title)
+        for view, (key, volume) in zip(window.views, volumes.items()):
+            view.setTitle(key)
+            view.view.update_volume(volume)
+
+        window.show()
+
+        app.exec()
 
 class MainWindowUI(QMainWindow):
     def __init__(self):
@@ -352,7 +373,6 @@ def get_patient_fold_mapping(config, base_output_dir='outputs'):
 
 if __name__ == '__main__':
     from argparse import ArgumentParser
-    from PySide6.QtWidgets import QApplication
     from src.config import load_config
 
     parser = ArgumentParser()
