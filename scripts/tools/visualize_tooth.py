@@ -16,10 +16,8 @@ class MainWindowUI(QMainWindow):
         self.setCentralWidget(widget)
 
         top_layout = QHBoxLayout()
-        self.patient_selector = QComboBox()
-        self.patient_selector.setSizeAdjustPolicy(QComboBox.AdjustToContents)
-        self.label_selector = QComboBox()
-        self.label_selector.setSizeAdjustPolicy(QComboBox.AdjustToContents)
+        self.patient_selector = QComboBox(sizeAdjustPolicy=QComboBox.SizeAdjustPolicy.AdjustToContents)
+        self.label_selector = QComboBox(sizeAdjustPolicy=QComboBox.SizeAdjustPolicy.AdjustToContents)
         self.cluster_input = QSpinBox(suffix=' Cluster', minimum=1, maximum=5)
         self.execute_button = QPushButton('Execute')
         for widget in [self.patient_selector, self.label_selector, self.cluster_input, self.execute_button]:

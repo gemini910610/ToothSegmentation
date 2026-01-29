@@ -273,7 +273,7 @@ class SyncGLViewBox(QGroupBox):
         self.setLayout(layout)
 
 class VolumeViewer(QWidget):
-    def __init__(self, count=2, size=(ViewSetting.VIEW_WIDTH, ViewSetting.VIEW_HEIGHT)):
+    def __init__(self, count=2, size=(ViewSetting.VIEW_WIDTH, ViewSetting.VIEW_HEIGHT), sync=True):
         super().__init__()
 
         layout = QHBoxLayout()
@@ -282,11 +282,12 @@ class VolumeViewer(QWidget):
             layout.addWidget(view)
         self.setLayout(layout)
 
-        for source_view in self.views:
-            for destination_view in self.views:
-                if source_view == destination_view:
-                    continue
-                source_view.view.viewChanged.connect(destination_view.view.apply_opts)
+        if sync:
+            for source_view in self.views:
+                for destination_view in self.views:
+                    if source_view == destination_view:
+                        continue
+                    source_view.view.viewChanged.connect(destination_view.view.apply_opts)
 
     @staticmethod
     def display_volumes(volumes, count=None, size=(ViewSetting.VIEW_WIDTH, ViewSetting.VIEW_HEIGHT), title=None):
