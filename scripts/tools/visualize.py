@@ -9,6 +9,7 @@ from pyqtgraph.opengl import GLViewWidget, GLVolumeItem
 from scipy import ndimage
 
 class Label:
+    BACKGROUND = 0
     TOOTH = 1
     BONE = 2
 
@@ -25,20 +26,27 @@ class ViewSetting:
 
 class Mode:
     GROUND_TRUTH = 'gt'
+    IMAGE = 'image'
     PREDICT = 'predict'
     CONNECTED_COMPONENT = 'cc'
-    POST_PROCESSING = 'pp'
+    CLEANED = 'cleaned'
     WATERSHED = 'watershed'
     REFINE = 'refine'
+    POST_PROCESSING = 'pp'
+    REMOVED = 'removed'
+    RELABELED = 'relabeled'
 
     def items():
         return [
             Mode.GROUND_TRUTH,
             Mode.PREDICT,
             Mode.CONNECTED_COMPONENT,
+            Mode.CLEANED,
             Mode.WATERSHED,
+            Mode.REFINE,
             Mode.POST_PROCESSING,
-            Mode.REFINE
+            Mode.REMOVED,
+            Mode.RELABELED
         ]
 
 class DataManager:
@@ -64,17 +72,25 @@ class DataManager:
             match mode:
                 case Mode.GROUND_TRUTH:
                     volume_path = os.path.join(base_dir, 'ground_truth.npy')
+                case Mode.IMAGE:
+                    volume_path = os.path.join(base_dir, 'image.npy')
                 case Mode.PREDICT:
                     volume_path = os.path.join(base_dir, 'volume.npy')
                 case Mode.CONNECTED_COMPONENT:
                     volume_path = os.path.join(base_dir, f'cc_volume_{self.cc_label[index]}.npy')
                     index += 1
+                case Mode.CLEANED:
+                    volume_path = os.path.join(base_dir, 'cleaned_volume.npy')
                 case Mode.WATERSHED:
                     volume_path = os.path.join(base_dir, 'watershed_volume.npy')
                 case Mode.REFINE:
                     volume_path = os.path.join(base_dir, 'refine_volume.npy')
                 case Mode.POST_PROCESSING:
                     volume_path = os.path.join(base_dir, 'pp_volume.npy')
+                case Mode.REMOVED:
+                    volume_path = os.path.join(base_dir, 'removed_volume.npy')
+                case Mode.RELABELED:
+                    volume_path = os.path.join(base_dir, 'relabeled_volume.npy')
             volume = numpy.load(volume_path)
             volumes.append(volume)
 
@@ -130,6 +146,7 @@ class VolumeColorizer:
     @staticmethod
     def color_components(volume, display_bone=False):
         max_label = volume.max()
+        print(max_label)
         component_count = max_label - 1 if display_bone else max_label
 
         palette = VolumeColorizer.glasbey_palette(component_count)
@@ -200,11 +217,17 @@ class VolumeLoader(QThread):
                 return VolumeColorizer.color_volume(volume, display_bone=True), None
             case Mode.CONNECTED_COMPONENT:
                 return VolumeColorizer.color_components(volume)
+            case Mode.CLEANED:
+                return VolumeColorizer.color_components(volume)
             case Mode.WATERSHED:
                 return VolumeColorizer.color_components(volume)
             case Mode.REFINE:
                 return VolumeColorizer.color_components(volume)
             case Mode.POST_PROCESSING:
+                return VolumeColorizer.color_components(volume, display_bone=True)
+            case Mode.REMOVED:
+                return VolumeColorizer.color_components(volume, display_bone=True)
+            case Mode.RELABELED:
                 return VolumeColorizer.color_components(volume, display_bone=True)
 
 class SyncGLView(GLViewWidget):
@@ -343,9 +366,12 @@ class MainWindow(MainWindowUI):
             Mode.GROUND_TRUTH: 'Ground Truth',
             Mode.PREDICT: 'Predict',
             Mode.CONNECTED_COMPONENT: 'Connected Component',
-            Mode.POST_PROCESSING: 'Post Processing',
+            Mode.CLEANED: 'Cleaned',
             Mode.WATERSHED: 'Watershed',
-            Mode.REFINE: 'Refine'
+            Mode.REFINE: 'Refine',
+            Mode.POST_PROCESSING: 'Post Processing',
+            Mode.REMOVED: 'Removed',
+            Mode.RELABELED: 'Relabeled'
         }
         self.volume_viewer.views[0].setTitle(titles[left_mode])
         self.volume_viewer.views[1].setTitle(titles[right_mode])
