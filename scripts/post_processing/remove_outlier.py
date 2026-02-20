@@ -1,0 +1,56 @@
+import numpy
+
+def remove_outlier(volume):
+    volume = volume.copy()
+    component_count = volume.max()
+
+    xyz = numpy.nonzero(volume)
+    labels = volume[xyz]
+    z = xyz[2]
+
+    counts = numpy.bincount(labels)
+    sum_z = numpy.bincount(labels, weights=z)
+
+    valid = numpy.arange(1, component_count + 1)
+    z_centroids = sum_z[valid] / counts[valid]
+
+    median = numpy.median(z_centroids)
+    distance_z = numpy.abs(z_centroids - median)
+    outlier_labels = valid[distance_z > 150]
+
+    lookup_table = numpy.zeros(component_count + 1, dtype=bool)
+    lookup_table[outlier_labels] = True
+
+    volume[lookup_table[volume]] = 0
+
+    return volume
+
+if __name__ == '__main__':
+    import os
+
+    from argparse import ArgumentParser
+    from src.config import load_config
+    from src.console import track
+    from src.dataset import get_fold
+
+    parser = ArgumentParser()
+    parser.add_argument('exp', type=str)
+    args = parser.parse_args()
+
+    experiment_name = args.exp
+
+    config = load_config(os.path.join('logs', experiment_name, 'config.toml'))
+    config.split_file_path = os.path.join('logs', experiment_name, f'{config.split_filename}.json')
+
+    for fold in range(1, config.num_folds + 1):
+        _, valid_dataset_patients = get_fold(config.split_file_path, fold)
+        for dataset, patients in valid_dataset_patients.items():
+            for patient in track(patients, desc=f'Fold {fold} {dataset}'):
+                volume_path = os.path.join('outputs', experiment_name, f'Fold_{fold}', dataset, patient, 'refine_volume.npy')
+                if not os.path.exists(volume_path):
+                    volume_path = os.path.join('outputs', experiment_name, f'Fold_{fold}', dataset, patient, 'watershed_volume.npy')
+                volume = numpy.load(volume_path)
+                volume = remove_outlier(volume)
+
+                cleaned_path = os.path.join('outputs', experiment_name, f'Fold_{fold}', dataset, patient, 'cleaned_volume.npy')
+                numpy.save(cleaned_path, volume)
