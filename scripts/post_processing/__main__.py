@@ -5,6 +5,7 @@ import json
 from .connected_component import filter_connected_component
 from .watershed import split_component
 from .refine_component import refine_component
+from .remove_outlier import remove_outlier
 from src.config import load_config
 from src.dataset import get_fold
 from src.console import track
@@ -41,6 +42,7 @@ for fold in range(1, config.num_folds + 1):
             tooth_watershed_volume = split_component(tooth_cc_volume)
             data = f'{dataset}/{patient}'
             tooth_volume = tooth_watershed_volume if data not in tasks else refine_component(tooth_cc_volume, tooth_watershed_volume, tasks[data])
+            tooth_volume = remove_outlier(tooth_volume)
             tooth_volume = numpy.where(tooth_volume > 0, tooth_volume + 1, 0)
 
             volume = bone_volume + tooth_volume
