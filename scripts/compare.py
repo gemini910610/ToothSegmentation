@@ -35,9 +35,11 @@ def predict_patient(model, dataset, patient, output_dir, config, no_image=False)
     dataset = CBCTDataset(dataset_dir, [patient], return_mask=False)
     loader = DataLoader(dataset, config.batch_size, shuffle=False)
 
-    volume = []
+    image_volume = []
+    mask_volume = []
     ground_truth = []
     for images, masks, filenames in track(loader, desc=f'{patient:7}'):
+        image_volume.append(images.squeeze(1))
         images = images.to(config.device)
 
         with torch.no_grad(), torch.autocast(config.device):
@@ -46,7 +48,7 @@ def predict_patient(model, dataset, patient, output_dir, config, no_image=False)
                 predicts = predicts[0] # (B, C, H, W)
         predicts = predicts.argmax(1).cpu() # (B, H, W)
 
-        volume.append(predicts)
+        mask_volume.append(predicts)
         ground_truth.append(masks)
 
         if not no_image:
@@ -59,11 +61,18 @@ def predict_patient(model, dataset, patient, output_dir, config, no_image=False)
                 mask = mask / 2
                 save_compare(image, predict, mask, os.path.join(output_dir, 'compare'), image_filename)
 
-    volume = torch.cat(volume) # (B, H, W)
-    volume = volume.numpy()
-    volume = volume.transpose(2, 1, 0) # (W, H, Z)
-    volume = volume.astype(numpy.uint8)
-    numpy.save(os.path.join(output_dir, 'volume.npy'), volume)
+    image_volume = torch.cat(image_volume) # (B, H, W)
+    image_volume = image_volume.numpy()
+    image_volume = image_volume.transpose(2, 1, 0) # (W, H, Z)
+    image_volume = image_volume * 255
+    image_volume = image_volume.astype(numpy.uint8)
+    numpy.save(os.path.join(output_dir, 'image.npy'), image_volume)
+
+    mask_volume = torch.cat(mask_volume) # (B, H, W)
+    mask_volume = mask_volume.numpy()
+    mask_volume = mask_volume.transpose(2, 1, 0) # (W, H, Z)
+    mask_volume = mask_volume.astype(numpy.uint8)
+    numpy.save(os.path.join(output_dir, 'volume.npy'), mask_volume)
 
     ground_truth = torch.cat(ground_truth) # (B, H, W)
     ground_truth = ground_truth.numpy()
