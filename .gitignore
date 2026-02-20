@@ -1,11 +1,15 @@
 __pycache__/
 .env
+backup/
 clean_pycache.sh
 configs/config.toml
+datasets.zip
 datasets/
 logs/
+output_slices/
 outputs/
 pyproject.toml
 refine/
+remove/
 splits/
 uv.lock

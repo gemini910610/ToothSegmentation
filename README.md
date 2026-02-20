@@ -7,9 +7,16 @@
 ├── 📂 post_processing
 │   ├── 📄 __main__.py              # Post-processing pipeline
 │   ├── 📄 connected_component.py   # Connected component analysis under a specific threshold
+│   ├── 📄 refine_component.py      # 
+│   ├── 📄 relabel.py               # 
+│   ├── 📄 remove_outlier.py        # 
+│   ├── 📄 tooth_slice.py           # 
 │   └── 📄 watershed.py             # Watershed-based separation of connected tooth components
 ├── 📂 tools
-│   ├── 📄 visualize_tooth.py       # Inspects connected components and reapplies watershed
+│   ├── 📄 visualize_point.py       # 
+│   ├── 📄 visualize_refine.py      # 
+│   ├── 📄 visualize_single.py      # 
+│   ├── 📄 visualize_slice.py       # 
 │   └── 📄 visualize.py             # Visualizes model predictions alongside ground-truth masks for qualitative analysis
 ├── 📄 compare.py                   # Compares predictions with ground-truth masks
 ├── 📄 dcm2png.py                   # Converts DICOM series into PNG slices
@@ -205,7 +212,7 @@ Example Console Output:
 
 This step exports slice-wise comparison images and 3D volumes for further post-processing and visualization.
 ```
-python -m scripts.compare <EXPERIMENT_NAME>
+python -m scripts.compare <EXPERIMENT_NAME> [--no-image]
 ```
 Outputs:
 ```
@@ -219,6 +226,7 @@ Outputs:
 │   │   │   ├── 📂 predict
 │   │   │   │   ├── 📄 91.png
 │   │   │   │   └── 📄 ...
+│   │   │   ├── 📄 image.npy
 │   │   │   ├── 📄 ground_truth.npy
 │   │   │   └── 📄 volume.npy
 │   │   └── 📂 ...
@@ -229,6 +237,13 @@ Outputs:
 ```
 
 ## 🧩 Post-processing
+
+1. filter connected component
+2. split component
+3. refine component
+4. remove outlier
+5. remove tooth
+6. relabel
 
 ```
 python -m scripts.post_processing <EXPERIMENT_NAME> [--tooth-threshold <TOOTH_THRESHOLD>] [--bone-threshold <BONE_THRESHOLD>]
@@ -308,16 +323,6 @@ Optional arguments:
 * `--cc-label <LABEL_1> [<LABEL_2>]`: Connected component labels used for visualization.
     * If only one view is set to `cc`, the first label is used.
     * If both views are set to `cc`, the first and second labels are applied to the left and right views, respectively.
-
-## 👁️ Visualize Tooth Instance
-
-You can visualize connected components and watershed results for a single volume:
-```
-python -m scripts.tools.visualize_tooth <EXPERIMENT_NAME> <DATASET_NAME>/data_<ID> [--label <COMPONENT_LABEL>] [--cluster <CLUSTER>]
-```
-Optional arguments:
-* `--label <COMPONENT_LABEL>`: Connected component label to visualize.
-* `--cluster <CLUSTER>`: Number of clusters used to reapply watershed.
 
 ## 🔐 Remote Server Connection
 
