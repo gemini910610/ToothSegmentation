@@ -1,8 +1,7 @@
 import numpy
 
 from PySide6.QtWidgets import QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QComboBox
-from PySide6.QtGui import QColor, QPixmap, QIcon
-from scripts.tools.visualize import VolumeViewer, Mode, VolumeColorizer
+from .widgets import VolumeViewer, Mode, VolumeColorizer, IconLabelSelector, VolumeLoader
 
 class MainWindowUI(QMainWindow):
     def __init__(self):
@@ -16,7 +15,7 @@ class MainWindowUI(QMainWindow):
 
         top_layout = QHBoxLayout()
         self.patient_selector = QComboBox(sizeAdjustPolicy=QComboBox.SizeAdjustPolicy.AdjustToContents)
-        self.label_selector = QComboBox(sizeAdjustPolicy=QComboBox.SizeAdjustPolicy.AdjustToContents)
+        self.label_selector = IconLabelSelector(sizeAdjustPolicy=QComboBox.SizeAdjustPolicy.AdjustToContents)
         for widget in [self.patient_selector, self.label_selector]:
             top_layout.addWidget(widget)
         top_layout.addStretch()
@@ -48,32 +47,20 @@ class MainWindow(MainWindowUI):
         self.label_selector.setEnabled(False)
 
         patient = self.data_manager.patients[index]
-        self.volume = self.data_manager.load_data(patient)[0]
-        self._on_volume_loaded()
+        self.thread = VolumeLoader(self.data_manager, patient, keep_origin=True)
+        self.thread.finished.connect(self._on_volume_loaded)
+        self.thread.finished.connect(self.thread.deleteLater)
+        self.thread.start()
 
-    def _on_volume_loaded(self):
-        volume, _ = VolumeColorizer.color_components(self.volume, display_bone=True)
+    def _on_volume_loaded(self, volumes):
+        self.volume = volumes['origin'][Mode.POST_PROCESSING]
+        volume, tooth_count = volumes[Mode.POST_PROCESSING]
         self.volume_viewer.views[0].view.update_volume(volume)
 
-        self.label_selector.blockSignals(True)
-        self.label_selector.clear()
-        tooth_count = self.volume.max() - 1
-        palette = VolumeColorizer.glasbey_palette(tooth_count)
-        size = self.label_selector.font().pointSize()
         labels = numpy.unique(self.volume)
         labels = labels[labels > 1]
-        for label in labels:
-            index = label - 2
-            r, g, b, _ = palette[index]
-            color = QColor(r, g, b)
 
-            pixmap = QPixmap(size, size)
-            pixmap.fill(color)
-            icon = QIcon(pixmap)
-
-            self.label_selector.addItem(icon, f'Label {label}')
-        self.label_selector.setCurrentIndex(0)
-        self.label_selector.blockSignals(False)
+        self.label_selector.update_items(labels, tooth_count, -2)
         self._on_label_changed(0, reset=True)
 
         self.patient_selector.setEnabled(True)
@@ -83,7 +70,7 @@ class MainWindow(MainWindowUI):
         if self.volume is None:
             return
 
-        label = int(self.label_selector.currentText()[6:])
+        label = self.label_selector.current_label()
 
         volume = self.volume == label
         volume = volume * (label - 1)
@@ -97,7 +84,7 @@ if __name__ == '__main__':
     from argparse import ArgumentParser
     from PySide6.QtWidgets import QApplication
     from src.config import load_config
-    from scripts.tools.visualize import get_patient_fold_mapping, DataManager
+    from .widgets import get_patient_fold_mapping, DataManager
 
     parser = ArgumentParser()
     parser.add_argument('exp', type=str)

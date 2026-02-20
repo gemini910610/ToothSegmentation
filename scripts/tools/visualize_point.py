@@ -1,12 +1,10 @@
 import numpy
 import cv2
 
-from PySide6.QtWidgets import QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QComboBox, QGridLayout, QLabel, QGroupBox, QButtonGroup, QRadioButton
-from PySide6.QtGui import QColor, QPixmap, QIcon, Qt, QShortcut
-from scripts.tools.visualize import VolumeViewer, Mode, VolumeColorizer, Label
+from PySide6.QtWidgets import QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QComboBox, QButtonGroup, QRadioButton
+from PySide6.QtGui import Qt, QShortcut
+from .widgets import VolumeViewer, Mode, VolumeColorizer, Label, ImageTable, IconLabelSelector, VolumeLoader
 from scripts.post_processing.tooth_slice import get_slices, crop_single_tooth, normalize_slice
-from PIL import Image
-from PIL.ImageQt import ImageQt
 from sklearn.cluster import KMeans
 from scipy import ndimage
 from skimage.morphology import h_minima
@@ -45,30 +43,6 @@ class CEJFinder:
         right_bottom = [x_right[index_rb], y_right[index_rb]]
 
         return left_bottom, right_bottom
-
-# def find_cej(tooth_slice):
-#     mask = tooth_slice != 0
-#     colors = tooth_slice[mask].reshape(-1, 1)
-
-#     k_means = KMeans(n_clusters=3, random_state=42)
-
-#     labels = k_means.fit_predict(colors)
-#     centers = k_means.cluster_centers_.reshape(-1)
-
-#     order = numpy.argsort(centers)
-#     label = order[-1]
-
-#     ys, xs = numpy.where(mask)
-#     y = ys[labels == label]
-#     x = xs[labels == label]
-
-#     index_lb = numpy.argmax(y - x)
-#     left_bottom = [x[index_lb], y[index_lb]]
-
-#     index_rb = numpy.argmax(y + x)
-#     right_bottom = [x[index_rb], y[index_rb]]
-
-#     return left_bottom, right_bottom
 
 def find_bone_point(segmentation_slice):
     tooth_mask = segmentation_slice == Label.TOOTH
@@ -137,46 +111,6 @@ def find_root(segmentation_volume):
 
     return min_points
 
-class ImageBox(QGroupBox):
-    def __init__(self, title, size=(128, 128)):
-        super().__init__(title)
-
-        self.size = size
-
-        layout = QVBoxLayout()
-        self.label = QLabel()
-        self.label.setFixedSize(*size)
-        layout.addWidget(self.label)
-        self.setLayout(layout)
-    def update_image(self, image):
-        image = Image.fromarray(image)
-        image = image.resize(self.size, Image.Resampling.NEAREST)
-        image = ImageQt(image)
-        pixmap = QPixmap.fromImage(image)
-        self.label.setPixmap(pixmap)
-
-class ImageTable(QWidget):
-    def __init__(self, rows=4, columns=3):
-        super().__init__()
-
-        self.rows = rows
-        self.columns = columns
-
-        self.layout = QGridLayout()
-        self.setLayout(self.layout)
-
-        for row in range(rows):
-            for column in range(columns):
-                title = str((row * columns + column) * 30)
-                self.layout.addWidget(ImageBox(title), row, column)
-
-        self.setFixedSize(self.sizeHint())
-    def update_images(self, slices):
-        for i, image in enumerate(slices):
-            row = i // self.columns
-            column = i % self.columns
-            self.layout.itemAtPosition(row, column).widget().update_image(image)
-
 class MainWindowUI(QMainWindow):
     def __init__(self):
         super().__init__()
@@ -189,7 +123,7 @@ class MainWindowUI(QMainWindow):
 
         top_layout = QHBoxLayout()
         self.patient_selector = QComboBox(sizeAdjustPolicy=QComboBox.SizeAdjustPolicy.AdjustToContents)
-        self.label_selector = QComboBox(sizeAdjustPolicy=QComboBox.SizeAdjustPolicy.AdjustToContents)
+        self.label_selector = IconLabelSelector(sizeAdjustPolicy=QComboBox.SizeAdjustPolicy.AdjustToContents)
         for widget in [self.patient_selector, self.label_selector]:
             top_layout.addWidget(widget)
         top_layout.addStretch()
@@ -241,36 +175,21 @@ class MainWindow(MainWindowUI):
             radio.setEnabled(False)
 
         patient = self.data_manager.patients[index]
-        self.volumes = self.data_manager.load_data(patient)
-        self._on_volume_loaded()
+        self.thread = VolumeLoader(self.data_manager, patient, colorize=False, keep_origin=True)
+        self.thread.finished.connect(self._on_volume_loaded)
+        self.thread.finished.connect(self.thread.deleteLater)
+        self.thread.start()
 
-    def _on_volume_loaded(self):
-        self.label_selector.blockSignals(True)
+    def _on_volume_loaded(self, volumes):
+        self.volumes = [volumes['origin'][Mode.RELABELED], volumes['origin'][Mode.IMAGE]]
+
         self.slice_selector.blockSignals(True)
-        self.label_selector.clear()
         tooth_count = self.volumes[0].max() - 1
         print(tooth_count)
-        palette = VolumeColorizer.glasbey_palette(tooth_count)
-        size = self.label_selector.font().pointSize()
-        for index in range(tooth_count):
-            r, g, b, _ = palette[index]
-            color = QColor(r, g, b)
-
-            pixmap = QPixmap(size, size)
-            pixmap.fill(color)
-            icon = QIcon(pixmap)
-
-            self.label_selector.addItem(icon, f'Label {index + 1}')
-        self.label_selector.setCurrentIndex(0)
+        self.label_selector.update_items(range(2, tooth_count + 2), tooth_count, -2)
         self.slice_selector.buttons()[0].setChecked(True)
-        self.label_selector.blockSignals(False)
         self.slice_selector.blockSignals(False)
-        for label in range(tooth_count):
-            try:
-                self._on_label_changed(label)
-                break
-            except Exception as exception:
-                print(exception)
+        self._on_label_changed(0)
 
         self.patient_selector.setEnabled(True)
         self.label_selector.setEnabled(True)
@@ -281,8 +200,9 @@ class MainWindow(MainWindowUI):
         if self.volumes is None:
             return
 
+        label = self.label_selector.current_label()
         segmentation_volume, image_volume = self.volumes
-        segmentation_volume, image_volume, tooth_volume, center = crop_single_tooth(segmentation_volume, image_volume, tooth_label=index + 2, bone_label=1)
+        segmentation_volume, image_volume, tooth_volume, center = crop_single_tooth(segmentation_volume, image_volume, tooth_label=label, bone_label=1)
         segmentation_volume, image_volume, tooth_volume, center = ensure_upward(segmentation_volume, image_volume, tooth_volume, center)
 
         volume = VolumeColorizer.color_volume(segmentation_volume, display_bone=True)
@@ -300,7 +220,7 @@ class MainWindow(MainWindowUI):
         #     volume[x, y, z + 1] = (r, g, b, 255)
         #     volume[x, y, z - 1] = (r, g, b, 255)
 
-        self.volume_viewer.views[0].setTitle(f'Label {index + 1}')
+        self.volume_viewer.views[0].setTitle(f'Label {label}')
         self.volume_viewer.views[0].view.update_volume(volume)
 
         self.cej_finder = CEJFinder(tooth_volume)
@@ -346,7 +266,7 @@ if __name__ == '__main__':
     from argparse import ArgumentParser
     from PySide6.QtWidgets import QApplication
     from src.config import load_config
-    from scripts.tools.visualize import get_patient_fold_mapping, DataManager
+    from .widgets import get_patient_fold_mapping, DataManager
 
     parser = ArgumentParser()
     parser.add_argument('exp', type=str)

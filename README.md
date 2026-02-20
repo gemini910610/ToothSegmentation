@@ -17,7 +17,8 @@
 │   ├── 📄 visualize_refine.py      # 
 │   ├── 📄 visualize_single.py      # 
 │   ├── 📄 visualize_slice.py       # 
-│   └── 📄 visualize.py             # Visualizes model predictions alongside ground-truth masks for qualitative analysis
+│   ├── 📄 visualize.py             # Visualizes model predictions alongside ground-truth masks for qualitative analysis
+│   └── 📄 widgets.py               # 
 ├── 📄 compare.py                   # Compares predictions with ground-truth masks
 ├── 📄 dcm2png.py                   # Converts DICOM series into PNG slices
 ├── 📄 download.py                  # Downloads experiment logs from a remote server via SFTP

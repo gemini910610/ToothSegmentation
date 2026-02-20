@@ -1,7 +1,7 @@
 __pycache__/
 .env
 backup/
-clean_pycache.sh
+clean_pycache.py
 configs/config.toml
 datasets.zip
 datasets/

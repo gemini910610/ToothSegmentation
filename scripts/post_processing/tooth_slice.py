@@ -1,6 +1,6 @@
 import numpy
 
-from scripts.tools.visualize import Label
+from scripts.tools.widgets import Label
 from scipy import ndimage
 
 def rotation_matrix(a, b):

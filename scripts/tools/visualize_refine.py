@@ -1,8 +1,7 @@
 import numpy
 
 from PySide6.QtWidgets import QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QComboBox, QSpinBox, QPushButton
-from PySide6.QtGui import QColor, QPixmap, QIcon
-from scripts.tools.visualize import VolumeViewer, VolumeLoader, Mode, VolumeColorizer
+from .widgets import VolumeViewer, VolumeLoader, Mode, VolumeColorizer, IconLabelSelector
 from scripts.post_processing.watershed import split_k_component
 
 class MainWindowUI(QMainWindow):
@@ -17,7 +16,7 @@ class MainWindowUI(QMainWindow):
 
         top_layout = QHBoxLayout()
         self.patient_selector = QComboBox(sizeAdjustPolicy=QComboBox.SizeAdjustPolicy.AdjustToContents)
-        self.label_selector = QComboBox(sizeAdjustPolicy=QComboBox.SizeAdjustPolicy.AdjustToContents)
+        self.label_selector = IconLabelSelector(sizeAdjustPolicy=QComboBox.SizeAdjustPolicy.AdjustToContents)
         self.cluster_input = QSpinBox(suffix=' Cluster', minimum=1, maximum=5)
         self.execute_button = QPushButton('Execute')
         for widget in [self.patient_selector, self.label_selector, self.cluster_input, self.execute_button]:
@@ -54,32 +53,20 @@ class MainWindow(MainWindowUI):
         self.execute_button.setEnabled(False)
 
         patient = self.data_manager.patients[index]
-        self.volume, _ = self.data_manager.load_data(patient)
-
-        self.thread = VolumeLoader(self.data_manager, patient, Mode.CONNECTED_COMPONENT, Mode.WATERSHED)
+        self.thread = VolumeLoader(self.data_manager, patient, keep_origin=True)
         self.thread.finished.connect(self._on_volume_loaded)
         self.thread.finished.connect(self.thread.deleteLater)
         self.thread.start()
 
-    def _on_volume_loaded(self, left_volume, right_volume, tooth_count):
+    def _on_volume_loaded(self, volumes):
+        left_volume, tooth_count = volumes[Mode.CONNECTED_COMPONENT]
+        right_volume, _ = volumes[Mode.WATERSHED]
+        self.volume = volumes['origin'][Mode.CONNECTED_COMPONENT]
+
         self.volume_viewer.views[0].view.update_volume(left_volume)
         self.volume_viewer.views[1].view.update_volume(right_volume)
 
-        self.label_selector.blockSignals(True)
-        self.label_selector.clear()
-        palette = VolumeColorizer.glasbey_palette(tooth_count)
-        size = self.label_selector.font().pointSize()
-        for index in range(tooth_count):
-            r, g, b, _ = palette[index]
-            color = QColor(r, g, b)
-
-            pixmap = QPixmap(size, size)
-            pixmap.fill(color)
-            icon = QIcon(pixmap)
-
-            self.label_selector.addItem(icon, f'Label {index + 1}')
-        self.label_selector.setCurrentIndex(0)
-        self.label_selector.blockSignals(False)
+        self.label_selector.update_items(range(1, tooth_count + 1), tooth_count, -1)
         self._on_label_changed(0, reset=True)
 
         self.cluster_input.setValue(self.cluster_input.minimum())
@@ -110,7 +97,7 @@ class MainWindow(MainWindowUI):
         self.cluster_input.setEnabled(False)
         self.execute_button.setEnabled(False)
 
-        label = self.label_selector.currentIndex() + 1
+        label = self.label_selector.current_label()
         cluster = self.cluster_input.value()
 
         volume = self.volume == label
@@ -130,7 +117,7 @@ if __name__ == '__main__':
     from argparse import ArgumentParser
     from PySide6.QtWidgets import QApplication
     from src.config import load_config
-    from scripts.tools.visualize import get_patient_fold_mapping, DataManager
+    from .widgets import get_patient_fold_mapping, DataManager
 
     parser = ArgumentParser()
     parser.add_argument('exp', type=str)

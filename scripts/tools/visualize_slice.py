@@ -1,49 +1,6 @@
-from PySide6.QtWidgets import QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QComboBox, QGridLayout, QLabel, QGroupBox, QButtonGroup, QRadioButton
-from PySide6.QtGui import QColor, QPixmap, QIcon
-from scripts.tools.visualize import VolumeViewer, Mode, VolumeColorizer
+from PySide6.QtWidgets import QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QComboBox, QButtonGroup, QRadioButton
+from .widgets import VolumeViewer, Mode, VolumeColorizer, ImageTable, IconLabelSelector, VolumeLoader
 from scripts.post_processing.tooth_slice import get_slices, crop_single_tooth, normalize_slice
-from PIL import Image
-from PIL.ImageQt import ImageQt
-
-class ImageBox(QGroupBox):
-    def __init__(self, title, size=(128, 128)):
-        super().__init__(title)
-
-        self.size = size
-
-        layout = QVBoxLayout()
-        self.label = QLabel()
-        self.label.setFixedSize(*size)
-        layout.addWidget(self.label)
-        self.setLayout(layout)
-    def update_image(self, image):
-        image = Image.fromarray(image)
-        image = image.resize(self.size, Image.Resampling.NEAREST)
-        image = ImageQt(image)
-        pixmap = QPixmap.fromImage(image)
-        self.label.setPixmap(pixmap)
-
-class ImageTable(QWidget):
-    def __init__(self, rows=4, columns=3):
-        super().__init__()
-
-        self.rows = rows
-        self.columns = columns
-
-        self.layout = QGridLayout()
-        self.setLayout(self.layout)
-
-        for row in range(rows):
-            for column in range(columns):
-                title = str((row * columns + column) * 30)
-                self.layout.addWidget(ImageBox(title), row, column)
-
-        self.setFixedSize(self.sizeHint())
-    def update_images(self, slices):
-        for i, image in enumerate(slices):
-            row = i // self.columns
-            column = i % self.columns
-            self.layout.itemAtPosition(row, column).widget().update_image(image)
 
 class MainWindowUI(QMainWindow):
     def __init__(self):
@@ -57,7 +14,7 @@ class MainWindowUI(QMainWindow):
 
         top_layout = QHBoxLayout()
         self.patient_selector = QComboBox(sizeAdjustPolicy=QComboBox.SizeAdjustPolicy.AdjustToContents)
-        self.label_selector = QComboBox(sizeAdjustPolicy=QComboBox.SizeAdjustPolicy.AdjustToContents)
+        self.label_selector = IconLabelSelector(sizeAdjustPolicy=QComboBox.SizeAdjustPolicy.AdjustToContents)
         for widget in [self.patient_selector, self.label_selector]:
             top_layout.addWidget(widget)
         top_layout.addStretch()
@@ -103,28 +60,19 @@ class MainWindow(MainWindowUI):
             radio.setEnabled(False)
 
         patient = self.data_manager.patients[index]
-        self.volumes = self.data_manager.load_data(patient)
-        self._on_volume_loaded()
+        self.thread = VolumeLoader(self.data_manager, patient, colorize=False, keep_origin=True)
+        self.thread.finished.connect(self._on_volume_loaded)
+        self.thread.finished.connect(self.thread.deleteLater)
+        self.thread.start()
 
-    def _on_volume_loaded(self):
-        self.label_selector.blockSignals(True)
+    def _on_volume_loaded(self, volumes):
+        self.volumes = [volumes['origin'][Mode.RELABELED], volumes['origin'][Mode.IMAGE]]
+
         self.slice_selector.blockSignals(True)
-        self.label_selector.clear()
         tooth_count = self.volumes[0].max() - 1
-        palette = VolumeColorizer.glasbey_palette(tooth_count)
-        size = self.label_selector.font().pointSize()
-        for index in range(tooth_count):
-            r, g, b, _ = palette[index]
-            color = QColor(r, g, b)
 
-            pixmap = QPixmap(size, size)
-            pixmap.fill(color)
-            icon = QIcon(pixmap)
-
-            self.label_selector.addItem(icon, f'Label {index + 1}')
-        self.label_selector.setCurrentIndex(0)
+        self.label_selector.update_items(range(2, tooth_count + 2), tooth_count, -2)
         self.slice_selector.buttons()[0].setChecked(True)
-        self.label_selector.blockSignals(False)
         self.slice_selector.blockSignals(False)
         self._on_label_changed(0)
 
@@ -137,10 +85,11 @@ class MainWindow(MainWindowUI):
         if self.volumes is None:
             return
 
+        label = self.label_selector.current_label()
         segmentation_volume, image_volume = self.volumes
-        segmentation_volume, image_volume, tooth_volume, center = crop_single_tooth(segmentation_volume, image_volume, tooth_label=index + 2, bone_label=1)
+        segmentation_volume, image_volume, tooth_volume, center = crop_single_tooth(segmentation_volume, image_volume, tooth_label=label, bone_label=1)
         volume = VolumeColorizer.color_volume(segmentation_volume, display_bone=True)
-        self.volume_viewer.views[0].setTitle(f'Label {index + 1}')
+        self.volume_viewer.views[0].setTitle(f'Label {label}')
         self.volume_viewer.views[0].view.update_volume(volume)
 
         self.slices = list(get_slices(segmentation_volume, image_volume, tooth_volume, center))
@@ -159,7 +108,7 @@ if __name__ == '__main__':
     from argparse import ArgumentParser
     from PySide6.QtWidgets import QApplication
     from src.config import load_config
-    from scripts.tools.visualize import get_patient_fold_mapping, DataManager
+    from .widgets import get_patient_fold_mapping, DataManager
 
     parser = ArgumentParser()
     parser.add_argument('exp', type=str)
