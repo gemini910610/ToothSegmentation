@@ -87,7 +87,7 @@ class MainWindow(MainWindowUI):
 
         volume = VolumeColorizer.color_volume(segmentation_volume, display_bone=True)
 
-        self.volume_viewer.views[0].setTitle(f'Label {label}')
+        self.volume_viewer.set_titles(f'Label {label}')
         self.volume_viewer.views[0].view.update_volume(volume)
 
         self.slices = list(get_slices(segmentation_volume, image_volume, tooth_volume, center))

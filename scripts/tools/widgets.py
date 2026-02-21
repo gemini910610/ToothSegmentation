@@ -306,6 +306,10 @@ class VolumeViewer(QWidget):
                         continue
                     source_view.view.viewChanged.connect(destination_view.view.apply_opts)
 
+    def set_titles(self, *titles):
+        for view, title in zip(self.views, titles):
+            view.setTitle(title)
+
     @staticmethod
     def display_volumes(volumes, count=None, size=(640, 640), title=None):
         app = QApplication([])

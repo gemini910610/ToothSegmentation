@@ -35,8 +35,7 @@ class MainWindow(MainWindowUI):
 
         self.label_selector.currentIndexChanged.connect(self._on_label_changed)
 
-        for view, title in zip(self.volume_viewer.views, [Mode.get_title(Mode.POST_PROCESSING), 'Instance']):
-            view.setTitle(title)
+        self.volume_viewer.set_titles(Mode.get_title(Mode.POST_PROCESSING), 'Instance')
 
         self.loader.setup(self.patient_selector, self.label_selector)
 

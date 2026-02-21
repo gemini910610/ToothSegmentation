@@ -34,8 +34,7 @@ class MainWindow(MainWindowUI):
 
         self.patient_selector.setup(data_manager.patients, self.loader.load_patient)
 
-        for view, title in zip(self.volume_viewer.views, [Mode.get_title(data_manager.modes[0]), Mode.get_title(data_manager.modes[1])]):
-            view.setTitle(title)
+        self.volume_viewer.set_titles(Mode.get_title(data_manager.modes[0]), Mode.get_title(data_manager.modes[1]))
 
         self.loader.setup(self.patient_selector)
 

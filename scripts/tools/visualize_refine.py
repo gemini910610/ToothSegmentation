@@ -39,8 +39,7 @@ class MainWindow(MainWindowUI):
         self.label_selector.currentIndexChanged.connect(self._on_label_changed)
         self.execute_button.clicked.connect(self._split_component)
 
-        for view, title in zip(self.volume_viewer.views, [Mode.get_title(Mode.CONNECTED_COMPONENT), Mode.get_title(Mode.WATERSHED), 'Instance']):
-            view.setTitle(title)
+        self.volume_viewer.set_titles(Mode.get_title(Mode.CONNECTED_COMPONENT), Mode.get_title(Mode.WATERSHED), 'Instance')
 
         self.loader.setup(self.patient_selector, self.label_selector, self.cluster_input, self.execute_button)
 
