@@ -34,19 +34,8 @@ class MainWindow(MainWindowUI):
 
         self.patient_selector.setup(data_manager.patients, self.loader.load_patient)
 
-        titles = {
-            Mode.GROUND_TRUTH: 'Ground Truth',
-            Mode.PREDICT: 'Predict',
-            Mode.CONNECTED_COMPONENT: 'Connected Component',
-            Mode.CLEANED: 'Cleaned',
-            Mode.WATERSHED: 'Watershed',
-            Mode.REFINE: 'Refine',
-            Mode.POST_PROCESSING: 'Post Processing',
-            Mode.REMOVED: 'Removed',
-            Mode.RELABELED: 'Relabeled'
-        }
-        self.volume_viewer.views[0].setTitle(titles[data_manager.modes[0]])
-        self.volume_viewer.views[1].setTitle(titles[data_manager.modes[1]])
+        self.volume_viewer.views[0].setTitle(Mode.get_title(data_manager.modes[0]))
+        self.volume_viewer.views[1].setTitle(Mode.get_title(data_manager.modes[1]))
 
     def _set_loading(self, loading):
         self.patient_selector.setEnabled(not loading)

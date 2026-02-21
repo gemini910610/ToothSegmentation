@@ -39,7 +39,7 @@ class MainWindow(MainWindowUI):
         self.label_selector.currentIndexChanged.connect(self._on_label_changed)
         self.execute_button.clicked.connect(self._split_component)
 
-        for view, title in zip(self.volume_viewer.views, ['Connected Component', 'Watershed', 'Instance']):
+        for view, title in zip(self.volume_viewer.views, [Mode.get_title(Mode.CONNECTED_COMPONENT), Mode.get_title(Mode.WATERSHED), 'Instance']):
             view.setTitle(title)
 
         self.volume = None

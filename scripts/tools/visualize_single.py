@@ -35,7 +35,7 @@ class MainWindow(MainWindowUI):
 
         self.label_selector.currentIndexChanged.connect(self._on_label_changed)
 
-        for view, title in zip(self.volume_viewer.views, ['Post Processing', 'Instance']):
+        for view, title in zip(self.volume_viewer.views, [Mode.get_title(Mode.POST_PROCESSING), 'Instance']):
             view.setTitle(title)
 
         self.volume = None

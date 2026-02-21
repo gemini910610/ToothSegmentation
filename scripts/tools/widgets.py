@@ -45,6 +45,20 @@ class Mode:
             Mode.RELABELED
         ]
 
+    def get_title(mode):
+        return {
+            Mode.GROUND_TRUTH: 'Ground Truth',
+            Mode.IMAGE: 'Image',
+            Mode.PREDICT: 'Predict',
+            Mode.CONNECTED_COMPONENT: 'Connected Component',
+            Mode.CLEANED: 'Cleaned',
+            Mode.WATERSHED: 'Watershed',
+            Mode.REFINE: 'Refine',
+            Mode.POST_PROCESSING: 'Post Processing',
+            Mode.REMOVED: 'Removed',
+            Mode.RELABELED: 'Relabeled'
+        }[mode]
+
 class DataManager:
     def __init__(self, experiment_name, patient_mapping, modes, cc_label, base_output_dir='outputs'):
         self.experiment_name = experiment_name
