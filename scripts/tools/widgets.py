@@ -395,13 +395,15 @@ class IconLabelSelector(QComboBox):
         return self.currentData()
 
 class VolumeLoader:
-    def __init__(self, data_manager, set_loading, handle_volumes, **kwargs):
+    def __init__(self, data_manager, handle_volumes, **kwargs):
         self.data_manager = data_manager
-        self.set_loading = set_loading
         self.handle_volumes = handle_volumes
         self.loader_kwargs = kwargs
+        self._loading_widgets = None
+    def setup(self, *loading_widgets):
+        self._loading_widgets = loading_widgets
     def load_patient(self, index):
-        self.set_loading(True)
+        self._set_loading(True)
         patient = self.data_manager.patients[index]
         self.loader = VolumeLoaderThread(self.data_manager, patient, **self.loader_kwargs)
         self.loader.finished.connect(self._on_volume_loaded)
@@ -409,7 +411,13 @@ class VolumeLoader:
         self.loader.start()
     def _on_volume_loaded(self, volumes):
         self.handle_volumes(volumes)
-        self.set_loading(False)
+        self._set_loading(False)
+    def _set_loading(self, loading):
+        if self._loading_widgets is None:
+            return
+
+        for widget in self._loading_widgets:
+            widget.setEnabled(not loading)
 
 class PatientSelector(QComboBox):
     def setup(self, patients, current_index_changed):

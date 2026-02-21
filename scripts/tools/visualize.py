@@ -28,17 +28,16 @@ class MainWindowUI(QMainWindow):
 class MainWindow(MainWindowUI):
     def __init__(self, data_manager):
         super().__init__()
-        self.loader = VolumeLoader(data_manager, self._set_loading, self._handle_volumes)
+        self.loader = VolumeLoader(data_manager, self._handle_volumes)
 
         self.setWindowTitle(data_manager.experiment_name)
 
         self.patient_selector.setup(data_manager.patients, self.loader.load_patient)
 
-        self.volume_viewer.views[0].setTitle(Mode.get_title(data_manager.modes[0]))
-        self.volume_viewer.views[1].setTitle(Mode.get_title(data_manager.modes[1]))
+        for view, title in zip(self.volume_viewer.views, [Mode.get_title(data_manager.modes[0]), Mode.get_title(data_manager.modes[1])]):
+            view.setTitle(title)
 
-    def _set_loading(self, loading):
-        self.patient_selector.setEnabled(not loading)
+        self.loader.setup(self.patient_selector)
 
     def _handle_volumes(self, volumes):
         left_volume, left_count = volumes[self.loader.data_manager.modes[0]]

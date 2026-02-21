@@ -27,7 +27,7 @@ class MainWindowUI(QMainWindow):
 class MainWindow(MainWindowUI):
     def __init__(self, data_manager):
         super().__init__()
-        self.loader = VolumeLoader(data_manager, self._set_loading, self._handle_volumes, keep_origin=True)
+        self.loader = VolumeLoader(data_manager, self._handle_volumes, keep_origin=True)
 
         self.setWindowTitle(data_manager.experiment_name)
 
@@ -38,11 +38,9 @@ class MainWindow(MainWindowUI):
         for view, title in zip(self.volume_viewer.views, [Mode.get_title(Mode.POST_PROCESSING), 'Instance']):
             view.setTitle(title)
 
-        self.volume = None
+        self.loader.setup(self.patient_selector, self.label_selector)
 
-    def _set_loading(self, loading):
-        self.patient_selector.setEnabled(not loading)
-        self.label_selector.setEnabled(not loading)
+        self.volume = None
 
     def _handle_volumes(self, volumes):
         self.volume = volumes['origin'][Mode.POST_PROCESSING]

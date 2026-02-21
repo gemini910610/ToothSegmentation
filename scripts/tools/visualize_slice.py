@@ -44,7 +44,7 @@ class MainWindowUI(QMainWindow):
 class MainWindow(MainWindowUI):
     def __init__(self, data_manager):
         super().__init__()
-        self.loader = VolumeLoader(data_manager, self._set_loading, self._handle_volumes, colorize=False, keep_origin=True)
+        self.loader = VolumeLoader(data_manager, self._handle_volumes, colorize=False, keep_origin=True)
 
         self.setWindowTitle(data_manager.experiment_name)
 
@@ -54,6 +54,8 @@ class MainWindow(MainWindowUI):
         self.point_toggle.stateChanged.connect(lambda: self._on_slice_changed(self.slice_selector.checkedId()))
         self.slice_selector.idClicked.connect(self._on_slice_changed)
 
+        self.loader.setup(self.patient_selector, self.label_selector, self.point_toggle, *self.slice_selector.buttons())
+
         shortcut_left = QShortcut(Qt.Key.Key_Left, self)
         shortcut_left.activated.connect(lambda: self._on_label_step(-1))
         shortcut_right = QShortcut(Qt.Key.Key_Right, self)
@@ -62,13 +64,6 @@ class MainWindow(MainWindowUI):
         self.volumes = None
         self.slices = None
         self.cej_finder = None
-
-    def _set_loading(self, loading):
-        self.patient_selector.setEnabled(not loading)
-        self.label_selector.setEnabled(not loading)
-        self.point_toggle.setEnabled(not loading)
-        for radio in self.slice_selector.buttons():
-            radio.setEnabled(not loading)
 
     def _handle_volumes(self, volumes):
         self.volumes = [volumes['origin'][Mode.RELABELED], volumes['origin'][Mode.IMAGE]]
