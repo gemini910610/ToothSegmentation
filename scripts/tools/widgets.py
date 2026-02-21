@@ -396,3 +396,9 @@ class VolumeLoader:
     def _on_volume_loaded(self, volumes):
         self.handle_volumes(volumes)
         self.set_loading(False)
+
+class PatientSelector(QComboBox):
+    def setup(self, patients, current_index_changed):
+        self.addItems(patients)
+        self.setCurrentIndex(-1)
+        self.currentIndexChanged.connect(current_index_changed)

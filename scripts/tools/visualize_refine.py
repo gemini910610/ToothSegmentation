@@ -1,7 +1,7 @@
 import numpy
 
 from PySide6.QtWidgets import QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QComboBox, QSpinBox, QPushButton
-from .widgets import VolumeViewer, Mode, VolumeColorizer, IconLabelSelector, VolumeLoader
+from .widgets import VolumeViewer, Mode, VolumeColorizer, IconLabelSelector, VolumeLoader, PatientSelector
 from scripts.post_processing.watershed import split_k_component
 
 class MainWindowUI(QMainWindow):
@@ -15,7 +15,7 @@ class MainWindowUI(QMainWindow):
         self.setCentralWidget(widget)
 
         top_layout = QHBoxLayout()
-        self.patient_selector = QComboBox(sizeAdjustPolicy=QComboBox.SizeAdjustPolicy.AdjustToContents)
+        self.patient_selector = PatientSelector(sizeAdjustPolicy=QComboBox.SizeAdjustPolicy.AdjustToContents)
         self.label_selector = IconLabelSelector(sizeAdjustPolicy=QComboBox.SizeAdjustPolicy.AdjustToContents)
         self.cluster_input = QSpinBox(suffix=' Cluster', minimum=1, maximum=5)
         self.execute_button = QPushButton('Execute')
@@ -34,9 +34,7 @@ class MainWindow(MainWindowUI):
 
         self.setWindowTitle(data_manager.experiment_name)
 
-        self.patient_selector.addItems(data_manager.patients)
-        self.patient_selector.setCurrentIndex(-1)
-        self.patient_selector.currentIndexChanged.connect(self.loader.load_patient)
+        self.patient_selector.setup(data_manager.patients, self.loader.load_patient)
 
         self.label_selector.currentIndexChanged.connect(self._on_label_changed)
         self.execute_button.clicked.connect(self._split_component)

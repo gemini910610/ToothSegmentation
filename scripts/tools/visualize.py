@@ -1,8 +1,8 @@
 import os
 
-from PySide6.QtWidgets import QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QComboBox, QLabel
+from PySide6.QtWidgets import QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QLabel
 
-from .widgets import Mode, VolumeViewer, VolumeLoader
+from .widgets import Mode, VolumeViewer, VolumeLoader, PatientSelector
 
 class MainWindowUI(QMainWindow):
     def __init__(self):
@@ -15,7 +15,7 @@ class MainWindowUI(QMainWindow):
         self.setCentralWidget(widget)
 
         top_layout = QHBoxLayout()
-        self.patient_selector = QComboBox()
+        self.patient_selector = PatientSelector()
         self.tooth_count_label = QLabel('Tooth Count: -/-')
         for widget in [self.patient_selector, self.tooth_count_label]:
             top_layout.addWidget(widget)
@@ -32,9 +32,7 @@ class MainWindow(MainWindowUI):
 
         self.setWindowTitle(data_manager.experiment_name)
 
-        self.patient_selector.addItems(data_manager.patients)
-        self.patient_selector.setCurrentIndex(-1)
-        self.patient_selector.currentIndexChanged.connect(self.loader.load_patient)
+        self.patient_selector.setup(data_manager.patients, self.loader.load_patient)
 
         titles = {
             Mode.GROUND_TRUTH: 'Ground Truth',

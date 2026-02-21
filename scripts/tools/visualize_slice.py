@@ -2,7 +2,7 @@ import cv2
 
 from PySide6.QtGui import Qt, QShortcut
 from PySide6.QtWidgets import QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QComboBox, QButtonGroup, QRadioButton, QCheckBox
-from .widgets import VolumeViewer, Mode, VolumeColorizer, ImageTable, IconLabelSelector, VolumeLoader
+from .widgets import VolumeViewer, Mode, VolumeColorizer, ImageTable, IconLabelSelector, VolumeLoader, PatientSelector
 from scripts.post_processing.tooth_slice import get_slices, crop_single_tooth, normalize_slice
 from scripts.post_processing.find_points import ensure_upward, CEJFinder, find_bone_point
 
@@ -17,7 +17,7 @@ class MainWindowUI(QMainWindow):
         self.setCentralWidget(widget)
 
         top_layout = QHBoxLayout()
-        self.patient_selector = QComboBox(sizeAdjustPolicy=QComboBox.SizeAdjustPolicy.AdjustToContents)
+        self.patient_selector = PatientSelector(sizeAdjustPolicy=QComboBox.SizeAdjustPolicy.AdjustToContents)
         self.label_selector = IconLabelSelector(sizeAdjustPolicy=QComboBox.SizeAdjustPolicy.AdjustToContents)
         for widget in [self.patient_selector, self.label_selector]:
             top_layout.addWidget(widget)
@@ -48,9 +48,7 @@ class MainWindow(MainWindowUI):
 
         self.setWindowTitle(data_manager.experiment_name)
 
-        self.patient_selector.addItems(data_manager.patients)
-        self.patient_selector.setCurrentIndex(-1)
-        self.patient_selector.currentIndexChanged.connect(self.loader.load_patient)
+        self.patient_selector.setup(data_manager.patients, self.loader.load_patient)
 
         self.label_selector.currentIndexChanged.connect(self._on_label_changed)
         self.point_toggle.stateChanged.connect(lambda: self._on_slice_changed(self.slice_selector.checkedId()))

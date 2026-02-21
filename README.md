@@ -13,7 +13,6 @@
 │   ├── 📄 tooth_slice.py           # 
 │   └── 📄 watershed.py             # Watershed-based separation of connected tooth components
 ├── 📂 tools
-│   ├── 📄 visualize_point.py       # 
 │   ├── 📄 visualize_refine.py      # 
 │   ├── 📄 visualize_single.py      # 
 │   ├── 📄 visualize_slice.py       # 
