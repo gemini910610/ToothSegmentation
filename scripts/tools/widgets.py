@@ -175,9 +175,8 @@ class VolumeColorizer:
 
         return rgba, component_count
 
-class VolumeLoader(QThread):
-    # rgba_volumes, counts
-    finished = Signal(object)
+class VolumeLoaderThread(QThread):
+    finished = Signal(object) # {mode: rgba_volume, "origin": {mode: volume}}
     def __init__(self, data_manager, patient, colorize=True, keep_origin=False):
         super().__init__()
         self.data_manager = data_manager
@@ -380,3 +379,20 @@ class IconLabelSelector(QComboBox):
 
     def current_label(self):
         return self.currentData()
+
+class VolumeLoader:
+    def __init__(self, data_manager, set_loading, handle_volumes, **kwargs):
+        self.data_manager = data_manager
+        self.set_loading = set_loading
+        self.handle_volumes = handle_volumes
+        self.loader_kwargs = kwargs
+    def load_patient(self, index):
+        self.set_loading(True)
+        patient = self.data_manager.patients[index]
+        self.loader = VolumeLoaderThread(self.data_manager, patient, **self.loader_kwargs)
+        self.loader.finished.connect(self._on_volume_loaded)
+        self.loader.finished.connect(self.loader.deleteLater)
+        self.loader.start()
+    def _on_volume_loaded(self, volumes):
+        self.handle_volumes(volumes)
+        self.set_loading(False)

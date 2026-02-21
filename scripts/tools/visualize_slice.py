@@ -38,13 +38,13 @@ class MainWindowUI(QMainWindow):
 class MainWindow(MainWindowUI):
     def __init__(self, data_manager):
         super().__init__()
-        self.data_manager = data_manager
+        self.loader = VolumeLoader(data_manager, self._set_loading, self._handle_volumes, colorize=False, keep_origin=True)
 
-        self.setWindowTitle(self.data_manager.experiment_name)
+        self.setWindowTitle(data_manager.experiment_name)
 
-        self.patient_selector.addItems(self.data_manager.patients)
+        self.patient_selector.addItems(data_manager.patients)
         self.patient_selector.setCurrentIndex(-1)
-        self.patient_selector.currentIndexChanged.connect(self._load_patient)
+        self.patient_selector.currentIndexChanged.connect(self.loader.load_patient)
 
         self.label_selector.currentIndexChanged.connect(self._on_label_changed)
 
@@ -53,19 +53,13 @@ class MainWindow(MainWindowUI):
         self.volumes = None
         self.slices = None
 
-    def _load_patient(self, index):
-        self.patient_selector.setEnabled(False)
-        self.label_selector.setEnabled(False)
+    def _set_loading(self, loading):
+        self.patient_selector.setEnabled(not loading)
+        self.label_selector.setEnabled(not loading)
         for radio in self.slice_selector.buttons():
-            radio.setEnabled(False)
+            radio.setEnabled(not loading)
 
-        patient = self.data_manager.patients[index]
-        self.thread = VolumeLoader(self.data_manager, patient, colorize=False, keep_origin=True)
-        self.thread.finished.connect(self._on_volume_loaded)
-        self.thread.finished.connect(self.thread.deleteLater)
-        self.thread.start()
-
-    def _on_volume_loaded(self, volumes):
+    def _handle_volumes(self, volumes):
         self.volumes = [volumes['origin'][Mode.RELABELED], volumes['origin'][Mode.IMAGE]]
 
         self.slice_selector.blockSignals(True)
@@ -75,11 +69,6 @@ class MainWindow(MainWindowUI):
         self.slice_selector.buttons()[0].setChecked(True)
         self.slice_selector.blockSignals(False)
         self._on_label_changed(0)
-
-        self.patient_selector.setEnabled(True)
-        self.label_selector.setEnabled(True)
-        for radio in self.slice_selector.buttons():
-            radio.setEnabled(True)
 
     def _on_label_changed(self, index):
         if self.volumes is None:

@@ -1,7 +1,7 @@
 import numpy
 
 from PySide6.QtWidgets import QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QComboBox, QSpinBox, QPushButton
-from .widgets import VolumeViewer, VolumeLoader, Mode, VolumeColorizer, IconLabelSelector
+from .widgets import VolumeViewer, Mode, VolumeColorizer, IconLabelSelector, VolumeLoader
 from scripts.post_processing.watershed import split_k_component
 
 class MainWindowUI(QMainWindow):
@@ -30,13 +30,13 @@ class MainWindowUI(QMainWindow):
 class MainWindow(MainWindowUI):
     def __init__(self, data_manager):
         super().__init__()
-        self.data_manager = data_manager
+        self.loader = VolumeLoader(data_manager, self._set_loading, self._handle_volumes, keep_origin=True)
 
-        self.setWindowTitle(self.data_manager.experiment_name)
+        self.setWindowTitle(data_manager.experiment_name)
 
-        self.patient_selector.addItems(self.data_manager.patients)
+        self.patient_selector.addItems(data_manager.patients)
         self.patient_selector.setCurrentIndex(-1)
-        self.patient_selector.currentIndexChanged.connect(self._load_patient)
+        self.patient_selector.currentIndexChanged.connect(self.loader.load_patient)
 
         self.label_selector.currentIndexChanged.connect(self._on_label_changed)
         self.execute_button.clicked.connect(self._split_component)
@@ -46,19 +46,13 @@ class MainWindow(MainWindowUI):
 
         self.volume = None
 
-    def _load_patient(self, index):
-        self.patient_selector.setEnabled(False)
-        self.label_selector.setEnabled(False)
-        self.cluster_input.setEnabled(False)
-        self.execute_button.setEnabled(False)
+    def _set_loading(self, loading):
+        self.patient_selector.setEnabled(not loading)
+        self.label_selector.setEnabled(not loading)
+        self.cluster_input.setEnabled(not loading)
+        self.execute_button.setEnabled(not loading)
 
-        patient = self.data_manager.patients[index]
-        self.thread = VolumeLoader(self.data_manager, patient, keep_origin=True)
-        self.thread.finished.connect(self._on_volume_loaded)
-        self.thread.finished.connect(self.thread.deleteLater)
-        self.thread.start()
-
-    def _on_volume_loaded(self, volumes):
+    def _handle_volumes(self, volumes):
         left_volume, tooth_count = volumes[Mode.CONNECTED_COMPONENT]
         right_volume, _ = volumes[Mode.WATERSHED]
         self.volume = volumes['origin'][Mode.CONNECTED_COMPONENT]
@@ -70,11 +64,6 @@ class MainWindow(MainWindowUI):
         self._on_label_changed(0, reset=True)
 
         self.cluster_input.setValue(self.cluster_input.minimum())
-
-        self.patient_selector.setEnabled(True)
-        self.label_selector.setEnabled(True)
-        self.cluster_input.setEnabled(True)
-        self.execute_button.setEnabled(True)
 
     def _on_label_changed(self, index, reset=False):
         if self.volume is None:

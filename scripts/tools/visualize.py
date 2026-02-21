@@ -2,7 +2,7 @@ import os
 
 from PySide6.QtWidgets import QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QComboBox, QLabel
 
-from .widgets import Mode, VolumeLoader, VolumeViewer
+from .widgets import Mode, VolumeViewer, VolumeLoader
 
 class MainWindowUI(QMainWindow):
     def __init__(self):
@@ -17,8 +17,8 @@ class MainWindowUI(QMainWindow):
         top_layout = QHBoxLayout()
         self.patient_selector = QComboBox()
         self.tooth_count_label = QLabel('Tooth Count: -/-')
-        top_layout.addWidget(self.patient_selector)
-        top_layout.addWidget(self.tooth_count_label)
+        for widget in [self.patient_selector, self.tooth_count_label]:
+            top_layout.addWidget(widget)
         top_layout.addStretch()
         layout.addLayout(top_layout)
 
@@ -26,17 +26,15 @@ class MainWindowUI(QMainWindow):
         layout.addWidget(self.volume_viewer)
 
 class MainWindow(MainWindowUI):
-    def __init__(self, data_manager, left_mode, right_mode):
+    def __init__(self, data_manager):
         super().__init__()
-        self.data_manager = data_manager
-        self.left_mode = left_mode
-        self.right_mode = right_mode
+        self.loader = VolumeLoader(data_manager, self._set_loading, self._handle_volumes)
 
-        self.setWindowTitle(self.data_manager.experiment_name)
+        self.setWindowTitle(data_manager.experiment_name)
 
-        self.patient_selector.addItems(self.data_manager.patients)
+        self.patient_selector.addItems(data_manager.patients)
         self.patient_selector.setCurrentIndex(-1)
-        self.patient_selector.currentIndexChanged.connect(self._load_patient)
+        self.patient_selector.currentIndexChanged.connect(self.loader.load_patient)
 
         titles = {
             Mode.GROUND_TRUTH: 'Ground Truth',
@@ -49,25 +47,19 @@ class MainWindow(MainWindowUI):
             Mode.REMOVED: 'Removed',
             Mode.RELABELED: 'Relabeled'
         }
-        self.volume_viewer.views[0].setTitle(titles[left_mode])
-        self.volume_viewer.views[1].setTitle(titles[right_mode])
+        self.volume_viewer.views[0].setTitle(titles[data_manager.modes[0]])
+        self.volume_viewer.views[1].setTitle(titles[data_manager.modes[1]])
 
-    def _load_patient(self, index):
-        patient = self.data_manager.patients[index]
-        self.patient_selector.setEnabled(False)
-        self.thread = VolumeLoader(self.data_manager, patient)
-        self.thread.finished.connect(self._on_volume_loaded)
-        self.thread.finished.connect(self.thread.deleteLater)
-        self.thread.start()
+    def _set_loading(self, loading):
+        self.patient_selector.setEnabled(not loading)
 
-    def _on_volume_loaded(self, volumes):
-        left_volume, left_count = volumes[self.left_mode]
-        right_volume, right_count = volumes[self.right_mode]
+    def _handle_volumes(self, volumes):
+        left_volume, left_count = volumes[self.loader.data_manager.modes[0]]
+        right_volume, right_count = volumes[self.loader.data_manager.modes[1]]
 
         self.volume_viewer.views[0].view.update_volume(left_volume)
         self.volume_viewer.views[1].view.update_volume(right_volume)
         self.tooth_count_label.setText(f'Tooth Count: {left_count if left_count is not None else "-"}/{right_count if right_count is not None else "-"}')
-        self.patient_selector.setEnabled(True)
 
 if __name__ == '__main__':
     from argparse import ArgumentParser
@@ -98,7 +90,7 @@ if __name__ == '__main__':
     app = QApplication([])
 
     data_manager = DataManager(experiment_name, patient_fold_map, [left_mode, right_mode], cc_label)
-    window = MainWindow(data_manager, left_mode, right_mode)
+    window = MainWindow(data_manager)
 
     window.show()
 

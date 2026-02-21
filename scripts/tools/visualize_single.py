@@ -27,13 +27,13 @@ class MainWindowUI(QMainWindow):
 class MainWindow(MainWindowUI):
     def __init__(self, data_manager):
         super().__init__()
-        self.data_manager = data_manager
+        self.loader = VolumeLoader(data_manager, self._set_loading, self._handle_volumes, keep_origin=True)
 
-        self.setWindowTitle(self.data_manager.experiment_name)
+        self.setWindowTitle(data_manager.experiment_name)
 
-        self.patient_selector.addItems(self.data_manager.patients)
+        self.patient_selector.addItems(data_manager.patients)
         self.patient_selector.setCurrentIndex(-1)
-        self.patient_selector.currentIndexChanged.connect(self._load_patient)
+        self.patient_selector.currentIndexChanged.connect(self.loader.load_patient)
 
         self.label_selector.currentIndexChanged.connect(self._on_label_changed)
 
@@ -42,17 +42,11 @@ class MainWindow(MainWindowUI):
 
         self.volume = None
 
-    def _load_patient(self, index):
-        self.patient_selector.setEnabled(False)
-        self.label_selector.setEnabled(False)
+    def _set_loading(self, loading):
+        self.patient_selector.setEnabled(not loading)
+        self.label_selector.setEnabled(not loading)
 
-        patient = self.data_manager.patients[index]
-        self.thread = VolumeLoader(self.data_manager, patient, keep_origin=True)
-        self.thread.finished.connect(self._on_volume_loaded)
-        self.thread.finished.connect(self.thread.deleteLater)
-        self.thread.start()
-
-    def _on_volume_loaded(self, volumes):
+    def _handle_volumes(self, volumes):
         self.volume = volumes['origin'][Mode.POST_PROCESSING]
         volume, tooth_count = volumes[Mode.POST_PROCESSING]
         self.volume_viewer.views[0].view.update_volume(volume)
@@ -62,9 +56,6 @@ class MainWindow(MainWindowUI):
 
         self.label_selector.update_items(labels, tooth_count, -2)
         self._on_label_changed(0, reset=True)
-
-        self.patient_selector.setEnabled(True)
-        self.label_selector.setEnabled(True)
 
     def _on_label_changed(self, index, reset=False):
         if self.volume is None:
