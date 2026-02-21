@@ -1,6 +1,10 @@
-from PySide6.QtWidgets import QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QComboBox, QButtonGroup, QRadioButton
+import cv2
+
+from PySide6.QtGui import Qt, QShortcut
+from PySide6.QtWidgets import QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QComboBox, QButtonGroup, QRadioButton, QCheckBox
 from .widgets import VolumeViewer, Mode, VolumeColorizer, ImageTable, IconLabelSelector, VolumeLoader
 from scripts.post_processing.tooth_slice import get_slices, crop_single_tooth, normalize_slice
+from scripts.post_processing.find_points import ensure_upward, CEJFinder, find_bone_point
 
 class MainWindowUI(QMainWindow):
     def __init__(self):
@@ -18,6 +22,8 @@ class MainWindowUI(QMainWindow):
         for widget in [self.patient_selector, self.label_selector]:
             top_layout.addWidget(widget)
         top_layout.addStretch()
+        self.point_toggle = QCheckBox('Display Points')
+        top_layout.addWidget(self.point_toggle)
         self.slice_selector = QButtonGroup()
         group_layout = QHBoxLayout()
         for index, title in enumerate(['Segmentation', 'Image', 'Tooth']):
@@ -47,15 +53,22 @@ class MainWindow(MainWindowUI):
         self.patient_selector.currentIndexChanged.connect(self.loader.load_patient)
 
         self.label_selector.currentIndexChanged.connect(self._on_label_changed)
-
+        self.point_toggle.stateChanged.connect(lambda: self._on_slice_changed(self.slice_selector.checkedId()))
         self.slice_selector.idClicked.connect(self._on_slice_changed)
+
+        shortcut_left = QShortcut(Qt.Key.Key_Left, self)
+        shortcut_left.activated.connect(lambda: self._on_label_step(-1))
+        shortcut_right = QShortcut(Qt.Key.Key_Right, self)
+        shortcut_right.activated.connect(lambda: self._on_label_step(1))
 
         self.volumes = None
         self.slices = None
+        self.cej_finder = None
 
     def _set_loading(self, loading):
         self.patient_selector.setEnabled(not loading)
         self.label_selector.setEnabled(not loading)
+        self.point_toggle.setEnabled(not loading)
         for radio in self.slice_selector.buttons():
             radio.setEnabled(not loading)
 
@@ -77,19 +90,50 @@ class MainWindow(MainWindowUI):
         label = self.label_selector.current_label()
         segmentation_volume, image_volume = self.volumes
         segmentation_volume, image_volume, tooth_volume, center = crop_single_tooth(segmentation_volume, image_volume, tooth_label=label, bone_label=1)
+        segmentation_volume, image_volume, tooth_volume, center = ensure_upward(segmentation_volume, image_volume, tooth_volume, center)
+
         volume = VolumeColorizer.color_volume(segmentation_volume, display_bone=True)
+
         self.volume_viewer.views[0].setTitle(f'Label {label}')
         self.volume_viewer.views[0].view.update_volume(volume)
 
         self.slices = list(get_slices(segmentation_volume, image_volume, tooth_volume, center))
         self._on_slice_changed(self.slice_selector.checkedId())
 
+        self.cej_finder = CEJFinder(tooth_volume)
+
     def _on_slice_changed(self, index):
         if self.slices is None:
             return
 
-        slices = [normalize_slice(*volume_slice)[index] for volume_slice in self.slices]
+        slices = []
+        for segmentation_slice, image_slice, tooth_slice in self.slices:
+            volume_slice = normalize_slice(segmentation_slice, image_slice, tooth_slice)[index]
+            volume_slice = cv2.cvtColor(volume_slice, cv2.COLOR_GRAY2BGR)
+
+            if self.point_toggle.isChecked():
+                if index in [1, 2]:
+                    left_cej, right_cej = self.cej_finder.find(tooth_slice)
+                    volume_slice = cv2.circle(volume_slice, left_cej, 2, (0, 255, 255), -1)
+                    volume_slice = cv2.circle(volume_slice, right_cej, 2, (0, 255, 255), -1)
+
+                if index in [0, 1]:
+                    left_bone, right_bone = find_bone_point(segmentation_slice)
+                    volume_slice = cv2.circle(volume_slice, left_bone, 2, (255, 0, 0), -1)
+                    volume_slice = cv2.circle(volume_slice, right_bone, 2, (255, 0, 0), -1)
+
+            slices.append(volume_slice)
+
         self.image_table.update_images(slices)
+
+    def _on_label_step(self, step):
+        if self.volumes is None:
+            return
+
+        count = self.label_selector.count()
+        index = self.label_selector.currentIndex()
+        index = max(0, min(count - 1, index + step))
+        self.label_selector.setCurrentIndex(index)
 
 if __name__ == '__main__':
     import os
