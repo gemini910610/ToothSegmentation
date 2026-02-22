@@ -1,36 +1,36 @@
 import os
 
-from PySide6.QtWidgets import QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QLabel
+from PySide6.QtWidgets import QApplication, QHBoxLayout, QLabel
+from .widgets import Mode, VolumeViewer, VolumeLoader, PatientSelector, MainWindowUI
 
-from .widgets import Mode, VolumeViewer, VolumeLoader, PatientSelector
-
-class MainWindowUI(QMainWindow):
+class TopLayout(QHBoxLayout):
     def __init__(self):
         super().__init__()
-
-        self.move(0, 0)
-
-        widget = QWidget()
-        layout = QVBoxLayout(widget)
-        self.setCentralWidget(widget)
-
-        top_layout = QHBoxLayout()
         self.patient_selector = PatientSelector()
         self.tooth_count_label = QLabel('Tooth Count: -/-')
         for widget in [self.patient_selector, self.tooth_count_label]:
-            top_layout.addWidget(widget)
-        top_layout.addStretch()
-        layout.addLayout(top_layout)
+            self.addWidget(widget)
+        self.addStretch()
+    def get_widgets(self):
+        return self.patient_selector, self.tooth_count_label
 
+class BottomLayout(QHBoxLayout):
+    def __init__(self):
+        super().__init__()
         self.volume_viewer = VolumeViewer()
-        layout.addWidget(self.volume_viewer)
+        self.addWidget(self.volume_viewer)
+    def get_widgets(self):
+        return self.volume_viewer
 
 class MainWindow(MainWindowUI):
     def __init__(self, data_manager):
-        super().__init__()
+        super().__init__(TopLayout, BottomLayout)
         self.loader = VolumeLoader(data_manager, self._handle_volumes)
 
         self.setWindowTitle(data_manager.experiment_name)
+
+        self.patient_selector, self.tooth_count_label = self.top_layout.get_widgets()
+        self.volume_viewer = self.bottom_layout.get_widgets()
 
         self.patient_selector.setup(data_manager.patients, self.loader.load_patient)
 

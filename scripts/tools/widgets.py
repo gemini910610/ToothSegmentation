@@ -5,7 +5,7 @@ import skimage
 from scipy import ndimage
 from PySide6.QtCore import Signal, QThread
 from PySide6.QtGui import QVector3D, QPixmap, QColor, QIcon
-from PySide6.QtWidgets import QGroupBox, QVBoxLayout, QHBoxLayout, QWidget, QApplication, QGridLayout, QLabel, QComboBox
+from PySide6.QtWidgets import QMainWindow, QGroupBox, QVBoxLayout, QHBoxLayout, QWidget, QApplication, QGridLayout, QLabel, QComboBox
 from pyqtgraph.opengl import GLViewWidget, GLVolumeItem
 from PIL import Image
 from PIL.ImageQt import ImageQt
@@ -32,6 +32,7 @@ class Mode:
     REMOVED = 'removed'
     RELABELED = 'relabeled'
 
+    @staticmethod
     def items():
         return [
             Mode.GROUND_TRUTH,
@@ -45,6 +46,7 @@ class Mode:
             Mode.RELABELED
         ]
 
+    @staticmethod
     def get_title(mode):
         return {
             Mode.GROUND_TRUTH: 'Ground Truth',
@@ -428,3 +430,17 @@ class PatientSelector(QComboBox):
         self.addItems(patients)
         self.setCurrentIndex(-1)
         self.currentIndexChanged.connect(current_index_changed)
+
+class MainWindowUI(QMainWindow):
+    def __init__(self, TopLayout, BottomLayout):
+        super().__init__()
+        self.move(0, 0)
+
+        widget = QWidget()
+        layout = QVBoxLayout(widget)
+        self.setCentralWidget(widget)
+
+        self.top_layout = TopLayout()
+        self.bottom_layout = BottomLayout()
+        layout.addLayout(self.top_layout)
+        layout.addLayout(self.bottom_layout)

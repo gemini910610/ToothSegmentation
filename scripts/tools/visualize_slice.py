@@ -1,60 +1,60 @@
 import cv2
 
 from PySide6.QtGui import Qt, QShortcut
-from PySide6.QtWidgets import QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QComboBox, QButtonGroup, QRadioButton, QCheckBox
-from .widgets import VolumeViewer, Mode, VolumeColorizer, ImageTable, IconLabelSelector, VolumeLoader, PatientSelector
+from PySide6.QtWidgets import QHBoxLayout, QComboBox, QButtonGroup, QRadioButton, QCheckBox
+from .widgets import VolumeViewer, Mode, VolumeColorizer, ImageTable, IconLabelSelector, VolumeLoader, PatientSelector, MainWindowUI
 from scripts.post_processing.tooth_slice import get_slices, crop_single_tooth, normalize_slice
 from scripts.post_processing.find_points import ensure_upward, CEJFinder, find_bone_point
 
-class MainWindowUI(QMainWindow):
+class TopLayout(QHBoxLayout):
     def __init__(self):
         super().__init__()
-
-        self.move(0, 0)
-
-        widget = QWidget()
-        layout = QVBoxLayout(widget)
-        self.setCentralWidget(widget)
-
-        top_layout = QHBoxLayout()
         self.patient_selector = PatientSelector(sizeAdjustPolicy=QComboBox.SizeAdjustPolicy.AdjustToContents)
         self.label_selector = IconLabelSelector(sizeAdjustPolicy=QComboBox.SizeAdjustPolicy.AdjustToContents)
         for widget in [self.patient_selector, self.label_selector]:
-            top_layout.addWidget(widget)
-        top_layout.addStretch()
+            self.addWidget(widget)
+        self.addStretch()
+
         self.point_toggle = QCheckBox('Display Points')
-        top_layout.addWidget(self.point_toggle)
+        self.addWidget(self.point_toggle)
         self.slice_selector = QButtonGroup()
         group_layout = QHBoxLayout()
         for index, title in enumerate(['Segmentation', 'Image', 'Tooth']):
             radio = QRadioButton(title)
             self.slice_selector.addButton(radio, index)
             group_layout.addWidget(radio)
-        self.slice_selector.buttons()[0].setChecked(True)
-        top_layout.addLayout(group_layout)
-        layout.addLayout(top_layout)
+        self.addLayout(group_layout)
+    def get_widgets(self):
+        return self.patient_selector, self.label_selector, self.point_toggle, self.slice_selector
 
-        bottom_layout = QHBoxLayout()
+class BottomLayout(QHBoxLayout):
+    def __init__(self):
+        super().__init__()
         self.volume_viewer = VolumeViewer(1)
         self.image_table = ImageTable()
         for widget in [self.volume_viewer, self.image_table]:
-            bottom_layout.addWidget(widget)
-        layout.addLayout(bottom_layout)
+            self.addWidget(widget)
+    def get_widgets(self):
+        return self.volume_viewer, self.image_table
 
 class MainWindow(MainWindowUI):
     def __init__(self, data_manager):
-        super().__init__()
+        super().__init__(TopLayout, BottomLayout)
         self.loader = VolumeLoader(data_manager, self._handle_volumes, colorize=False, keep_origin=True)
 
         self.setWindowTitle(data_manager.experiment_name)
 
+        self.patient_selector, self.label_selector, self.point_toggle, self.slice_selector = self.top_layout.get_widgets()
+        self.volume_viewer, self.image_table = self.bottom_layout.get_widgets()
+
         self.patient_selector.setup(data_manager.patients, self.loader.load_patient)
+        self.slice_selector.buttons()[0].setChecked(True)
+
+        self.loader.setup(self.patient_selector, self.label_selector, self.point_toggle, *self.slice_selector.buttons())
 
         self.label_selector.currentIndexChanged.connect(self._on_label_changed)
         self.point_toggle.stateChanged.connect(lambda: self._on_slice_changed(self.slice_selector.checkedId()))
         self.slice_selector.idClicked.connect(self._on_slice_changed)
-
-        self.loader.setup(self.patient_selector, self.label_selector, self.point_toggle, *self.slice_selector.buttons())
 
         shortcut_left = QShortcut(Qt.Key.Key_Left, self)
         shortcut_left.activated.connect(lambda: self._on_label_step(-1))
