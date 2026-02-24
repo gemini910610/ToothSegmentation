@@ -1,7 +1,8 @@
 import numpy
 
 from PySide6.QtWidgets import QHBoxLayout, QComboBox
-from .widgets import VolumeViewer, Mode, VolumeColorizer, IconLabelSelector, VolumeLoader, PatientSelector, MainWindowUI
+from .widgets import VolumeViewer, Mode, VolumeColorizer, IconLabelSelector, VolumeLoader, PatientSelector, MainWindowUI, Color
+from scipy import ndimage
 
 class TopLayout(QHBoxLayout):
     def __init__(self):
@@ -34,7 +35,7 @@ class MainWindow(MainWindowUI):
 
         self.patient_selector.setup(data_manager.patients, self.loader.load_patient)
 
-        self.volume_viewer.set_titles(Mode.get_title(Mode.POST_PROCESSING), 'Instance')
+        self.volume_viewer.set_titles(Mode.get_title(Mode.CLEANED), 'Instance')
 
         self.loader.setup(self.patient_selector, self.label_selector)
 
@@ -43,14 +44,20 @@ class MainWindow(MainWindowUI):
         self.volume = None
 
     def _handle_volumes(self, volumes):
-        self.volume = volumes['origin'][Mode.POST_PROCESSING]
-        volume, tooth_count = volumes[Mode.POST_PROCESSING]
+        self.volume = volumes['origin'][Mode.CLEANED]
+        volume, tooth_count = volumes[Mode.CLEANED]
+        bone_volume = volumes['origin'][Mode.CONNECTED_COMPONENT]
+
+        erosion = ndimage.binary_erosion(bone_volume > 0)
+        bone_surface = (bone_volume > 0) & (~erosion)
+        volume[bone_surface] = Color.BONE
+
         self.volume_viewer.views[0].view.update_volume(volume)
 
         labels = numpy.unique(self.volume)
-        labels = labels[labels > 1]
+        labels = labels[labels > 0]
 
-        self.label_selector.update_items(labels, tooth_count, -2)
+        self.label_selector.update_items(labels, tooth_count, -1)
         self._on_label_changed(0, reset=True)
 
     def _on_label_changed(self, index, reset=False):
@@ -60,7 +67,7 @@ class MainWindow(MainWindowUI):
         label = self.label_selector.current_label()
 
         volume = self.volume == label
-        volume = volume * (label - 1)
+        volume = volume * label
         volume = volume.astype(numpy.int32, copy=False)
         volume, _ = VolumeColorizer.color_components(volume)
         self.volume_viewer.views[1].view.update_volume(volume, reset)
@@ -84,7 +91,7 @@ if __name__ == '__main__':
 
     app = QApplication([])
 
-    data_manager = DataManager(experiment_name, patient_fold_map, [Mode.POST_PROCESSING], [1])
+    data_manager = DataManager(experiment_name, patient_fold_map, [Mode.CLEANED, Mode.CONNECTED_COMPONENT], [2])
     window = MainWindow(data_manager)
 
     window.show()

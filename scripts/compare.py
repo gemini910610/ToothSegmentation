@@ -72,7 +72,7 @@ def predict_patient(model, dataset, patient, output_dir, config, no_image=False)
     mask_volume = mask_volume.numpy()
     mask_volume = mask_volume.transpose(2, 1, 0) # (W, H, Z)
     mask_volume = mask_volume.astype(numpy.uint8)
-    numpy.save(os.path.join(output_dir, 'volume.npy'), mask_volume)
+    numpy.save(os.path.join(output_dir, 'predict.npy'), mask_volume)
 
     ground_truth = torch.cat(ground_truth) # (B, H, W)
     ground_truth = ground_truth.numpy()

@@ -67,7 +67,6 @@ class DataManager:
         self.patient_mapping = {
             patient: fold
             for patient, fold in sorted(patient_mapping.items(), key=lambda x: (x[0].split('/')[0], int(x[0].split('_')[-1])))
-            if Mode.REFINE not in modes or os.path.exists(os.path.join(base_output_dir, experiment_name, f'Fold_{fold}', patient, 'refine_volume.npy'))
         }
         self.patients = list(self.patient_mapping.keys())
         self.modes = modes
@@ -87,22 +86,22 @@ class DataManager:
                 case Mode.IMAGE:
                     volume_path = os.path.join(base_dir, 'image.npy')
                 case Mode.PREDICT:
-                    volume_path = os.path.join(base_dir, 'volume.npy')
+                    volume_path = os.path.join(base_dir, 'predict.npy')
                 case Mode.CONNECTED_COMPONENT:
-                    volume_path = os.path.join(base_dir, f'cc_volume_{self.cc_label[index]}.npy')
+                    volume_path = os.path.join(base_dir, f'cc_{self.cc_label[index]}.npy')
                     index += 1
                 case Mode.CLEANED:
-                    volume_path = os.path.join(base_dir, 'cleaned_volume.npy')
+                    volume_path = os.path.join(base_dir, 'cleaned.npy')
                 case Mode.WATERSHED:
-                    volume_path = os.path.join(base_dir, 'watershed_volume.npy')
+                    volume_path = os.path.join(base_dir, 'watershed.npy')
                 case Mode.REFINE:
-                    volume_path = os.path.join(base_dir, 'refine_volume.npy')
+                    volume_path = os.path.join(base_dir, 'refine.npy')
                 case Mode.POST_PROCESSING:
-                    volume_path = os.path.join(base_dir, 'pp_volume.npy')
+                    volume_path = os.path.join(base_dir, 'pp.npy')
                 case Mode.REMOVED:
-                    volume_path = os.path.join(base_dir, 'removed_volume.npy')
+                    volume_path = os.path.join(base_dir, 'removed.npy')
                 case Mode.RELABELED:
-                    volume_path = os.path.join(base_dir, 'relabeled_volume.npy')
+                    volume_path = os.path.join(base_dir, 'relabeled.npy')
             volume = numpy.load(volume_path)
             volumes.append(volume)
 
@@ -219,9 +218,9 @@ class VolumeLoaderThread(QThread):
         match mode:
             case Mode.GROUND_TRUTH | Mode.PREDICT:
                 return VolumeColorizer.color_volume(volume, display_bone=True), None
-            case Mode.CONNECTED_COMPONENT | Mode.CLEANED | Mode.WATERSHED | Mode.REFINE:
+            case Mode.CONNECTED_COMPONENT | Mode.WATERSHED | Mode.CLEANED | Mode.REFINE | Mode.REMOVED | Mode.RELABELED:
                 return VolumeColorizer.color_components(volume)
-            case Mode.POST_PROCESSING | Mode.REMOVED | Mode.RELABELED:
+            case Mode.POST_PROCESSING:
                 return VolumeColorizer.color_components(volume, display_bone=True)
             case _:
                 return None, None

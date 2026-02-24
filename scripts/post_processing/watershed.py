@@ -60,7 +60,6 @@ if __name__ == '__main__':
     from src.config import load_config
     from src.console import track
     from src.dataset import get_fold
-    from .connected_component import filter_connected_component
 
     parser = ArgumentParser()
     parser.add_argument('exp', type=str)
@@ -77,17 +76,9 @@ if __name__ == '__main__':
         _, valid_dataset_patients = get_fold(config.split_file_path, fold)
         for dataset, patients in valid_dataset_patients.items():
             for patient in track(patients, desc=f'Fold {fold} {dataset}'):
-                cc_volume_path = os.path.join('outputs', experiment_name, f'Fold_{fold}', dataset, patient, 'cc_volume_1.npy')
-                if os.path.exists(cc_volume_path):
-                    volume = numpy.load(cc_volume_path)
-                else:
-                    predict_path = os.path.join('outputs', experiment_name, f'Fold_{fold}', dataset, patient, 'volume.npy')
-                    volume = numpy.load(predict_path)
-
-                    volume = volume == 1
-                    volume = filter_connected_component(volume, voxel_threshold)
-
+                cc_path = os.path.join('outputs', experiment_name, f'Fold_{fold}', dataset, patient, 'cc_1.npy')
+                volume = numpy.load(cc_path)
                 volume = split_component(volume)
 
-                watershed_path = os.path.join('outputs', experiment_name, f'Fold_{fold}', dataset, patient, 'watershed_volume.npy')
+                watershed_path = os.path.join('outputs', experiment_name, f'Fold_{fold}', dataset, patient, 'watershed.npy')
                 numpy.save(watershed_path, volume)

@@ -250,7 +250,7 @@ python -m scripts.post_processing <EXPERIMENT_NAME> [--tooth-threshold <TOOTH_TH
 ```
 Optional arguments:
 * `--tooth-threshold <TOOTH_THRESHOLD>`: Component size threshold used for connected component analysis on tooth predictions (default: `7500`).
-* `--bone-threshold <BONE_THRESHOLD>`: Component size threshold used for connected component analysis on bone predictions (default: `3500`).
+* `--bone-threshold <BONE_THRESHOLD>`: Component size threshold used for connected component analysis on bone predictions (default: `7500`).
 
 Outputs:
 ```

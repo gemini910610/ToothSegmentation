@@ -11,7 +11,8 @@ def remove_outlier(volume):
     counts = numpy.bincount(labels)
     sum_z = numpy.bincount(labels, weights=z)
 
-    valid = numpy.arange(1, component_count + 1)
+    valid = numpy.flatnonzero(counts)
+    valid = valid[valid > 0]
     z_centroids = sum_z[valid] / counts[valid]
 
     median = numpy.median(z_centroids)
@@ -46,11 +47,9 @@ if __name__ == '__main__':
         _, valid_dataset_patients = get_fold(config.split_file_path, fold)
         for dataset, patients in valid_dataset_patients.items():
             for patient in track(patients, desc=f'Fold {fold} {dataset}'):
-                volume_path = os.path.join('outputs', experiment_name, f'Fold_{fold}', dataset, patient, 'refine_volume.npy')
-                if not os.path.exists(volume_path):
-                    volume_path = os.path.join('outputs', experiment_name, f'Fold_{fold}', dataset, patient, 'watershed_volume.npy')
+                volume_path = os.path.join('outputs', experiment_name, f'Fold_{fold}', dataset, patient, 'refine.npy')
                 volume = numpy.load(volume_path)
                 volume = remove_outlier(volume)
 
-                cleaned_path = os.path.join('outputs', experiment_name, f'Fold_{fold}', dataset, patient, 'cleaned_volume.npy')
+                cleaned_path = os.path.join('outputs', experiment_name, f'Fold_{fold}', dataset, patient, 'cleaned.npy')
                 numpy.save(cleaned_path, volume)
