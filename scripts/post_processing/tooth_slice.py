@@ -162,6 +162,7 @@ if __name__ == '__main__':
     from src.dataset import get_fold
     from src.console import track
     from PIL import Image
+    from scripts.tools.widgets import Mode
 
     parser = ArgumentParser()
     parser.add_argument('exp', type=str)
@@ -176,9 +177,9 @@ if __name__ == '__main__':
         _, valid_dataset_patients = get_fold(config.split_file_path, fold)
         for dataset, patients in valid_dataset_patients.items():
             for patient in track(patients, desc=f'Fold {fold} {dataset}'):
-                segmentation_volume_path = os.path.join('outputs', experiment_name, f'Fold_{fold}', dataset, patient, 'relabeled_volume.npy')
+                segmentation_volume_path = os.path.join('outputs', experiment_name, f'Fold_{fold}', dataset, patient, f'{Mode.RELABELED}.npy')
                 segmentation_volume = numpy.load(segmentation_volume_path)
-                image_volume_path = os.path.join('outputs', experiment_name, f'Fold_{fold}', dataset, patient, 'image.npy')
+                image_volume_path = os.path.join('outputs', experiment_name, f'Fold_{fold}', dataset, patient, f'{Mode.IMAGE}.npy')
                 image_volume = numpy.load(image_volume_path)
                 for label in range(2, segmentation_volume.max() + 1):
                     output_dir = os.path.join('output_slices', experiment_name, f'Fold_{fold}', dataset, patient, 'tooth_slice', str(label - 1))

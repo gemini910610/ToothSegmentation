@@ -24,7 +24,8 @@ class Mode:
     GROUND_TRUTH = 'gt'
     IMAGE = 'image'
     PREDICT = 'predict'
-    CONNECTED_COMPONENT = 'cc'
+    BONE_CONNECTED_COMPONENT = 'bone_cc'
+    TOOTH_CONNECTED_COMPONENT = 'tooth_cc'
     CLEANED = 'cleaned'
     WATERSHED = 'watershed'
     REFINE = 'refine'
@@ -37,7 +38,8 @@ class Mode:
         return [
             Mode.GROUND_TRUTH,
             Mode.PREDICT,
-            Mode.CONNECTED_COMPONENT,
+            Mode.BONE_CONNECTED_COMPONENT,
+            Mode.TOOTH_CONNECTED_COMPONENT,
             Mode.CLEANED,
             Mode.WATERSHED,
             Mode.REFINE,
@@ -52,7 +54,8 @@ class Mode:
             Mode.GROUND_TRUTH: 'Ground Truth',
             Mode.IMAGE: 'Image',
             Mode.PREDICT: 'Predict',
-            Mode.CONNECTED_COMPONENT: 'Connected Component',
+            Mode.BONE_CONNECTED_COMPONENT: 'Connected Component (Bone)',
+            Mode.TOOTH_CONNECTED_COMPONENT: 'Connected Component (Tooth)',
             Mode.CLEANED: 'Cleaned',
             Mode.WATERSHED: 'Watershed',
             Mode.REFINE: 'Refine',
@@ -62,7 +65,7 @@ class Mode:
         }[mode]
 
 class DataManager:
-    def __init__(self, experiment_name, patient_mapping, modes, cc_label, base_output_dir='outputs'):
+    def __init__(self, experiment_name, patient_mapping, modes, base_output_dir='outputs'):
         self.experiment_name = experiment_name
         self.patient_mapping = {
             patient: fold
@@ -70,41 +73,16 @@ class DataManager:
         }
         self.patients = list(self.patient_mapping.keys())
         self.modes = modes
-        self.cc_label = cc_label
         self.base_output_dir = base_output_dir
 
     def load_data(self, patient):
         fold = self.patient_mapping[patient]
         base_dir = os.path.join(self.base_output_dir, self.experiment_name, f'Fold_{fold}', patient)
 
-        volumes = []
-        index = 0
-        for mode in self.modes:
-            match mode:
-                case Mode.GROUND_TRUTH:
-                    volume_path = os.path.join(base_dir, 'ground_truth.npy')
-                case Mode.IMAGE:
-                    volume_path = os.path.join(base_dir, 'image.npy')
-                case Mode.PREDICT:
-                    volume_path = os.path.join(base_dir, 'predict.npy')
-                case Mode.CONNECTED_COMPONENT:
-                    volume_path = os.path.join(base_dir, f'cc_{self.cc_label[index]}.npy')
-                    index += 1
-                case Mode.CLEANED:
-                    volume_path = os.path.join(base_dir, 'cleaned.npy')
-                case Mode.WATERSHED:
-                    volume_path = os.path.join(base_dir, 'watershed.npy')
-                case Mode.REFINE:
-                    volume_path = os.path.join(base_dir, 'refine.npy')
-                case Mode.POST_PROCESSING:
-                    volume_path = os.path.join(base_dir, 'pp.npy')
-                case Mode.REMOVED:
-                    volume_path = os.path.join(base_dir, 'removed.npy')
-                case Mode.RELABELED:
-                    volume_path = os.path.join(base_dir, 'relabeled.npy')
-            volume = numpy.load(volume_path)
-            volumes.append(volume)
-
+        volumes = [
+            numpy.load(os.path.join(base_dir, f'{mode}.npy'))
+            for mode in self.modes
+        ]
         return volumes
 
     def save_data(self, patient, volume, filename):
@@ -218,9 +196,9 @@ class VolumeLoaderThread(QThread):
         match mode:
             case Mode.GROUND_TRUTH | Mode.PREDICT:
                 return VolumeColorizer.color_volume(volume, display_bone=True), None
-            case Mode.CONNECTED_COMPONENT | Mode.WATERSHED | Mode.CLEANED | Mode.REFINE | Mode.REMOVED | Mode.RELABELED:
+            case Mode.TOOTH_CONNECTED_COMPONENT | Mode.WATERSHED | Mode.CLEANED | Mode.REFINE | Mode.REMOVED | Mode.RELABELED:
                 return VolumeColorizer.color_components(volume)
-            case Mode.POST_PROCESSING:
+            case Mode.BONE_CONNECTED_COMPONENT | Mode.POST_PROCESSING:
                 return VolumeColorizer.color_components(volume, display_bone=True)
             case _:
                 return None, None
@@ -431,7 +409,7 @@ class PatientSelector(QComboBox):
         self.currentIndexChanged.connect(current_index_changed)
 
 class MainWindowUI(QMainWindow):
-    def __init__(self, TopLayout, BottomLayout):
+    def __init__(self, TopLayout, BottomLayout, top_kwargs={}, bottom_kwargs={}):
         super().__init__()
         self.move(0, 0)
 
@@ -439,7 +417,7 @@ class MainWindowUI(QMainWindow):
         layout = QVBoxLayout(widget)
         self.setCentralWidget(widget)
 
-        self.top_layout = TopLayout()
-        self.bottom_layout = BottomLayout()
+        self.top_layout = TopLayout(**top_kwargs)
+        self.bottom_layout = BottomLayout(**bottom_kwargs)
         layout.addLayout(self.top_layout)
         layout.addLayout(self.bottom_layout)

@@ -37,7 +37,7 @@ class MainWindow(MainWindowUI):
 
         self.patient_selector.setup(data_manager.patients, self.loader.load_patient)
 
-        self.volume_viewer.set_titles(Mode.get_title(Mode.CONNECTED_COMPONENT), Mode.get_title(Mode.WATERSHED), 'Instance')
+        self.volume_viewer.set_titles(Mode.get_title(Mode.TOOTH_CONNECTED_COMPONENT), Mode.get_title(Mode.WATERSHED), 'Instance')
 
         self.loader.setup(self.patient_selector, self.label_selector, self.cluster_input, self.execute_button)
 
@@ -47,9 +47,9 @@ class MainWindow(MainWindowUI):
         self.volume = None
 
     def _handle_volumes(self, volumes):
-        left_volume, tooth_count = volumes[Mode.CONNECTED_COMPONENT]
+        left_volume, tooth_count = volumes[Mode.TOOTH_CONNECTED_COMPONENT]
         right_volume, _ = volumes[Mode.WATERSHED]
-        self.volume = volumes['origin'][Mode.CONNECTED_COMPONENT]
+        self.volume = volumes['origin'][Mode.TOOTH_CONNECTED_COMPONENT]
 
         self.volume_viewer.views[0].view.update_volume(left_volume)
         self.volume_viewer.views[1].view.update_volume(right_volume)
@@ -103,7 +103,7 @@ if __name__ == '__main__':
 
     app = QApplication([])
 
-    data_manager = DataManager(experiment_name, patient_fold_map, [Mode.CONNECTED_COMPONENT, Mode.WATERSHED], [1])
+    data_manager = DataManager(experiment_name, patient_fold_map, [Mode.TOOTH_CONNECTED_COMPONENT, Mode.WATERSHED])
     window = MainWindow(data_manager)
 
     window.show()

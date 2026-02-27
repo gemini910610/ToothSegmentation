@@ -14,13 +14,6 @@ def refine_component(source_volume, destination_volume, tasks):
         position = volume > 0
         new_volume[position] = volume[position] + max_label
 
-    # labels = numpy.unique(new_volume)
-    # labels = labels[labels != 0]
-    # lookup_table = numpy.zeros(labels.max() + 1, dtype=numpy.int32)
-    # lookup_table[labels] = numpy.arange(1, len(labels) + 1, dtype=numpy.int32)
-
-    # new_volume = lookup_table[new_volume]
-
     return new_volume
 
 if __name__ == '__main__':
@@ -31,6 +24,7 @@ if __name__ == '__main__':
     from src.config import load_config
     from src.dataset import get_fold
     from src.console import track
+    from scripts.tools.widgets import Mode
 
     parser = ArgumentParser()
     parser.add_argument('exp', type=str)
@@ -48,11 +42,11 @@ if __name__ == '__main__':
         _, valid_dataset_patients = get_fold(config.split_file_path, fold)
         for dataset, patients in valid_dataset_patients.items():
             for patient in track(patients, desc=f'Fold {fold} {dataset}'):
-                cc_path = os.path.join('outputs', experiment_name, f'Fold_{fold}', dataset, patient, 'cc_1.npy')
+                cc_path = os.path.join('outputs', experiment_name, f'Fold_{fold}', dataset, patient, f'{Mode.TOOTH_CONNECTED_COMPONENT}.npy')
                 cc_volume = numpy.load(cc_path)
-                watershed_path = os.path.join('outputs', experiment_name, f'Fold_{fold}', dataset, patient, 'watershed.npy')
+                watershed_path = os.path.join('outputs', experiment_name, f'Fold_{fold}', dataset, patient, f'{Mode.WATERSHED}.npy')
                 watershed_volume = numpy.load(watershed_path)
                 volume = watershed_volume if f'{dataset}/{patient}' not in tasks else refine_component(cc_volume, watershed_volume, tasks[f'{dataset}/{patient}'])
 
-                refine_path = os.path.join('outputs', experiment_name, f'Fold_{fold}', dataset, patient, 'refine.npy')
+                refine_path = os.path.join('outputs', experiment_name, f'Fold_{fold}', dataset, patient, f'{Mode.REFINE}.npy')
                 numpy.save(refine_path, volume)

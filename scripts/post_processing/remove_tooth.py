@@ -15,6 +15,7 @@ if __name__ == '__main__':
     from src.config import load_config
     from src.console import track
     from src.dataset import get_fold
+    from scripts.tools.widgets import Mode
 
     parser = ArgumentParser()
     parser.add_argument('exp', type=str)
@@ -32,11 +33,11 @@ if __name__ == '__main__':
         _, valid_dataset_patients = get_fold(config.split_file_path, fold)
         for dataset, patients in valid_dataset_patients.items():
             for patient in track(patients, desc=f'Fold {fold} {dataset}'):
-                volume_path = os.path.join('outputs', experiment_name, f'Fold_{fold}', dataset, patient, 'cleaned.npy')
+                volume_path = os.path.join('outputs', experiment_name, f'Fold_{fold}', dataset, patient, f'{Mode.CLEANED}.npy')
                 volume = numpy.load(volume_path)
                 data = f'{dataset}/{patient}'
                 if data in labels:
                     volume = remove_tooth(volume, labels[f'{dataset}/{patient}'])
 
-                removed_path = os.path.join('outputs', experiment_name, f'Fold_{fold}', dataset, patient, 'removed.npy')
+                removed_path = os.path.join('outputs', experiment_name, f'Fold_{fold}', dataset, patient, f'{Mode.REMOVED}.npy')
                 numpy.save(removed_path, volume)

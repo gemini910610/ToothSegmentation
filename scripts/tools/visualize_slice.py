@@ -171,7 +171,7 @@ if __name__ == '__main__':
 
     app = QApplication([])
 
-    data_manager = DataManager(experiment_name, patient_fold_map, [Mode.POST_PROCESSING, Mode.IMAGE], [])
+    data_manager = DataManager(experiment_name, patient_fold_map, [Mode.POST_PROCESSING, Mode.IMAGE])
     window = MainWindow(data_manager)
 
     window.show()

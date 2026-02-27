@@ -46,7 +46,7 @@ class MainWindow(MainWindowUI):
     def _handle_volumes(self, volumes):
         self.volume = volumes['origin'][Mode.CLEANED]
         volume, tooth_count = volumes[Mode.CLEANED]
-        bone_volume = volumes['origin'][Mode.CONNECTED_COMPONENT]
+        bone_volume = volumes['origin'][Mode.BONE_CONNECTED_COMPONENT]
 
         erosion = ndimage.binary_erosion(bone_volume > 0)
         bone_surface = (bone_volume > 0) & (~erosion)
@@ -91,7 +91,7 @@ if __name__ == '__main__':
 
     app = QApplication([])
 
-    data_manager = DataManager(experiment_name, patient_fold_map, [Mode.CLEANED, Mode.CONNECTED_COMPONENT], [2])
+    data_manager = DataManager(experiment_name, patient_fold_map, [Mode.CLEANED, Mode.BONE_CONNECTED_COMPONENT])
     window = MainWindow(data_manager)
 
     window.show()

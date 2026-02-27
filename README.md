@@ -212,7 +212,7 @@ Example Console Output:
 
 This step exports slice-wise comparison images and 3D volumes for further post-processing and visualization.
 ```
-python -m scripts.compare <EXPERIMENT_NAME> [--no-image]
+python -m scripts.compare <EXPERIMENT_NAME> [--out-image]
 ```
 Outputs:
 ```
@@ -227,8 +227,8 @@ Outputs:
 │   │   │   │   ├── 📄 91.png
 │   │   │   │   └── 📄 ...
 │   │   │   ├── 📄 image.npy
-│   │   │   ├── 📄 ground_truth.npy
-│   │   │   └── 📄 volume.npy
+│   │   │   ├── 📄 gt.npy
+│   │   │   └── 📄 predict.npy
 │   │   └── 📂 ...
 │   └── 📂 <DATASET_NAME_2>
 ├── 📂 Fold_2
@@ -258,7 +258,7 @@ Outputs:
 ├── 📂 Fold_1
 │   ├── 📂 <DATASET_NAME_1>
 │   │   ├── 📂 data_1
-│   │   │   └── 📄 pp_volume.npy
+│   │   │   └── 📄 pp.npy
 │   │   └── 📂 ...
 │   └── 📂 <DATASET_NAME_2>
 ├── 📂 Fold_2
@@ -281,7 +281,8 @@ Outputs:
 ├── 📂 Fold_1
 │   ├── 📂 <DATASET_NAME_1>
 │   │   ├── 📂 data_1
-│   │   │   └── 📄 cc_volume_<LABEL>.npy
+│   │   │   ├── 📄 bone_cc.npy
+│   │   │   └── 📄 tooth_cc.npy
 │   │   └── 📂 ...
 │   └── 📂 <DATASET_NAME_2>
 ├── 📂 Fold_2
@@ -303,7 +304,7 @@ Outputs:
 ├── 📂 Fold_1
 │   ├── 📂 <DATASET_NAME_1>
 │   │   ├── 📂 data_1
-│   │   │   └── 📄 watershed_volume.npy
+│   │   │   └── 📄 watershed.npy
 │   │   └── 📂 ...
 │   └── 📂 <DATASET_NAME_2>
 ├── 📂 Fold_2
@@ -315,14 +316,8 @@ Outputs:
 
 You can visualize ground truth, prediction, and connected component results side by side:
 ```
-python -m scripts.tools.visualize <EXPERIMENT_NAME> [--left {gt,predict,cc,watershed,pp}] [--right {gt,predict,cc,watershed,pp}] [--cc-label <LABEL_1> [<LABEL_2>]]
+python -m scripts.tools.visualize <EXPERIMENT_NAME> <MODES>
 ```
-Optional arguments:
-* `--left {gt,predict,cc,watershed,pp}`: Display mode for the left view (default: `predict`).
-* `--right {gt,predict,cc,watershed,pp}`: Display mode for the right view (default: `gt`).
-* `--cc-label <LABEL_1> [<LABEL_2>]`: Connected component labels used for visualization.
-    * If only one view is set to `cc`, the first label is used.
-    * If both views are set to `cc`, the first and second labels are applied to the left and right views, respectively.
 
 ## 🔐 Remote Server Connection
 

@@ -43,6 +43,7 @@ if __name__ == '__main__':
     from src.config import load_config
     from src.console import track
     from src.dataset import get_fold
+    from scripts.tools.widgets import Mode, Label
 
     parser = ArgumentParser()
     parser.add_argument('exp', type=str)
@@ -63,10 +64,10 @@ if __name__ == '__main__':
         _, valid_dataset_patients = get_fold(config.split_file_path, fold)
         for dataset, patients in valid_dataset_patients.items():
             for patient in track(patients, desc=f'Fold {fold} {dataset}'):
-                predict_path = os.path.join('outputs', experiment_name, f'Fold_{fold}', dataset, patient, 'predict.npy')
+                predict_path = os.path.join('outputs', experiment_name, f'Fold_{fold}', dataset, patient, f'{Mode.PREDICT}.npy')
                 volume = numpy.load(predict_path)
                 volume = volume == target
-                volume = filter_connected_component(volume, voxel_threshold, keep=keep)
+                volume = filter_connected_component(volume, voxel_threshold, binary=target == Label.BONE, keep=keep)
 
-                cc_path = os.path.join('outputs', experiment_name, f'Fold_{fold}', dataset, patient, f'cc_{target}.npy')
+                cc_path = os.path.join('outputs', experiment_name, f'Fold_{fold}', dataset, patient, f'{Mode.TOOTH_CONNECTED_COMPONENT if target == Label.TOOTH else Mode.BONE_CONNECTED_COMPONENT}.npy')
                 numpy.save(cc_path, volume)

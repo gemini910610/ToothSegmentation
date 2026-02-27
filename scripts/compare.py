@@ -8,6 +8,7 @@ from PIL.ImageDraw import Draw
 from src.dataset import CBCTDataset
 from src.console import track
 from torch.utils.data import DataLoader
+from scripts.tools.widgets import Mode
 
 def save_image(image, output_dir, filename):
     to_image = ToPILImage()
@@ -28,7 +29,7 @@ def save_compare(image, predict, mask, output_dir, filename):
     
     image.save(os.path.join(output_dir, filename))
 
-def predict_patient(model, dataset, patient, output_dir, config, no_image=False):
+def predict_patient(model, dataset, patient, output_dir, config, out_image=False):
     os.makedirs(output_dir, exist_ok=True)
 
     dataset_dir = os.path.join('datasets', dataset)
@@ -51,7 +52,7 @@ def predict_patient(model, dataset, patient, output_dir, config, no_image=False)
         mask_volume.append(predicts)
         ground_truth.append(masks)
 
-        if not no_image:
+        if out_image:
             images = images.squeeze(1).cpu()
 
             for filename, image, predict, mask in zip(filenames, images, predicts, masks):
@@ -66,19 +67,19 @@ def predict_patient(model, dataset, patient, output_dir, config, no_image=False)
     image_volume = image_volume.transpose(2, 1, 0) # (W, H, Z)
     image_volume = image_volume * 255
     image_volume = image_volume.astype(numpy.uint8)
-    numpy.save(os.path.join(output_dir, 'image.npy'), image_volume)
+    numpy.save(os.path.join(output_dir, f'{Mode.IMAGE}.npy'), image_volume)
 
     mask_volume = torch.cat(mask_volume) # (B, H, W)
     mask_volume = mask_volume.numpy()
     mask_volume = mask_volume.transpose(2, 1, 0) # (W, H, Z)
     mask_volume = mask_volume.astype(numpy.uint8)
-    numpy.save(os.path.join(output_dir, 'predict.npy'), mask_volume)
+    numpy.save(os.path.join(output_dir, f'{Mode.PREDICT}.npy'), mask_volume)
 
     ground_truth = torch.cat(ground_truth) # (B, H, W)
     ground_truth = ground_truth.numpy()
     ground_truth = ground_truth.transpose(2, 1, 0) # (W, H, Z)
     ground_truth = ground_truth.astype(numpy.uint8)
-    numpy.save(os.path.join(output_dir, 'ground_truth.npy'), ground_truth)
+    numpy.save(os.path.join(output_dir, f'{Mode.GROUND_TRUTH}.npy'), ground_truth)
 
 if __name__ == '__main__':
     from argparse import ArgumentParser
@@ -89,11 +90,11 @@ if __name__ == '__main__':
 
     parser = ArgumentParser()
     parser.add_argument('exp', type=str)
-    parser.add_argument('--no-image', action='store_true')
+    parser.add_argument('--out-image', action='store_true')
     args = parser.parse_args()
 
     experiment_name = args.exp
-    no_image = args.no_image
+    out_image = args.out_image
     ensure_experiment_exists(experiment_name)
 
     config = load_config(os.path.join('logs', experiment_name, 'config.toml'))
@@ -108,8 +109,8 @@ if __name__ == '__main__':
         for dataset, patients in val_dataset_patients.items():
             for patient in patients:
                 output_dir = os.path.join('outputs', experiment_name, f'Fold_{fold}', dataset, patient)
-                if not no_image:
+                if out_image:
                     os.makedirs(os.path.join(output_dir, 'predict'), exist_ok=True)
                     os.makedirs(os.path.join(output_dir, 'compare'), exist_ok=True)
 
-                predict_patient(model, dataset, patient, output_dir, config, no_image)
+                predict_patient(model, dataset, patient, output_dir, config, out_image)
