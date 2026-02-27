@@ -242,7 +242,7 @@ class SyncGLView(GLViewWidget):
         if reset and self.item is not None:
             self.removeItem(self.item)
 
-        if reset:
+        if reset or self.item is None:
             self.item = GLVolumeItem(volume, smooth=True)
             self.item.translate(-width / 2, -height / 2, -depth / 2)
             self.item.rotate(90, 0, 0, 1)

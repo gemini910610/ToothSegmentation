@@ -3,7 +3,8 @@ import numpy
 from sklearn.cluster import KMeans
 from scipy import ndimage
 from scripts.tools.widgets import Label
-from skimage.morphology import h_minima
+from sklearn.cluster import DBSCAN
+from skimage.morphology import h_maxima
 
 class CEJFinder:
     def __init__(self, tooth_volume):
@@ -41,6 +42,18 @@ class CEJFinder:
         return left_bottom, right_bottom
 
 def find_bone_point(segmentation_slice):
+    segmentation_slice = segmentation_slice.copy()
+
+    tooth_mask = segmentation_slice == Label.TOOTH
+    filled = ndimage.binary_fill_holes(tooth_mask)
+    holes = filled & ~tooth_mask
+    segmentation_slice[holes] = Label.TOOTH
+
+    bone_tooth_mask = segmentation_slice != Label.BACKGROUND
+    filled = ndimage.binary_fill_holes(bone_tooth_mask)
+    holes = filled & ~bone_tooth_mask
+    segmentation_slice[holes] = Label.BONE
+
     tooth_mask = segmentation_slice == Label.TOOTH
     bone_mask = segmentation_slice == Label.BONE
     background_mask = segmentation_slice == Label.BACKGROUND
@@ -55,6 +68,9 @@ def find_bone_point(segmentation_slice):
     centroids = ndimage.center_of_mass(bone_points, labels, range(1, count + 1))
     centroids = numpy.array(centroids)
 
+    if len(centroids) == 0:
+        return [0, 0], [0, 0]
+
     xs = centroids[:, 1]
 
     mean = (min(xs) + max(xs)) / 2
@@ -63,6 +79,9 @@ def find_bone_point(segmentation_slice):
 
     left_centroids = centroids[left_mask]
     right_centroids = centroids[right_mask]
+
+    if len(left_centroids) == 0 or len(right_centroids) == 0:
+        return [0, 0], [0, 0]
 
     left_index = numpy.argmin(left_centroids[:, 0])
     right_index = numpy.argmin(right_centroids[:, 0])
@@ -74,10 +93,16 @@ def find_bone_point(segmentation_slice):
 
 def ensure_upward(segmentation_volume, image_volume, tooth_volume, center):
     tooth_mask = segmentation_volume == Label.TOOTH
-    z = tooth_mask.any((0, 1)).argmax()
-    x, y = numpy.argwhere(tooth_mask[:, :, z])[0]
+    bone_mask = segmentation_volume == Label.BONE
+    bone_dilation = ndimage.binary_dilation(bone_mask)
+    tooth_surface = tooth_mask & bone_dilation
 
-    if z != 0 and segmentation_volume[x, y, z - 1] != Label.BONE:
+    coordinates = numpy.argwhere(tooth_surface)
+    _, _, surface_z = coordinates.mean(0)
+    coordinates = numpy.argwhere(tooth_mask)
+    _, _, center_z = coordinates.mean(0)
+
+    if surface_z > center_z:
         segmentation_volume = segmentation_volume[:,:,::-1]
         image_volume = image_volume[:,:,::-1]
         tooth_volume = tooth_volume[:,:,::-1]
@@ -88,21 +113,30 @@ def ensure_upward(segmentation_volume, image_volume, tooth_volume, center):
 
 def find_root(segmentation_volume):
     tooth_volume = segmentation_volume == Label.TOOTH
+    tooth_volume = ndimage.binary_fill_holes(tooth_volume)
 
-    any_xy = tooth_volume.any(2) # z
-    z_min_index = numpy.argmax(tooth_volume, 2).astype(numpy.int32)
-    z_min_index[~any_xy] = segmentation_volume.shape[2]
+    tooth_erosion = ndimage.binary_erosion(tooth_volume)
+    tooth_surface = tooth_volume & ~tooth_erosion
 
-    z_min = ndimage.gaussian_filter(z_min_index, sigma=1)
-    min_mask = h_minima(z_min, h=3) & any_xy
+    coordinates = numpy.argwhere(tooth_surface)
+    top_z = coordinates[coordinates[:,2].argmax()][2]
+    bottom_z = coordinates[coordinates[:,2].argmin()][2]
+    surface_distances = coordinates[:,2]
+    distances = numpy.zeros(segmentation_volume.shape, dtype=numpy.float32)
+    distances[*coordinates.T] = surface_distances
 
-    labels, count = ndimage.label(min_mask)
-    min_points = []
-    for label in range(1, count + 1):
-        xs, ys = numpy.where(labels == label)
-        index = numpy.argmin(z_min_index[xs, ys])
-        x, y = int(xs[index]), int(ys[index])
-        z = int(z_min_index[x, y])
-        min_points.append([x, y, z])
+    h = (top_z - coordinates[coordinates[:,2].argmin()][2]) * 0.02
+    mask = h_maxima(-distances, h=h)
+    coordinates = numpy.argwhere(mask)
+    coordinates = coordinates[coordinates[:, 2] < (top_z + bottom_z) / 2]
 
-    return min_points
+    roots = []
+    clustering = DBSCAN(eps=3, min_samples=1).fit(coordinates)
+    labels = clustering.labels_
+    for label in numpy.unique(labels):
+        if label == -1:
+            continue
+        root = coordinates[labels == label].mean(0).round().astype(numpy.int32)
+        roots.append(root)
+
+    return roots

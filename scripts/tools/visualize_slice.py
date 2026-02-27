@@ -4,7 +4,7 @@ from PySide6.QtGui import Qt, QShortcut
 from PySide6.QtWidgets import QHBoxLayout, QComboBox, QButtonGroup, QRadioButton, QCheckBox
 from .widgets import VolumeViewer, Mode, VolumeColorizer, ImageTable, IconLabelSelector, VolumeLoader, PatientSelector, MainWindowUI
 from scripts.post_processing.tooth_slice import get_slices, crop_single_tooth, normalize_slice
-from scripts.post_processing.find_points import ensure_upward, CEJFinder, find_bone_point
+from scripts.post_processing.find_points import ensure_upward, CEJFinder, find_bone_point, find_root
 
 class TopLayout(QHBoxLayout):
     def __init__(self):
@@ -15,8 +15,10 @@ class TopLayout(QHBoxLayout):
             self.addWidget(widget)
         self.addStretch()
 
+        self.bone_toggle = QCheckBox('Display Bone')
         self.point_toggle = QCheckBox('Display Points')
-        self.addWidget(self.point_toggle)
+        for widget in [self.bone_toggle, self.point_toggle]:
+            self.addWidget(widget)
         self.slice_selector = QButtonGroup()
         group_layout = QHBoxLayout()
         for index, title in enumerate(['Segmentation', 'Image', 'Tooth']):
@@ -25,7 +27,7 @@ class TopLayout(QHBoxLayout):
             group_layout.addWidget(radio)
         self.addLayout(group_layout)
     def get_widgets(self):
-        return self.patient_selector, self.label_selector, self.point_toggle, self.slice_selector
+        return self.patient_selector, self.label_selector, self.bone_toggle, self.point_toggle, self.slice_selector
 
 class BottomLayout(QHBoxLayout):
     def __init__(self):
@@ -44,16 +46,19 @@ class MainWindow(MainWindowUI):
 
         self.setWindowTitle(data_manager.experiment_name)
 
-        self.patient_selector, self.label_selector, self.point_toggle, self.slice_selector = self.top_layout.get_widgets()
+        self.patient_selector, self.label_selector, self.bone_toggle, self.point_toggle, self.slice_selector = self.top_layout.get_widgets()
         self.volume_viewer, self.image_table = self.bottom_layout.get_widgets()
 
         self.patient_selector.setup(data_manager.patients, self.loader.load_patient)
+        self.bone_toggle.setChecked(True)
+        self.point_toggle.setChecked(True)
         self.slice_selector.buttons()[0].setChecked(True)
 
-        self.loader.setup(self.patient_selector, self.label_selector, self.point_toggle, *self.slice_selector.buttons())
+        self.loader.setup(self.patient_selector, self.label_selector, self.bone_toggle, self.point_toggle, *self.slice_selector.buttons())
 
         self.label_selector.currentIndexChanged.connect(self._on_label_changed)
-        self.point_toggle.stateChanged.connect(lambda: self._on_slice_changed(self.slice_selector.checkedId()))
+        self.bone_toggle.stateChanged.connect(self._on_bone_state_changed)
+        self.point_toggle.stateChanged.connect(self._on_point_state_changed)
         self.slice_selector.idClicked.connect(self._on_slice_changed)
 
         shortcut_left = QShortcut(Qt.Key.Key_Left, self)
@@ -62,17 +67,18 @@ class MainWindow(MainWindowUI):
         shortcut_right.activated.connect(lambda: self._on_label_step(1))
 
         self.volumes = None
+        self.segmentation_volume = None
+        self.roots = None
         self.slices = None
         self.cej_finder = None
 
     def _handle_volumes(self, volumes):
-        self.volumes = [volumes['origin'][Mode.RELABELED], volumes['origin'][Mode.IMAGE]]
+        self.volumes = [volumes['origin'][Mode.POST_PROCESSING], volumes['origin'][Mode.IMAGE]]
 
         self.slice_selector.blockSignals(True)
         tooth_count = self.volumes[0].max() - 1
 
         self.label_selector.update_items(range(2, tooth_count + 2), tooth_count, -2)
-        self.slice_selector.buttons()[0].setChecked(True)
         self.slice_selector.blockSignals(False)
         self._on_label_changed(0)
 
@@ -83,15 +89,14 @@ class MainWindow(MainWindowUI):
         label = self.label_selector.current_label()
         segmentation_volume, image_volume = self.volumes
         segmentation_volume, image_volume, tooth_volume, center = crop_single_tooth(segmentation_volume, image_volume, tooth_label=label, bone_label=1)
-        segmentation_volume, image_volume, tooth_volume, center = ensure_upward(segmentation_volume, image_volume, tooth_volume, center)
+        self.segmentation_volume, image_volume, tooth_volume, center = ensure_upward(segmentation_volume, image_volume, tooth_volume, center)
 
-        volume = VolumeColorizer.color_volume(segmentation_volume, display_bone=True)
+        self.roots = find_root(self.segmentation_volume)
 
-        self.volume_viewer.set_titles(f'Label {label}')
-        self.volume_viewer.views[0].view.update_volume(volume)
+        self.volume_viewer.set_titles(f'Label {label} ({len(self.roots)} Root)')
 
-        self.slices = list(get_slices(segmentation_volume, image_volume, tooth_volume, center))
-        self._on_slice_changed(self.slice_selector.checkedId())
+        self.slices = list(get_slices(self.segmentation_volume, image_volume, tooth_volume, center))
+        self._on_point_state_changed(self.point_toggle.isChecked(), reset=True)
 
         self.cej_finder = CEJFinder(tooth_volume)
 
@@ -119,12 +124,31 @@ class MainWindow(MainWindowUI):
 
         self.image_table.update_images(slices)
 
+    def _on_bone_state_changed(self):
+        self._on_point_state_changed(self.point_toggle.isChecked())
+
+    def _on_point_state_changed(self, state, reset=False):
+        if self.segmentation_volume is None or self.roots is None:
+            return
+
+        self._on_slice_changed(self.slice_selector.checkedId())
+
+        volume = VolumeColorizer.color_volume(self.segmentation_volume, display_bone=self.bone_toggle.isChecked())
+        if state:
+            palette = VolumeColorizer.glasbey_palette(len(self.roots))
+            for (x, y, z), color in zip(self.roots, palette):
+                volume[x-1:x+2, y-1:y+2, z-1:z+2] = color
+
+        self.volume_viewer.views[0].view.update_volume(volume, reset=reset)
+
     def _on_label_step(self, step):
         if self.volumes is None:
             return
 
         count = self.label_selector.count()
         index = self.label_selector.currentIndex()
+        if index + step < 0 or index + step >= count:
+            print('\a', end='', flush=True)
         index = max(0, min(count - 1, index + step))
         self.label_selector.setCurrentIndex(index)
 
@@ -147,7 +171,7 @@ if __name__ == '__main__':
 
     app = QApplication([])
 
-    data_manager = DataManager(experiment_name, patient_fold_map, [Mode.RELABELED, Mode.IMAGE], [])
+    data_manager = DataManager(experiment_name, patient_fold_map, [Mode.POST_PROCESSING, Mode.IMAGE], [])
     window = MainWindow(data_manager)
 
     window.show()
