@@ -3,9 +3,9 @@ import numpy
 import skimage
 
 from scipy import ndimage
-from PySide6.QtCore import Signal, QThread
+from PySide6.QtCore import Signal, QThread, Qt
 from PySide6.QtGui import QVector3D, QPixmap, QColor, QIcon
-from PySide6.QtWidgets import QMainWindow, QGroupBox, QVBoxLayout, QHBoxLayout, QWidget, QApplication, QGridLayout, QLabel, QComboBox
+from PySide6.QtWidgets import QMainWindow, QGroupBox, QVBoxLayout, QHBoxLayout, QWidget, QApplication, QGridLayout, QLabel, QComboBox, QSlider
 from pyqtgraph.opengl import GLViewWidget, GLVolumeItem
 from PIL import Image
 from PIL.ImageQt import ImageQt
@@ -231,6 +231,9 @@ class SyncGLView(GLViewWidget):
             self.item.setData(volume)
 
     def _reset_camera(self):
+        if self.volume_shape is None:
+            return
+
         width, height, depth = self.volume_shape
         fov = self.opts['fov']
         self.setCameraPosition(
@@ -421,3 +424,30 @@ class MainWindowUI(QMainWindow):
         self.bottom_layout = BottomLayout(**bottom_kwargs)
         layout.addLayout(self.top_layout)
         layout.addLayout(self.bottom_layout)
+
+class Slider(QWidget):
+    valueChanged = Signal(int)
+    def __init__(self):
+        super().__init__()
+        layout = QHBoxLayout()
+        self.setLayout(layout)
+        self.label = QLabel('1')
+        self.label.setFixedWidth(30)
+        self.label.setAlignment(Qt.AlignmentFlag.AlignRight)
+        self.slider = QSlider(Qt.Orientation.Horizontal)
+        self.slider.setMinimum(1)
+        self.slider.setPageStep(1)
+        for widget in [self.label, self.slider]:
+            layout.addWidget(widget)
+        self.slider.valueChanged.connect(lambda value: self.label.setText(str(value)))
+        self.slider.sliderReleased.connect(lambda: self.valueChanged.emit(self.get_value()))
+
+        self.dragging = False
+    def set_value(self, value):
+        self.slider.setValue(value)
+    def get_value(self):
+        return self.slider.value()
+    def set_maximum(self, value):
+        self.slider.setMaximum(value)
+    def get_maximum(self):
+        return self.slider.maximum()
