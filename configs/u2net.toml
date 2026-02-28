@@ -41,4 +41,6 @@ name = "mIoU"
 
 [metric.parameters]
 num_classes = 3
+class_names = ["Tooth", "Bone"]
+monitor = "mIoU"
 predict_index = 0

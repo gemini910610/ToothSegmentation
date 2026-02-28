@@ -20,12 +20,11 @@ class Trainer:
         self.criterion = get_loss(config).to(config.device)
         self.metric_fn = get_metric(config).to(config.device)
         self.main_loss = config.loss.main_loss
-        self.metric_name = config.metric.name
         self.device = config.device
 
         self.grad_scaler = amp.GradScaler(config.device)
         self.summary_writer = SummaryWriter(self.log_dir)
-        self.columns = [*self.criterion.components, self.metric_name]
+        self.columns = [*self.criterion.components, *self.metric_fn.columns]
     def _run_epoch(self, train=True):
         if train:
             self.model.train()
@@ -56,11 +55,17 @@ class Trainer:
                 self.metric_fn.update(predicts, masks)
 
         data_size = len(loader.dataset)
+        metric = self.metric_fn.compute_reset()
         logs = {
-            name: loss / data_size
-            for name, loss in logs.items()
+            **{
+                name: loss / data_size
+                for name, loss in logs.items()
+            },
+            **{
+                name: value
+                for name, value in metric.items()
+            }
         }
-        logs[self.metric_name] = self.metric_fn.compute_reset()
 
         return logs
     def _model_step(self, images, masks):
@@ -86,9 +91,9 @@ class Trainer:
                 ['Val', *[val_data[column] for column in self.columns]]
             ).display()
 
-            val_metric = val_data[self.metric_name]
+            val_metric = val_data[self.metric_fn.monitor]
             if val_metric >= best_metric:
-                print(f'      Update {self.metric_name} {best_metric:.6f} -> {val_metric:.6f}')
+                print(f'      Update {self.metric_fn.monitor} {best_metric:.6f} -> {val_metric:.6f}')
                 best_metric = val_metric
                 torch.save(self.model.state_dict(), os.path.join(self.log_dir, 'best.pth'))
 

@@ -2,9 +2,12 @@ from torch.nn import Module
 from torchmetrics.segmentation import MeanIoU
 
 class mIoU(Module):
-    def __init__(self, num_classes, predict_index=None):
+    def __init__(self, num_classes, monitor='mIoU', class_names=None, predict_index=None):
         super().__init__()
-        self.metric_fn = MeanIoU(num_classes, include_background=False, input_format='index')
+        self.metric_fn = MeanIoU(num_classes, per_class=True, input_format='index')
+        self.monitor = monitor
+        self.class_names = class_names
+        self.columns = [*[f'IoU ({class_name})' for class_name in class_names or []], 'mIoU']
         self.predict_index = predict_index
     def update(self, predicts, targets):
         if self.predict_index is not None:
@@ -14,7 +17,12 @@ class mIoU(Module):
     def compute_reset(self):
         metric = self.metric_fn.compute()
         self.metric_fn.reset()
-        return metric
+        metrics = [] if self.class_names is None else [iou for iou in metric[1:]]
+        metrics.append(metric[1:].mean())
+        return {
+            column: iou
+            for column, iou in zip(self.columns, metrics)
+        }
 
 METRICS = {
     'mIoU': mIoU
@@ -52,5 +60,5 @@ if __name__ == '__main__':
 
     Table(
         ['Metric', 'Value'],
-        ['mIoU', metric]
+        *metric.items()
     ).display()

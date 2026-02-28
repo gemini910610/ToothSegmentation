@@ -1,11 +1,11 @@
 # System and Experiment
-experiment = "UNet_baseline"
+experiment = "TransUNet_baseline"
 seed = 42
 num_workers = 4
 
 # Data Configuration
-datasets = ["bone_tooth_mask"]
-split_filename = "bone_tooth_mask"
+datasets = ["bone_tooth_mask", "bone_tooth_mask_1209"]
+split_filename = "dataset_1209"
 num_folds = 4
 batch_size = 16
 
@@ -14,7 +14,7 @@ num_epochs = 50
 
 # Model Architecture
 [model]
-name = "UNet"
+name = "TransUNet"
 
 [model.parameters]
 in_channels = 1
@@ -42,4 +42,4 @@ name = "mIoU"
 [metric.parameters]
 num_classes = 3
 class_names = ["Tooth", "Bone"]
-monitor = "mIoU"
+monitor = "IoU (Tooth)"

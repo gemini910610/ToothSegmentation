@@ -12,6 +12,9 @@ def get_model(config):
         case 'DeepUNet':
             from .deep_unet import DeepUNet
             return DeepUNet(**config.model.parameters)
+        case 'TransUNet':
+            from .transunet import TransUNet
+            return TransUNet(**config.model.parameters)
 
 def load_model(config):
     model = get_model(config).to(config.device)
