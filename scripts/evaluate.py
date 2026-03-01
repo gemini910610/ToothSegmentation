@@ -31,11 +31,17 @@ def evaluate_fold(config, criterion, metric_fn):
             logs[name] += loss.item() * batch_size
         metric_fn.update(predicts, masks)
 
+    metric = metric_fn.compute_reset()
     logs = {
-        name: loss / data_size
-        for name, loss in logs.items()
+        **{
+            name: loss / data_size
+            for name, loss in logs.items()
+        },
+        **{
+            name: value
+            for name, value in metric.items()
+        }
     }
-    logs[config.metric.name] = metric_fn.compute_reset().item()
 
     return logs
 
@@ -67,7 +73,7 @@ if __name__ == '__main__':
         config.fold = fold
         logs[f'Fold {fold}'] = evaluate_fold(config, criterion, metric_fn)
 
-    titles = [*criterion.components, config.metric.name]
+    titles = [*criterion.components, *metric_fn.columns]
     Table(
         ['', *titles],
         *[
