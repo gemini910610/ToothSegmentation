@@ -2,27 +2,25 @@ import os
 import numpy
 import json
 
-from .connected_component import filter_connected_component
+from .connected_component import filter_connected_component, remove_small
 from .watershed import split_component
 from .refine_component import refine_component
-from .remove_outlier import remove_outlier
+from .remove_outlier import remove_outlier, remove_cropped
 from .remove_tooth import remove_tooth
 from .relabel import relabel_volume
 from src.config import load_config
 from src.dataset import get_fold
 from src.console import track
 from argparse import ArgumentParser
-from scripts.tools.widgets import Mode
+from scripts.tools.widgets import Mode, Label
 
 parser = ArgumentParser()
 parser.add_argument('exp', type=str)
 parser.add_argument('--tooth-threshold', type=int, default=7500)
-parser.add_argument('--bone-threshold', type=int, default=7500)
 args = parser.parse_args()
 
 experiment_name = args.exp
 tooth_threshold = args.tooth_threshold
-bone_threshold = args.bone_threshold
 
 with open(os.path.join('refine', f'{experiment_name}.json')) as file:
     tasks = json.load(file)
@@ -40,15 +38,17 @@ for fold in range(1, config.num_folds + 1):
             predict_path = os.path.join('outputs', experiment_name, f'Fold_{fold}', dataset, patient, f'{Mode.PREDICT}.npy')
             volume = numpy.load(predict_path)
 
-            bone_volume = volume == 2
-            bone_volume = filter_connected_component(bone_volume, bone_threshold, binary=True)
+            bone_volume = volume == Label.BONE
+            bone_volume = filter_connected_component(bone_volume, target=Label.BONE)
 
-            tooth_volume = volume == 1
-            tooth_cc_volume = filter_connected_component(tooth_volume, tooth_threshold)
+            tooth_volume = volume == Label.TOOTH
+            tooth_cc_volume = filter_connected_component(tooth_volume, target=Label.TOOTH, voxel_threshold=tooth_threshold)
             tooth_watershed_volume = split_component(tooth_cc_volume)
+            tooth_watershed_volume = remove_outlier(tooth_watershed_volume)
+            tooth_watershed_volume = remove_cropped(tooth_watershed_volume)
+            tooth_watershed_volume = remove_small(tooth_watershed_volume, tooth_threshold)
             data = f'{dataset}/{patient}'
             tooth_volume = tooth_watershed_volume if data not in tasks else refine_component(tooth_cc_volume, tooth_watershed_volume, tasks[data])
-            tooth_volume = remove_outlier(tooth_volume)
             tooth_volume = tooth_volume if data not in labels else remove_tooth(tooth_volume, labels[data])
             tooth_volume = relabel_volume(tooth_volume)
 

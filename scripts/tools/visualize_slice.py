@@ -4,7 +4,7 @@ from PySide6.QtGui import Qt, QShortcut
 from PySide6.QtWidgets import QHBoxLayout, QComboBox, QButtonGroup, QRadioButton, QCheckBox
 from .widgets import VolumeViewer, Mode, VolumeColorizer, ImageTable, IconLabelSelector, VolumeLoader, PatientSelector, MainWindowUI
 from scripts.post_processing.tooth_slice import get_slices, crop_single_tooth, normalize_slice
-from scripts.post_processing.find_points import ensure_upward, CEJFinder, find_bone_point, find_root
+from scripts.post_processing.find_points import ensure_upward, CEJFinder, find_bone_point
 
 class TopLayout(QHBoxLayout):
     def __init__(self):
@@ -68,7 +68,6 @@ class MainWindow(MainWindowUI):
 
         self.volumes = None
         self.segmentation_volume = None
-        self.roots = None
         self.slices = None
         self.cej_finder = None
 
@@ -81,6 +80,7 @@ class MainWindow(MainWindowUI):
         self.label_selector.update_items(range(2, tooth_count + 2), tooth_count, -2)
         self.slice_selector.blockSignals(False)
         self._on_label_changed(0)
+        self._on_bone_state_changed(reset=True)
 
     def _on_label_changed(self, index):
         if self.volumes is None:
@@ -91,12 +91,11 @@ class MainWindow(MainWindowUI):
         segmentation_volume, image_volume, tooth_volume, center = crop_single_tooth(segmentation_volume, image_volume, tooth_label=label, bone_label=1)
         self.segmentation_volume, image_volume, tooth_volume, center = ensure_upward(segmentation_volume, image_volume, tooth_volume, center)
 
-        self.roots = find_root(self.segmentation_volume)
-
-        self.volume_viewer.set_titles(f'Label {label} ({len(self.roots)} Root)')
+        self.volume_viewer.set_titles(f'Label {label}')
+        self._on_bone_state_changed(reset=True)
 
         self.slices = list(get_slices(self.segmentation_volume, image_volume, tooth_volume, center))
-        self._on_point_state_changed(self.point_toggle.isChecked(), reset=True)
+        self._on_point_state_changed()
 
         self.cej_finder = CEJFinder(tooth_volume)
 
@@ -124,22 +123,15 @@ class MainWindow(MainWindowUI):
 
         self.image_table.update_images(slices)
 
-    def _on_bone_state_changed(self):
-        self._on_point_state_changed(self.point_toggle.isChecked())
-
-    def _on_point_state_changed(self, state, reset=False):
-        if self.segmentation_volume is None or self.roots is None:
+    def _on_bone_state_changed(self, *, reset=False):
+        if self.segmentation_volume is None:
             return
 
-        self._on_slice_changed(self.slice_selector.checkedId())
-
         volume = VolumeColorizer.color_volume(self.segmentation_volume, display_bone=self.bone_toggle.isChecked())
-        if state:
-            palette = VolumeColorizer.glasbey_palette(len(self.roots))
-            for (x, y, z), color in zip(self.roots, palette):
-                volume[x-1:x+2, y-1:y+2, z-1:z+2] = color
-
         self.volume_viewer.views[0].view.update_volume(volume, reset=reset)
+
+    def _on_point_state_changed(self):
+        self._on_slice_changed(self.slice_selector.checkedId())
 
     def _on_label_step(self, step):
         if self.volumes is None:

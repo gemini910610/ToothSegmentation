@@ -44,6 +44,8 @@ def split_component(volume):
     index = 1
     components = ndimage.find_objects(volume, max_label=component_count)
     for label, slices in enumerate(components, 1):
+        if slices is None:
+            continue
         roi = volume[slices] == label
         split_components = split_k_component(roi, h=3)
         new_roi = new_volume[slices]

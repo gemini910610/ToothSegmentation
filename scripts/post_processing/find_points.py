@@ -3,8 +3,6 @@ import numpy
 from sklearn.cluster import KMeans
 from scipy import ndimage
 from scripts.tools.widgets import Label
-from sklearn.cluster import DBSCAN
-from skimage.morphology import h_maxima
 
 class CEJFinder:
     def __init__(self, tooth_volume):
@@ -111,9 +109,37 @@ def ensure_upward(segmentation_volume, image_volume, tooth_volume, center):
 
     return segmentation_volume, image_volume, tooth_volume, center
 
+def is_single_root(tooth_volume):
+    coordinates = numpy.argwhere(tooth_volume)
+    top_z = coordinates[coordinates[:,2].argmax()][2]
+    bottom_z = coordinates[coordinates[:,2].argmin()][2]
+    height = top_z - bottom_z + 1
+
+    root_top_z = bottom_z + height // 2
+
+    consecutive_split = 0
+    max_consecutive_split = 0
+
+    for z in range(bottom_z, root_top_z + 1):
+        slice_mask = tooth_volume[:, :, z]
+        slice_mask = ndimage.binary_opening(slice_mask)
+        slice_mask = ndimage.binary_fill_holes(slice_mask)
+
+        _, count = ndimage.label(slice_mask)
+        if count <= 1:
+            consecutive_split = 0
+            continue
+        else:
+            consecutive_split += 1
+            max_consecutive_split = max(max_consecutive_split, consecutive_split)
+
+    return max_consecutive_split < 10
+
 def find_root(segmentation_volume):
     tooth_volume = segmentation_volume == Label.TOOTH
     tooth_volume = ndimage.binary_fill_holes(tooth_volume)
+    tooth_volume = ndimage.binary_opening(tooth_volume, iterations=3)
+    tooth_center = ndimage.center_of_mass(tooth_volume)
 
     tooth_erosion = ndimage.binary_erosion(tooth_volume)
     tooth_surface = tooth_volume & ~tooth_erosion
@@ -121,22 +147,39 @@ def find_root(segmentation_volume):
     coordinates = numpy.argwhere(tooth_surface)
     top_z = coordinates[coordinates[:,2].argmax()][2]
     bottom_z = coordinates[coordinates[:,2].argmin()][2]
-    surface_distances = coordinates[:,2]
+
+    center_x = numpy.rint(tooth_center[0]).astype(numpy.int32)
+    center_y = numpy.rint(tooth_center[1]).astype(numpy.int32)
+    center_z = numpy.rint(tooth_center[2]).astype(numpy.int32)
+    zs = numpy.argwhere(tooth_surface[center_x, center_y])
+    zs = zs[zs < center_z]
+    center_bottom = zs.max()
+    if (top_z - center_bottom) / (top_z - bottom_z) > 0.9 and is_single_root(tooth_volume):
+        return [coordinates[coordinates[:,2].argmin()]]
+
+    z_score = top_z - coordinates[:,2]
+    center_score = numpy.linalg.norm(coordinates - tooth_center, axis=1)
+    surface_distances = z_score + center_score
+
     distances = numpy.zeros(segmentation_volume.shape, dtype=numpy.float32)
     distances[*coordinates.T] = surface_distances
 
-    h = (top_z - coordinates[coordinates[:,2].argmin()][2]) * 0.02
-    mask = h_maxima(-distances, h=h)
+    center_scores = numpy.zeros_like(distances)
+    center_scores[*coordinates.T] = center_score
+
+    local_max = ndimage.maximum_filter(distances, size=(9, 9, 9))
+    mask = tooth_surface & (distances == local_max) & (distances > numpy.percentile(surface_distances, 90))
+
     coordinates = numpy.argwhere(mask)
     coordinates = coordinates[coordinates[:, 2] < (top_z + bottom_z) / 2]
 
-    roots = []
-    clustering = DBSCAN(eps=3, min_samples=1).fit(coordinates)
-    labels = clustering.labels_
-    for label in numpy.unique(labels):
-        if label == -1:
-            continue
-        root = coordinates[labels == label].mean(0).round().astype(numpy.int32)
-        roots.append(root)
+    remove = set()
+    for i in range(len(coordinates) - 1):
+        for j in range(i + 1, len(coordinates)):
+            coordinate_i = coordinates[i]
+            coordinate_j = coordinates[j]
+            if numpy.linalg.norm(coordinate_i - coordinate_j) < 6.5:
+                remove.add(i if distances[*coordinate_i.T] < distances[*coordinate_j.T] else j)
+    coordinates = [coordinate for i, coordinate in enumerate(coordinates) if i not in remove]
 
-    return roots
+    return coordinates

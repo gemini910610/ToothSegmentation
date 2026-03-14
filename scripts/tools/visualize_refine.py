@@ -9,7 +9,7 @@ class TopLayout(QHBoxLayout):
         super().__init__()
         self.patient_selector = PatientSelector(sizeAdjustPolicy=QComboBox.SizeAdjustPolicy.AdjustToContents)
         self.label_selector = IconLabelSelector(sizeAdjustPolicy=QComboBox.SizeAdjustPolicy.AdjustToContents)
-        self.cluster_input = QSpinBox(suffix=' Cluster', minimum=1, maximum=5)
+        self.cluster_input = QSpinBox(suffix=' Cluster', minimum=1, maximum=6)
         self.execute_button = QPushButton('Execute')
         for widget in [self.patient_selector, self.label_selector, self.cluster_input, self.execute_button]:
             self.addWidget(widget)
@@ -37,7 +37,7 @@ class MainWindow(MainWindowUI):
 
         self.patient_selector.setup(data_manager.patients, self.loader.load_patient)
 
-        self.volume_viewer.set_titles(Mode.get_title(Mode.TOOTH_CONNECTED_COMPONENT), Mode.get_title(Mode.WATERSHED), 'Instance')
+        self.volume_viewer.set_titles(Mode.get_title(Mode.TOOTH_CONNECTED_COMPONENT), Mode.get_title(Mode.CLEANED), 'Instance')
 
         self.loader.setup(self.patient_selector, self.label_selector, self.cluster_input, self.execute_button)
 
@@ -48,13 +48,16 @@ class MainWindow(MainWindowUI):
 
     def _handle_volumes(self, volumes):
         left_volume, tooth_count = volumes[Mode.TOOTH_CONNECTED_COMPONENT]
-        right_volume, _ = volumes[Mode.WATERSHED]
+        right_volume, _ = volumes[Mode.CLEANED]
         self.volume = volumes['origin'][Mode.TOOTH_CONNECTED_COMPONENT]
 
         self.volume_viewer.views[0].view.update_volume(left_volume)
         self.volume_viewer.views[1].view.update_volume(right_volume)
 
-        self.label_selector.update_items(range(1, tooth_count + 1), tooth_count, -1)
+        labels = numpy.unique(self.volume)
+        labels = labels[labels > 0]
+
+        self.label_selector.update_items(labels, tooth_count, -1)
         self._on_label_changed(0, reset=True)
 
         self.cluster_input.setValue(self.cluster_input.minimum())
@@ -63,7 +66,7 @@ class MainWindow(MainWindowUI):
         if self.volume is None:
             return
 
-        label = index + 1
+        label = self.label_selector.current_label()
 
         volume = self.volume == label
         volume = volume * label
@@ -103,7 +106,7 @@ if __name__ == '__main__':
 
     app = QApplication([])
 
-    data_manager = DataManager(experiment_name, patient_fold_map, [Mode.TOOTH_CONNECTED_COMPONENT, Mode.WATERSHED])
+    data_manager = DataManager(experiment_name, patient_fold_map, [Mode.TOOTH_CONNECTED_COMPONENT, Mode.CLEANED])
     window = MainWindow(data_manager)
 
     window.show()

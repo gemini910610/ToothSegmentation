@@ -1,7 +1,9 @@
 import cc3d
 import numpy
 
-def filter_connected_component(volume, voxel_threshold, binary=False, keep=False):
+from scripts.tools.widgets import Label
+
+def filter_connected_component(volume, target, voxel_threshold=0):
     origin_shape = volume.shape
     coordinates = numpy.flatnonzero(volume)
     coordinates = numpy.column_stack(numpy.unravel_index(coordinates, volume.shape))
@@ -19,22 +21,28 @@ def filter_connected_component(volume, voxel_threshold, binary=False, keep=False
     volume = volume[x0:x1, y0:y1, z0:z1]
 
     components = cc3d.connected_components(volume, connectivity=6)
-    if binary:
-        labels, counts = numpy.unique(components, return_counts=True)
-        valid_labels = labels[(labels != 0) & (counts >= voxel_threshold)]
-        volume = numpy.isin(components, valid_labels).astype(numpy.uint8)
+    if target == Label.TOOTH:
+        volume = remove_small(components, voxel_threshold)
     else:
-        counts = numpy.bincount(components.ravel())
-        valid = counts >= voxel_threshold
-        valid[0] = False # background
-        lookup_table = numpy.full_like(counts, -1 if keep else 0, dtype=numpy.int32)
-        lookup_table[0] = 0 # background
-        lookup_table[valid] = numpy.arange(1, valid.sum() + 1, dtype=numpy.int32)
-        volume = lookup_table[components]
-
+        volume = keep_largest(components, k=3)
     origin_volume = numpy.zeros(origin_shape, dtype=numpy.int32)
     origin_volume[x0:x1, y0:y1, z0:z1] = volume
     return origin_volume
+
+def remove_small(volume, voxel_threshold):
+    volume = volume.copy()
+    counts = numpy.bincount(volume.ravel())
+    valid = counts < voxel_threshold
+    valid[0] = False
+    volume[valid[volume]] = 0
+    return volume
+
+def keep_largest(volume, k):
+    labels, counts = numpy.unique(volume, return_counts=True)
+    valid = labels != 0
+    valid_labels = labels[valid][numpy.argsort(counts[valid])[-k:]]
+    volume = numpy.isin(volume, valid_labels).astype(numpy.uint8)
+    return volume
 
 if __name__ == '__main__':
     import os
@@ -43,19 +51,17 @@ if __name__ == '__main__':
     from src.config import load_config
     from src.console import track
     from src.dataset import get_fold
-    from scripts.tools.widgets import Mode, Label
+    from scripts.tools.widgets import Mode
 
     parser = ArgumentParser()
     parser.add_argument('exp', type=str)
     parser.add_argument('target', type=int)
     parser.add_argument('--threshold', type=int, default=7500)
-    parser.add_argument('--keep', action='store_true')
     args = parser.parse_args()
 
     experiment_name = args.exp
     target = args.target
     voxel_threshold = args.threshold
-    keep = args.keep
 
     config = load_config(os.path.join('logs', experiment_name, 'config.toml'))
     config.split_file_path = os.path.join('logs', experiment_name, f'{config.split_filename}.json')
@@ -67,7 +73,7 @@ if __name__ == '__main__':
                 predict_path = os.path.join('outputs', experiment_name, f'Fold_{fold}', dataset, patient, f'{Mode.PREDICT}.npy')
                 volume = numpy.load(predict_path)
                 volume = volume == target
-                volume = filter_connected_component(volume, voxel_threshold, binary=target == Label.BONE, keep=keep)
+                volume = filter_connected_component(volume, target, voxel_threshold)
 
                 cc_path = os.path.join('outputs', experiment_name, f'Fold_{fold}', dataset, patient, f'{Mode.TOOTH_CONNECTED_COMPONENT if target == Label.TOOTH else Mode.BONE_CONNECTED_COMPONENT}.npy')
                 numpy.save(cc_path, volume)

@@ -240,8 +240,8 @@ Outputs:
 
 1. filter connected component
 2. split component
-3. refine component
-4. remove outlier
+3. remove outlier
+4. refine component
 5. remove tooth
 6. relabel
 

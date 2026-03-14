@@ -35,7 +35,7 @@ class MainWindow(MainWindowUI):
 
         self.patient_selector.setup(data_manager.patients, self.loader.load_patient)
 
-        self.volume_viewer.set_titles(Mode.get_title(Mode.CLEANED), 'Instance')
+        self.volume_viewer.set_titles(Mode.get_title(Mode.REFINE), 'Instance')
 
         self.loader.setup(self.patient_selector, self.label_selector)
 
@@ -44,8 +44,8 @@ class MainWindow(MainWindowUI):
         self.volume = None
 
     def _handle_volumes(self, volumes):
-        self.volume = volumes['origin'][Mode.CLEANED]
-        volume, tooth_count = volumes[Mode.CLEANED]
+        self.volume = volumes['origin'][Mode.REFINE]
+        volume, tooth_count = volumes[Mode.REFINE]
         bone_volume = volumes['origin'][Mode.BONE_CONNECTED_COMPONENT]
 
         erosion = ndimage.binary_erosion(bone_volume > 0)
@@ -91,7 +91,7 @@ if __name__ == '__main__':
 
     app = QApplication([])
 
-    data_manager = DataManager(experiment_name, patient_fold_map, [Mode.CLEANED, Mode.BONE_CONNECTED_COMPONENT])
+    data_manager = DataManager(experiment_name, patient_fold_map, [Mode.REFINE, Mode.BONE_CONNECTED_COMPONENT])
     window = MainWindow(data_manager)
 
     window.show()

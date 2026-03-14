@@ -18,7 +18,6 @@ class Label:
 class Color:
     TOOTH = (235, 223, 180, 255)
     BONE = (212, 161, 230, 75)
-    REMOVED = (0, 0, 0, 255)
 
 class Mode:
     GROUND_TRUTH = 'gt'
@@ -142,7 +141,8 @@ class VolumeColorizer:
 
         lookup_table = numpy.zeros((max_label + 1, 4), dtype=numpy.uint8)
         start_label = 2 if display_bone else 1
-        lookup_table[start_label:] = palette
+        if start_label < max_label + 1:
+            lookup_table[start_label:] = palette
         rgba = lookup_table[volume]
 
         label_counts = numpy.bincount(volume.ravel())
