@@ -7,9 +7,12 @@
 ├── 📂 post_processing
 │   ├── 📄 __main__.py              # Post-processing pipeline
 │   ├── 📄 connected_component.py   # Connected component analysis under a specific threshold
+│   ├── 📄 fill_holes.py            # 
+│   ├── 📄 find_points.py           # 
 │   ├── 📄 refine_component.py      # 
 │   ├── 📄 relabel.py               # 
 │   ├── 📄 remove_outlier.py        # 
+│   ├── 📄 remove_tooth.py          # 
 │   ├── 📄 tooth_slice.py           # 
 │   └── 📄 watershed.py             # Watershed-based separation of connected tooth components
 ├── 📂 tools
@@ -240,17 +243,17 @@ Outputs:
 
 1. filter connected component
 2. split component
-3. remove outlier
-4. refine component
+3. refine component
+4. remove outlier
 5. remove tooth
-6. relabel
+6. fill holes
+7. relabel
 
 ```
-python -m scripts.post_processing <EXPERIMENT_NAME> [--tooth-threshold <TOOTH_THRESHOLD>] [--bone-threshold <BONE_THRESHOLD>]
+python -m scripts.post_processing <EXPERIMENT_NAME> [--tooth-threshold <TOOTH_THRESHOLD>]
 ```
 Optional arguments:
 * `--tooth-threshold <TOOTH_THRESHOLD>`: Component size threshold used for connected component analysis on tooth predictions (default: `7500`).
-* `--bone-threshold <BONE_THRESHOLD>`: Component size threshold used for connected component analysis on bone predictions (default: `7500`).
 
 Outputs:
 ```
@@ -259,52 +262,6 @@ Outputs:
 │   ├── 📂 <DATASET_NAME_1>
 │   │   ├── 📂 data_1
 │   │   │   └── 📄 pp.npy
-│   │   └── 📂 ...
-│   └── 📂 <DATASET_NAME_2>
-├── 📂 Fold_2
-├── 📂 Fold_3
-└── 📂 Fold_4
-```
-
-### Connected Component
-
-```
-python -m scripts.post_processing.connected_component <EXPERIMENT_NAME> <LABEL> [--threshold <THRESHOLD>] [--keep]
-```
-Optional arguments:
-* `--threshold <THRESHOLD>`: Minimum voxel count to retain a connected component (default: `7500`).
-* `--keep`: Preserve removed components with label `-1` instead of discarding them.
-
-Outputs:
-```
-📁 outputs/<EXPERIMENT_NAME>
-├── 📂 Fold_1
-│   ├── 📂 <DATASET_NAME_1>
-│   │   ├── 📂 data_1
-│   │   │   ├── 📄 bone_cc.npy
-│   │   │   └── 📄 tooth_cc.npy
-│   │   └── 📂 ...
-│   └── 📂 <DATASET_NAME_2>
-├── 📂 Fold_2
-├── 📂 Fold_3
-└── 📂 Fold_4
-```
-
-### Watershed
-
-```
-python -m scripts.post_processing.watershed UNet_baseline [--threshold <TOOTH_THRESHOLD>]
-```
-Optional arguments:
-* `--threshold <TOOTH_THRESHOLD>`: Component size threshold used for connected component analysis on tooth predictions (default: `7500`).
-
-Outputs:
-```
-📁 outputs/<EXPERIMENT_NAME>
-├── 📂 Fold_1
-│   ├── 📂 <DATASET_NAME_1>
-│   │   ├── 📂 data_1
-│   │   │   └── 📄 watershed.npy
 │   │   └── 📂 ...
 │   └── 📂 <DATASET_NAME_2>
 ├── 📂 Fold_2
