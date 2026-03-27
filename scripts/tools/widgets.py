@@ -6,7 +6,7 @@ from scipy import ndimage
 from PySide6.QtCore import Signal, QThread, Qt
 from PySide6.QtGui import QVector3D, QPixmap, QColor, QIcon
 from PySide6.QtWidgets import QMainWindow, QGroupBox, QVBoxLayout, QHBoxLayout, QWidget, QApplication, QGridLayout, QLabel, QComboBox, QSlider
-from pyqtgraph.opengl import GLViewWidget, GLVolumeItem
+from pyqtgraph.opengl import GLViewWidget, GLVolumeItem, GLLinePlotItem
 from PIL import Image
 from PIL.ImageQt import ImageQt
 
@@ -30,6 +30,8 @@ class Mode:
     REFINE = 'refine'
     POST_PROCESSING = 'pp'
     REMOVED = 'removed'
+    BONE_FILLED = 'bone_filled'
+    TOOTH_FILLED = 'tooth_filled'
     RELABELED = 'relabeled'
 
     @staticmethod
@@ -44,6 +46,8 @@ class Mode:
             Mode.REFINE,
             Mode.POST_PROCESSING,
             Mode.REMOVED,
+            Mode.BONE_FILLED,
+            Mode.TOOTH_FILLED,
             Mode.RELABELED
         ]
 
@@ -60,6 +64,8 @@ class Mode:
             Mode.REFINE: 'Refine',
             Mode.POST_PROCESSING: 'Post Processing',
             Mode.REMOVED: 'Removed',
+            Mode.BONE_FILLED: 'Bone Filled',
+            Mode.TOOTH_FILLED: 'Tooth Filled',
             Mode.RELABELED: 'Relabeled'
         }[mode]
 
@@ -135,20 +141,19 @@ class VolumeColorizer:
     def color_components(volume, display_bone=False):
         max_label = volume.max()
         print(max_label)
-        component_count = max_label - 1 if display_bone else max_label
 
-        palette = VolumeColorizer.glasbey_palette(component_count)
+        palette = VolumeColorizer.glasbey_palette(max_label)
 
         lookup_table = numpy.zeros((max_label + 1, 4), dtype=numpy.uint8)
-        start_label = 2 if display_bone else 1
-        if start_label < max_label + 1:
-            lookup_table[start_label:] = palette
+        lookup_table[1:] = palette[:max_label]
+        if display_bone:
+            lookup_table[1] = 0
         rgba = lookup_table[volume]
 
         label_counts = numpy.bincount(volume.ravel())
 
         counts = []
-        for label in range(start_label, start_label + component_count):
+        for label in range(1, max_label + 1):
             counts.append((label_counts[label], lookup_table[label]))
         counts.sort(key=lambda x: x[0])
 
@@ -166,7 +171,7 @@ class VolumeColorizer:
             bone_surface = bone_mask & (~erosion)
             rgba[bone_surface] = Color.BONE
 
-        return rgba, component_count
+        return rgba, max_label
 
 class VolumeLoaderThread(QThread):
     finished = Signal(object) # {mode: rgba_volume, "origin": {mode: volume}}
@@ -196,9 +201,9 @@ class VolumeLoaderThread(QThread):
         match mode:
             case Mode.GROUND_TRUTH | Mode.PREDICT:
                 return VolumeColorizer.color_volume(volume, display_bone=True), None
-            case Mode.TOOTH_CONNECTED_COMPONENT | Mode.WATERSHED | Mode.CLEANED | Mode.REFINE | Mode.REMOVED | Mode.RELABELED:
+            case Mode.TOOTH_CONNECTED_COMPONENT | Mode.WATERSHED | Mode.CLEANED | Mode.REFINE | Mode.REMOVED | Mode.TOOTH_FILLED | Mode.RELABELED:
                 return VolumeColorizer.color_components(volume)
-            case Mode.BONE_CONNECTED_COMPONENT | Mode.POST_PROCESSING:
+            case Mode.BONE_CONNECTED_COMPONENT | Mode.BONE_FILLED | Mode.POST_PROCESSING:
                 return VolumeColorizer.color_components(volume, display_bone=True)
             case _:
                 return None, None
@@ -271,6 +276,38 @@ class SyncGLViewBox(QGroupBox):
         layout.addWidget(self.view)
         self.setLayout(layout)
 
+class AxisItem(GLViewWidget):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.move(0, 0)
+        self.setFixedSize(128, 128)
+        self.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)
+        self.setBackgroundColor('white')
+        self.opts['distance'] = 2
+
+        self.item = GLLinePlotItem(mode='lines')
+        self.item.rotate(90, 0, 0, 1)
+        self.item.setGLOptions('translucent')
+        self.addItem(self.item)
+
+    def update_axes(self, axis_x, axis_y, axis_z):
+        points = numpy.array([
+            [0, 0, 0], axis_x,
+            [0, 0, 0], axis_y,
+            [0, 0, 0], axis_z
+        ])
+        colors = numpy.array([
+            [1, 0, 0, 1], [1, 0, 0, 1],
+            [0, 1, 0, 1], [0, 1, 0, 1],
+            [0, 0, 1, 1], [0, 0, 1, 1]
+        ])
+        self.item.setData(pos=points, color=colors, width=3)
+
+    def sync_camera(self, opts):
+        for key in ['elevation', 'azimuth']:
+            self.opts[key] = opts[key]
+        self.update()
+
 class VolumeViewer(QWidget):
     def __init__(self, count=2, size=(640, 640), sync=True):
         super().__init__()
@@ -335,7 +372,7 @@ class ImageBox(QGroupBox):
         self.label.setPixmap(pixmap)
 
 class ImageTable(QWidget):
-    def __init__(self, rows=4, columns=3):
+    def __init__(self, rows=4, columns=2):
         super().__init__()
 
         self.rows = rows
@@ -344,16 +381,24 @@ class ImageTable(QWidget):
         self.layout = QGridLayout()
         self.setLayout(self.layout)
 
+        titles = [
+            ['0 (B)', '315 (DB)'],
+            ['45 (MB)', '270 (D)'],
+            ['90 (M)', '225 (DL)'],
+            ['135 (ML)', '180 (L)']
+        ]
         for row in range(rows):
             for column in range(columns):
-                title = str((row * columns + column) * 30)
+                title = titles[row][column]
                 self.layout.addWidget(ImageBox(title), row, column)
 
         self.setFixedSize(self.sizeHint())
     def update_images(self, slices):
-        for i, image in enumerate(slices):
-            row = i // self.columns
-            column = i % self.columns
+        positions = [
+            [0, 0], [1, 0], [2, 0], [3, 0],
+            [3, 1], [2, 1], [1, 1], [0, 1]
+        ]
+        for (row, column), image in zip(positions, slices):
             self.layout.itemAtPosition(row, column).widget().update_image(image)
 
 class IconLabelSelector(QComboBox):
@@ -364,7 +409,7 @@ class IconLabelSelector(QComboBox):
         palette = VolumeColorizer.glasbey_palette(count)
         size = self.font().pointSize()
         for label in labels:
-            index = label + index_offset
+            index = label.astype(numpy.int32) + index_offset
             r, g, b, _ = palette[index]
             color = QColor(r, g, b)
 
