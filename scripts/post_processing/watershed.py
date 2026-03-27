@@ -3,14 +3,12 @@ import numpy
 from scipy import ndimage
 from skimage.morphology import h_maxima
 from skimage.segmentation import watershed
+from scripts.post_processing.connected_component import get_bounding_box
 
 def split_k_component(volume, h, k=None, crop=False):
     if crop:
         origin_shape = volume.shape
-        coordinates = numpy.flatnonzero(volume)
-        coordinates = numpy.column_stack(numpy.unravel_index(coordinates, volume.shape))
-        x0, y0, z0 = coordinates.min(axis=0)
-        x1, y1, z1 = coordinates.max(axis=0) + 1
+        x0, x1, y0, y1, z0, z1 = get_bounding_box(volume)
         volume = volume[x0:x1, y0:y1, z0:z1]
 
     distance = ndimage.distance_transform_edt(volume).astype(numpy.float32, copy=False)
@@ -21,25 +19,27 @@ def split_k_component(volume, h, k=None, crop=False):
     if k is None:
         markers, _ = ndimage.label(peaks)
     else:
-        coordinates = numpy.flatnonzero(peaks)
-        coordinates = numpy.column_stack(numpy.unravel_index(coordinates, peaks.shape))
-        peak_distance = distance[*coordinates.T]
-        top_k = numpy.argpartition(peak_distance, -k)[-k:]
-        coordinates = coordinates[top_k]
-        markers = numpy.zeros_like(volume, dtype=numpy.int32)
-        markers[*coordinates.T] = numpy.arange(1, len(coordinates) + 1, dtype=numpy.int32)
+        peak_indices = numpy.flatnonzero(peaks)
+        peak_values = distance.ravel()[peak_indices]
+
+        indices = numpy.argpartition(peak_values, -k)[-k:]
+        peak_indices = peak_indices[indices]
+
+        coordinates = numpy.column_stack(numpy.unravel_index(peak_indices, peaks.shape))
+        markers = numpy.zeros_like(volume, dtype=numpy.uint8)
+        markers[*coordinates.T] = numpy.arange(1, len(coordinates) + 1, dtype=numpy.uint8)
 
     volume = watershed(-distance, markers, mask=volume)
     if not crop:
         return volume
 
-    new_volume = numpy.zeros(origin_shape, dtype=numpy.int32)
+    new_volume = numpy.zeros(origin_shape, dtype=numpy.uint8)
     new_volume[x0:x1, y0:y1, z0:z1] = volume
     return new_volume
 
 def split_component(volume):
     component_count = volume.max()
-    new_volume = numpy.zeros_like(volume, dtype=numpy.int32)
+    new_volume = numpy.zeros_like(volume, dtype=numpy.uint8)
 
     index = 1
     components = ndimage.find_objects(volume, max_label=component_count)
