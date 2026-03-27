@@ -33,7 +33,7 @@ if __name__ == '__main__':
         _, valid_dataset_patients = get_fold(config.split_file_path, fold)
         for dataset, patients in valid_dataset_patients.items():
             for patient in track(patients, desc=f'Fold {fold} {dataset}'):
-                volume_path = os.path.join('outputs', experiment_name, f'Fold_{fold}', dataset, patient, f'{Mode.REFINE}.npy')
+                volume_path = os.path.join('outputs', experiment_name, f'Fold_{fold}', dataset, patient, f'{Mode.CLEANED}.npy')
                 volume = numpy.load(volume_path)
                 data = f'{dataset}/{patient}'
                 if data in labels:
