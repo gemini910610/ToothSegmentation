@@ -37,7 +37,7 @@ class MainWindow(MainWindowUI):
 
         self.patient_selector.setup(data_manager.patients, self.loader.load_patient)
 
-        self.volume_viewer.set_titles(Mode.get_title(Mode.TOOTH_CONNECTED_COMPONENT), Mode.get_title(Mode.CLEANED), 'Instance')
+        self.volume_viewer.set_titles(Mode.get_title(Mode.TOOTH_CONNECTED_COMPONENT), Mode.get_title(Mode.WATERSHED), 'Instance')
 
         self.loader.setup(self.patient_selector, self.label_selector, self.cluster_input, self.execute_button)
 
@@ -48,7 +48,7 @@ class MainWindow(MainWindowUI):
 
     def _handle_volumes(self, volumes):
         left_volume, tooth_count = volumes[Mode.TOOTH_CONNECTED_COMPONENT]
-        right_volume, _ = volumes[Mode.CLEANED]
+        right_volume, _ = volumes[Mode.WATERSHED]
         self.volume = volumes['origin'][Mode.TOOTH_CONNECTED_COMPONENT]
 
         self.volume_viewer.views[0].view.update_volume(left_volume)
@@ -59,8 +59,6 @@ class MainWindow(MainWindowUI):
 
         self.label_selector.update_items(labels, tooth_count, -1)
         self._on_label_changed(0, reset=True)
-
-        self.cluster_input.setValue(self.cluster_input.minimum())
 
     def _on_label_changed(self, index, reset=False):
         if self.volume is None:
@@ -73,6 +71,8 @@ class MainWindow(MainWindowUI):
         volume = volume.astype(numpy.int32, copy=False)
         volume, _ = VolumeColorizer.color_components(volume)
         self.volume_viewer.views[2].view.update_volume(volume, reset)
+
+        self.cluster_input.setValue(self.cluster_input.minimum())
 
     def _split_component(self):
         if self.volume is None:
@@ -106,7 +106,7 @@ if __name__ == '__main__':
 
     app = QApplication([])
 
-    data_manager = DataManager(experiment_name, patient_fold_map, [Mode.TOOTH_CONNECTED_COMPONENT, Mode.CLEANED])
+    data_manager = DataManager(experiment_name, patient_fold_map, [Mode.TOOTH_CONNECTED_COMPONENT, Mode.WATERSHED])
     window = MainWindow(data_manager)
 
     window.show()
