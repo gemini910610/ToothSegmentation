@@ -3,12 +3,16 @@ import numpy
 
 from scripts.tools.widgets import Label
 
+def get_bounding_box(mask):
+    xs = numpy.where(mask.any(axis=(1, 2)))[0]
+    ys = numpy.where(mask.any(axis=(0, 2)))[0]
+    zs = numpy.where(mask.any(axis=(0, 1)))[0]
+
+    return xs[0], xs[-1] + 1, ys[0], ys[-1] + 1, zs[0], zs[-1] + 1
+
 def filter_connected_component(volume, target, voxel_threshold=0):
     origin_shape = volume.shape
-    coordinates = numpy.flatnonzero(volume)
-    coordinates = numpy.column_stack(numpy.unravel_index(coordinates, volume.shape))
-    x0, y0, z0 = coordinates.min(axis=0)
-    x1, y1, z1 = coordinates.max(axis=0) + 1
+    x0, x1, y0, y1, z0, z1 = get_bounding_box(volume)
 
     x0 = max(x0 - 10, 0)
     y0 = max(y0 - 10, 0)
@@ -20,28 +24,25 @@ def filter_connected_component(volume, target, voxel_threshold=0):
 
     volume = volume[x0:x1, y0:y1, z0:z1]
 
-    components = cc3d.connected_components(volume, connectivity=6)
+    components = cc3d.connected_components(volume, connectivity=6, binary_image=True)
+    components = cc3d.dust(components, voxel_threshold, connectivity=6, precomputed_ccl=True)
     if target == Label.TOOTH:
-        volume = remove_small(components, voxel_threshold)
+        volume = relabel(components)
     else:
-        volume = keep_largest(components, k=3)
-    origin_volume = numpy.zeros(origin_shape, dtype=numpy.int32)
+        volume = cc3d.largest_k(components, k=3, precomputed_ccl=True)
+        volume = (volume > 0).astype(numpy.uint8)
+    origin_volume = numpy.zeros(origin_shape, dtype=numpy.uint8)
     origin_volume[x0:x1, y0:y1, z0:z1] = volume
     return origin_volume
 
-def remove_small(volume, voxel_threshold):
-    volume = volume.copy()
-    counts = numpy.bincount(volume.ravel())
-    valid = counts < voxel_threshold
-    valid[0] = False
-    volume[valid[volume]] = 0
-    return volume
+def relabel(volume):
+    labels = numpy.unique(volume)
+    labels = labels[labels != 0]
 
-def keep_largest(volume, k):
-    labels, counts = numpy.unique(volume, return_counts=True)
-    valid = labels != 0
-    valid_labels = labels[valid][numpy.argsort(counts[valid])[-k:]]
-    volume = numpy.isin(volume, valid_labels).astype(numpy.uint8)
+    lookup_table = numpy.zeros(labels.max() + 1, dtype=numpy.uint8)
+    lookup_table[labels] = numpy.arange(1, len(labels) + 1, dtype=numpy.uint8)
+
+    volume = lookup_table[volume]
     return volume
 
 if __name__ == '__main__':
