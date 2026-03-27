@@ -1,26 +1,152 @@
 import numpy
 
-def relabel_volume(volume):
-    tooth_mask = volume > 0
-    xs = numpy.nonzero(tooth_mask)[0]
-    labels = volume[tooth_mask].astype(numpy.int32)
+from scipy import ndimage
+from scipy.interpolate import CubicSpline
 
-    max_label = labels.max()
-    counts = numpy.bincount(labels, minlength=max_label + 1)
-    sum_x = numpy.bincount(labels, weights=xs, minlength=max_label + 1)
+def split_teeth_jaw(tooth_volume, bone_volume):
+    upper_tooth = []
+    lower_tooth = []
 
-    present = numpy.nonzero(counts)[0]
-    present = present[present > 0]
+    objects = ndimage.find_objects(tooth_volume)
 
-    centroid_xs = sum_x[present] / counts[present]
+    for label, slices in enumerate(objects, 1):
+        if slices is None:
+            continue
 
-    order = numpy.argsort(centroid_xs)
-    labels = present[order]
+        roi = tooth_volume[slices] == label
 
-    lookup_table = numpy.zeros(max_label + 1, dtype=numpy.int32)
-    lookup_table[labels] = numpy.arange(1, len(labels) + 1, dtype=numpy.int32)
+        tooth_center = ndimage.center_of_mass(roi)
+        tooth_center = numpy.array(tooth_center)
+        tooth_center += (slices[0].start, slices[1].start, slices[2].start)
 
-    volume = lookup_table[volume]
+        padding_slices = [
+            slice(
+                max(0, origin_slice.start - 1),
+                min(shape, origin_slice.stop + 1)
+            )
+            for shape, origin_slice in zip(tooth_volume.shape, slices)
+        ]
+
+        tooth_roi = tooth_volume[*padding_slices] == label
+        bone_roi = bone_volume[*padding_slices]
+
+        tooth_dilation = ndimage.binary_dilation(tooth_roi)
+        intersection = bone_roi & tooth_dilation
+        if not numpy.any(intersection):
+            continue
+
+        intersection_center = ndimage.center_of_mass(intersection)
+        intersection_center = numpy.array(intersection_center)
+        intersection_center += (padding_slices[0].start, padding_slices[1].start, padding_slices[2].start)
+
+        upward = intersection_center[2] > tooth_center[2]
+
+        (upper_tooth if upward else lower_tooth).append({
+            'slices': slices,
+            'roi': roi,
+            'center': tooth_center
+        })
+
+    if len(upper_tooth) > 0:
+        upper_tooth = sort_angle(upper_tooth)
+    if len(lower_tooth) > 0:
+        lower_tooth = sort_angle(lower_tooth)
+
+    return upper_tooth, lower_tooth
+
+def sort_angle(tooth_list, center=None):
+    def get_value(tooth):
+        if 'center' in tooth:
+            tooth = tooth['center']
+        return tooth[:2]
+
+    points = numpy.array([get_value(tooth) for tooth in tooth_list])
+    if center is None:
+        center = points.mean(0)
+
+    vectors = center - points
+    angles = numpy.arctan2(*vectors.T)
+    order = numpy.argsort(angles)
+    return [tooth_list[index] for index in order]
+
+def estimate_missing_points(points):
+    if len(points) < 2:
+        return []
+
+    differences = points[1:] - points[:-1]
+    distances = numpy.linalg.norm(differences, axis=1)
+
+    t = numpy.concatenate([[0], numpy.cumsum(distances)])
+
+    cs_x = CubicSpline(t, points[:, 0], bc_type='natural')
+    cs_y = CubicSpline(t, points[:, 1], bc_type='natural')
+
+    missing_points = []
+    threshold = numpy.median(distances)
+    for i, distance in enumerate(distances):
+        k = round(distance / threshold) - 1
+        if k < 1:
+            continue
+
+        t_new = numpy.linspace(t[i], t[i+1], k + 2)[1:-1]
+        x_new = cs_x(t_new)
+        y_new = cs_y(t_new)
+
+        for point in zip(x_new, y_new):
+            missing_points.append(numpy.array(point))
+
+    return missing_points
+
+def split_left_right(points, default):
+    if len(points) < 3:
+        return default
+
+    missing_points = estimate_missing_points(points)
+    if len(missing_points) > 0:
+        points = numpy.concatenate([points, missing_points])
+
+    order = numpy.argsort(points[:, 1])
+    points = points[order]
+    k = int(len(points) * 0.5) // 2 * 2
+    if k < 3:
+        return default
+
+    points = points[:k]
+    center = numpy.median(points[:, 0])
+    return center
+
+def relabel_volume(tooth_volume, bone_volume):
+    upper_tooth, lower_tooth = split_teeth_jaw(tooth_volume, bone_volume)
+
+    quadrants = {1: [], 2: [], 3: [], 4: []}
+
+    for is_lower, tooth_list in enumerate((upper_tooth, lower_tooth)):
+        points = numpy.array([tooth['center'][:2] for tooth in tooth_list])
+        center = split_left_right(points, tooth_volume.shape[0] / 2)
+
+        for tooth in tooth_list:
+            x = tooth['center'][0]
+            is_left = x < center
+            quadrant = (
+                1 if not is_lower and is_left else
+                2 if not is_lower and not is_left else
+                3 if is_lower and not is_left else
+                4
+            )
+            quadrants[quadrant].append(tooth)
+
+    volume = numpy.zeros_like(tooth_volume, dtype=numpy.uint8)
+    center = (volume.shape[0] / 2, volume.shape[1] / 2)
+    for quadrant, tooth_list in quadrants.items():
+        if len(tooth_list) == 0:
+            continue
+
+        tooth_list = sort_angle(tooth_list, center)
+        if quadrant in {2, 3}:
+            tooth_list = tooth_list[::-1]
+        for index, tooth in enumerate(tooth_list, 1):
+            volume[tooth['slices']][tooth['roi']] = quadrant * 10 + index
+
     return volume
 
 if __name__ == '__main__':
@@ -45,9 +171,13 @@ if __name__ == '__main__':
         _, valid_dataset_patients = get_fold(config.split_file_path, fold)
         for dataset, patients in valid_dataset_patients.items():
             for patient in track(patients, desc=f'Fold {fold} {dataset}'):
-                volume_path = os.path.join('outputs', experiment_name, f'Fold_{fold}', dataset, patient, f'{Mode.REMOVED}.npy')
-                volume = numpy.load(volume_path)
-                volume = relabel_volume(volume)
+                output_dir = os.path.join('outputs', experiment_name, f'Fold_{fold}', dataset, patient)
+                tooth_volume_path = os.path.join(output_dir, f'{Mode.TOOTH_FILLED}.npy')
+                bone_volume_path = os.path.join(output_dir, f'{Mode.BONE_FILLED}.npy')
+                tooth_volume = numpy.load(tooth_volume_path)
+                bone_volume = numpy.load(bone_volume_path)
+
+                tooth_volume = relabel_volume(tooth_volume, bone_volume)
 
                 relabeled_path = os.path.join('outputs', experiment_name, f'Fold_{fold}', dataset, patient, f'{Mode.RELABELED}.npy')
-                numpy.save(relabeled_path, volume)
+                numpy.save(relabeled_path, tooth_volume)
