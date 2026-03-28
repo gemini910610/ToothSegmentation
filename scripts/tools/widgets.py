@@ -1,6 +1,6 @@
 import os
 import numpy
-import skimage
+import colorcet
 
 from scipy import ndimage
 from PySide6.QtCore import Signal, QThread, Qt
@@ -98,28 +98,10 @@ class DataManager:
 class VolumeColorizer:
     @staticmethod
     def glasbey_palette(num_colors):
-        levels = numpy.linspace(0, 1, 32)
-        candidates = numpy.array(numpy.meshgrid(levels, levels, levels)).reshape(3, -1).T
-        candidates_lab = skimage.color.rgb2lab(candidates.reshape(-1, 1, 1, 3)).reshape(-1, 3)
-
-        lightness = candidates_lab[:, 0]
-        mask = (lightness > 50) & (lightness < 80)
-        candidates = candidates[mask]
-        candidates_lab = candidates_lab[mask]
-
-        initial = numpy.array([[1, 1, 1]])
-        palette_lab = skimage.color.rgb2lab(initial.reshape(-1, 1, 1, 3)).reshape(-1, 3)
-        palette = []
-
-        for _ in range(num_colors):
-            distance = numpy.min(numpy.linalg.norm(candidates_lab[:,None,:] - palette_lab[None,:,:], axis=2), axis=1)
-            index = numpy.argmax(distance)
-            palette.append(candidates[index])
-            palette_lab = numpy.vstack([palette_lab, candidates_lab[index]])
-
+        colors = colorcet.glasbey_light[:num_colors]
         return [
-            (int(r * 255), int(g * 255), int(b * 255), 255)
-            for r, g, b in palette
+            (int(color[1:3], 16), int(color[3:5], 16), int(color[5:], 16), 255)
+            for color in colors
         ]
 
     @staticmethod

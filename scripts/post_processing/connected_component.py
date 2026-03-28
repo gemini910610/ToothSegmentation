@@ -1,6 +1,7 @@
 import cc3d
 import numpy
 
+from scipy import ndimage
 from scripts.tools.widgets import Label
 
 def get_bounding_box(mask):
@@ -9,6 +10,48 @@ def get_bounding_box(mask):
     zs = numpy.where(mask.any(axis=(0, 1)))[0]
 
     return xs[0], xs[-1] + 1, ys[0], ys[-1] + 1, zs[0], zs[-1] + 1
+
+def remove_outlier(volume, voxel_threshold=0):
+    volume = volume.copy()
+    component_count = volume.max()
+
+    objects = ndimage.find_objects(volume, max_label=component_count)
+
+    valid_labels = []
+    z_centroids = []
+
+    for label, slices in enumerate(objects, 1):
+        if slices is None:
+            continue
+
+        roi = volume[slices] == label
+
+        z0 = slices[2].start
+        z1 = slices[2].stop
+
+        zs = numpy.arange(z0, z1, dtype=numpy.float32)
+        sum_z = roi.sum(axis=(0, 1))
+
+        z_centroid = (zs * sum_z).sum() / roi.sum()
+
+        valid_labels.append(label)
+        z_centroids.append(z_centroid)
+
+    valid_labels = numpy.array(valid_labels, dtype=numpy.uint8)
+    z_centroids = numpy.array(z_centroids, dtype=numpy.float32)
+
+    median = numpy.median(z_centroids)
+    distance_z = numpy.abs(z_centroids - median)
+    outlier_labels = valid_labels[distance_z > 150]
+
+    lookup_table = numpy.zeros(component_count + 1, dtype=bool)
+    lookup_table[outlier_labels] = True
+
+    volume[lookup_table[volume]] = 0
+
+    volume = cc3d.dust(volume, voxel_threshold, connectivity=6)
+
+    return volume
 
 def filter_connected_component(volume, target, voxel_threshold=0):
     origin_shape = volume.shape
@@ -40,7 +83,7 @@ def relabel(volume):
     labels = labels[labels != 0]
 
     lookup_table = numpy.zeros(labels.max() + 1, dtype=numpy.uint8)
-    lookup_table[labels] = numpy.arange(1, len(labels) + 1, dtype=numpy.uint8)
+    lookup_table[labels] = numpy.arange(2, len(labels) + 2, dtype=numpy.uint8)
 
     volume = lookup_table[volume]
     return volume
@@ -75,6 +118,8 @@ if __name__ == '__main__':
                 volume = numpy.load(predict_path)
                 volume = volume == target
                 volume = filter_connected_component(volume, target, voxel_threshold)
+                if target == Label.TOOTH:
+                    volume = remove_outlier(volume, voxel_threshold)
 
                 cc_path = os.path.join('outputs', experiment_name, f'Fold_{fold}', dataset, patient, f'{Mode.TOOTH_CONNECTED_COMPONENT if target == Label.TOOTH else Mode.BONE_CONNECTED_COMPONENT}.npy')
                 numpy.save(cc_path, volume)

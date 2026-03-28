@@ -2,10 +2,10 @@ import os
 import numpy
 import json
 
-from .connected_component import filter_connected_component
+from .connected_component import filter_connected_component, remove_outlier
 from .watershed import split_component
 from .refine_component import refine_component
-from .remove_outlier import remove_outlier, remove_cropped
+from .remove_outlier import remove_cropped
 from .remove_tooth import remove_tooth
 from .fill_holes import fill_holes
 from .relabel import relabel_volume
@@ -44,10 +44,10 @@ for fold in range(1, config.num_folds + 1):
 
             tooth_volume = volume == Label.TOOTH
             tooth_cc_volume = filter_connected_component(tooth_volume, target=Label.TOOTH, voxel_threshold=tooth_threshold)
+            tooth_cc_volume = remove_outlier(tooth_cc_volume, voxel_threshold=tooth_threshold)
             tooth_watershed_volume = split_component(tooth_cc_volume)
             data = f'{dataset}/{patient}'
             tooth_volume = tooth_watershed_volume if data not in tasks else refine_component(tooth_cc_volume, tooth_watershed_volume, tasks[data])
-            tooth_volume = remove_outlier(tooth_volume, voxel_threshold=tooth_threshold)
             tooth_volume = remove_cropped(tooth_volume)
             tooth_volume = tooth_volume if data not in labels else remove_tooth(tooth_volume, labels[data])
             tooth_volume, bone_volume = fill_holes(tooth_volume, bone_volume)
