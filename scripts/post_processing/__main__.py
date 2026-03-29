@@ -5,7 +5,7 @@ import json
 from .connected_component import filter_connected_component, remove_outlier
 from .watershed import split_component
 from .refine_component import refine_component
-from .remove_outlier import remove_cropped
+from .remove_cropped import remove_cropped
 from .remove_tooth import remove_tooth
 from .fill_holes import fill_holes
 from .relabel import relabel_volume

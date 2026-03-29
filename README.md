@@ -244,7 +244,7 @@ Outputs:
 1. filter connected component
 2. split component
 3. refine component
-4. remove outlier
+4. remove cropped
 5. remove tooth
 6. fill holes
 7. relabel

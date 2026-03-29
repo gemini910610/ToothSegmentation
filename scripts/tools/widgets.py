@@ -14,6 +14,7 @@ class Label:
     BACKGROUND = 0
     TOOTH = 1
     BONE = 2
+    CROPPED = 50
 
 class Color:
     TOOTH = (235, 223, 180, 255)

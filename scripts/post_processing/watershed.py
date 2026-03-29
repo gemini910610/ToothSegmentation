@@ -41,7 +41,7 @@ def split_component(volume):
     component_count = volume.max()
     new_volume = numpy.zeros_like(volume, dtype=numpy.uint8)
 
-    index = 1
+    index = 2
     components = ndimage.find_objects(volume, max_label=component_count)
     for label, slices in enumerate(components, 1):
         if slices is None:

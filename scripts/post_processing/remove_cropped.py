@@ -1,5 +1,7 @@
 import numpy
 
+from scripts.tools.widgets import Label
+
 def remove_cropped(volume):
     volume = volume.copy()
     component_count = volume.max()
@@ -7,10 +9,10 @@ def remove_cropped(volume):
     remove_labels = numpy.union1d(volume[:, :, :3], volume[:, :, -3:])
     remove_labels = remove_labels[remove_labels != 0]
 
-    lookup_table = numpy.zeros(component_count + 1, dtype=bool)
-    lookup_table[remove_labels] = True
+    lookup_table = numpy.arange(component_count + 1, dtype=numpy.uint8)
+    lookup_table[remove_labels] = numpy.arange(Label.CROPPED, Label.CROPPED + len(remove_labels), dtype=numpy.uint8)
 
-    volume[lookup_table[volume]] = 0
+    volume = lookup_table[volume]
 
     return volume
 
