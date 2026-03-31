@@ -24,9 +24,8 @@ if __name__ == '__main__':
 
     from argparse import ArgumentParser
     from src.config import load_config
-    from src.console import track
-    from src.dataset import get_fold
     from scripts.tools.widgets import Mode
+    from scripts.post_processing.iterators import iterate_fold_patients
 
     parser = ArgumentParser()
     parser.add_argument('exp', type=str)
@@ -39,13 +38,10 @@ if __name__ == '__main__':
     config = load_config(os.path.join('logs', experiment_name, 'config.toml'))
     config.split_file_path = os.path.join('logs', experiment_name, f'{config.split_filename}.json')
 
-    for fold in range(1, config.num_folds + 1):
-        _, valid_dataset_patients = get_fold(config.split_file_path, fold)
-        for dataset, patients in valid_dataset_patients.items():
-            for patient in track(patients, desc=f'Fold {fold} {dataset}'):
-                volume_path = os.path.join('outputs', experiment_name, f'Fold_{fold}', dataset, patient, f'{Mode.REFINE}.npy')
-                volume = numpy.load(volume_path)
-                volume = remove_cropped(volume, voxel_threshold)
+    for fold, dataset, patient in iterate_fold_patients(config):
+        volume_path = os.path.join('outputs', experiment_name, f'Fold_{fold}', dataset, patient, f'{Mode.REFINE}.npy')
+        volume = numpy.load(volume_path)
+        volume = remove_cropped(volume, voxel_threshold)
 
-                cleaned_path = os.path.join('outputs', experiment_name, f'Fold_{fold}', dataset, patient, f'{Mode.CLEANED}.npy')
-                numpy.save(cleaned_path, volume)
+        cleaned_path = os.path.join('outputs', experiment_name, f'Fold_{fold}', dataset, patient, f'{Mode.CLEANED}.npy')
+        numpy.save(cleaned_path, volume)

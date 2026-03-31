@@ -93,9 +93,8 @@ if __name__ == '__main__':
 
     from argparse import ArgumentParser
     from src.config import load_config
-    from src.console import track
-    from src.dataset import get_fold
     from scripts.tools.widgets import Mode
+    from scripts.post_processing.iterators import iterate_fold_patients
 
     parser = ArgumentParser()
     parser.add_argument('exp', type=str)
@@ -110,16 +109,13 @@ if __name__ == '__main__':
     config = load_config(os.path.join('logs', experiment_name, 'config.toml'))
     config.split_file_path = os.path.join('logs', experiment_name, f'{config.split_filename}.json')
 
-    for fold in range(1, config.num_folds + 1):
-        _, valid_dataset_patients = get_fold(config.split_file_path, fold)
-        for dataset, patients in valid_dataset_patients.items():
-            for patient in track(patients, desc=f'Fold {fold} {dataset}'):
-                predict_path = os.path.join('outputs', experiment_name, f'Fold_{fold}', dataset, patient, f'{Mode.PREDICT}.npy')
-                volume = numpy.load(predict_path)
-                volume = volume == target
-                volume = filter_connected_component(volume, target, voxel_threshold)
-                if target == Label.TOOTH:
-                    volume = remove_outlier(volume, voxel_threshold)
+    for fold, dataset, patient in iterate_fold_patients(config):
+        predict_path = os.path.join('outputs', experiment_name, f'Fold_{fold}', dataset, patient, f'{Mode.PREDICT}.npy')
+        volume = numpy.load(predict_path)
+        volume = volume == target
+        volume = filter_connected_component(volume, target, voxel_threshold)
+        if target == Label.TOOTH:
+            volume = remove_outlier(volume, voxel_threshold)
 
-                cc_path = os.path.join('outputs', experiment_name, f'Fold_{fold}', dataset, patient, f'{Mode.TOOTH_CONNECTED_COMPONENT if target == Label.TOOTH else Mode.BONE_CONNECTED_COMPONENT}.npy')
-                numpy.save(cc_path, volume)
+        cc_path = os.path.join('outputs', experiment_name, f'Fold_{fold}', dataset, patient, f'{Mode.TOOTH_CONNECTED_COMPONENT if target == Label.TOOTH else Mode.BONE_CONNECTED_COMPONENT}.npy')
+        numpy.save(cc_path, volume)

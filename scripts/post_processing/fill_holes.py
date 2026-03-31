@@ -33,9 +33,8 @@ if __name__ == '__main__':
 
     from argparse import ArgumentParser
     from src.config import load_config
-    from src.console import track
-    from src.dataset import get_fold
     from scripts.tools.widgets import Mode
+    from scripts.post_processing.iterators import iterate_fold_patients
 
     parser = ArgumentParser()
     parser.add_argument('exp', type=str)
@@ -46,19 +45,16 @@ if __name__ == '__main__':
     config = load_config(os.path.join('logs', experiment_name, 'config.toml'))
     config.split_file_path = os.path.join('logs', experiment_name, f'{config.split_filename}.json')
 
-    for fold in range(1, config.num_folds + 1):
-        _, valid_dataset_patients = get_fold(config.split_file_path, fold)
-        for dataset, patients in valid_dataset_patients.items():
-            for patient in track(patients, desc=f'Fold {fold} {dataset}'):
-                output_dir = os.path.join('outputs', experiment_name, f'Fold_{fold}', dataset, patient)
-                tooth_volume_path = os.path.join(output_dir, f'{Mode.REMOVED}.npy')
-                bone_volume_path = os.path.join(output_dir, f'{Mode.BONE_CONNECTED_COMPONENT}.npy')
-                tooth_volume = numpy.load(tooth_volume_path)
-                bone_volume = numpy.load(bone_volume_path)
+    for fold, dataset, patient in iterate_fold_patients(config):
+        output_dir = os.path.join('outputs', experiment_name, f'Fold_{fold}', dataset, patient)
+        tooth_volume_path = os.path.join(output_dir, f'{Mode.REMOVED}.npy')
+        bone_volume_path = os.path.join(output_dir, f'{Mode.BONE_CONNECTED_COMPONENT}.npy')
+        tooth_volume = numpy.load(tooth_volume_path)
+        bone_volume = numpy.load(bone_volume_path)
 
-                tooth_volume, bone_volume = fill_holes(tooth_volume, bone_volume)
+        tooth_volume, bone_volume = fill_holes(tooth_volume, bone_volume)
 
-                tooth_filled_path = os.path.join(output_dir, f'{Mode.TOOTH_FILLED}.npy')
-                bone_filled_path = os.path.join(output_dir, f'{Mode.BONE_FILLED}.npy')
-                numpy.save(tooth_filled_path, tooth_volume)
-                numpy.save(bone_filled_path, bone_volume)
+        tooth_filled_path = os.path.join(output_dir, f'{Mode.TOOTH_FILLED}.npy')
+        bone_filled_path = os.path.join(output_dir, f'{Mode.BONE_FILLED}.npy')
+        numpy.save(tooth_filled_path, tooth_volume)
+        numpy.save(bone_filled_path, bone_volume)
