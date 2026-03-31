@@ -48,7 +48,7 @@ for fold in range(1, config.num_folds + 1):
             tooth_watershed_volume = split_component(tooth_cc_volume)
             data = f'{dataset}/{patient}'
             tooth_volume = tooth_watershed_volume if data not in tasks else refine_component(tooth_cc_volume, tooth_watershed_volume, tasks[data])
-            tooth_volume = remove_cropped(tooth_volume)
+            tooth_volume = remove_cropped(tooth_volume, voxel_threshold=tooth_threshold)
             tooth_volume = tooth_volume if data not in labels else remove_tooth(tooth_volume, labels[data])
             tooth_volume, bone_volume = fill_holes(tooth_volume, bone_volume)
             tooth_volume = relabel_volume(tooth_volume, bone_volume)
