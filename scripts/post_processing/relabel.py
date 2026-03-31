@@ -43,6 +43,7 @@ def split_teeth_jaw(tooth_volume, bone_volume):
         upward = intersection_center[2] > tooth_center[2]
 
         (upper_tooth if upward else lower_tooth).append({
+            'label': label,
             'slices': slices,
             'roi': roi,
             'center': tooth_center
@@ -78,9 +79,7 @@ def estimate_missing_points(points):
     distances = numpy.linalg.norm(differences, axis=1)
 
     t = numpy.concatenate([[0], numpy.cumsum(distances)])
-
-    cs_x = CubicSpline(t, points[:, 0], bc_type='natural')
-    cs_y = CubicSpline(t, points[:, 1], bc_type='natural')
+    curve = CubicSpline(t, points, bc_type='natural', axis=0)
 
     missing_points = []
     threshold = numpy.median(distances)
@@ -90,10 +89,9 @@ def estimate_missing_points(points):
             continue
 
         t_new = numpy.linspace(t[i], t[i+1], k + 2)[1:-1]
-        x_new = cs_x(t_new)
-        y_new = cs_y(t_new)
+        xy_new = curve(t_new)
 
-        for point in zip(x_new, y_new):
+        for point in xy_new:
             missing_points.append(numpy.array(point))
 
     return missing_points

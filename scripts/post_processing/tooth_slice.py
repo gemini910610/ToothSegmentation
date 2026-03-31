@@ -1,9 +1,11 @@
 import numpy
 
 from scipy import ndimage
+from scipy.interpolate import CubicSpline
 from scripts.tools.widgets import Label
+from scripts.post_processing.relabel import split_teeth_jaw
 
-def extract_single_tooth(segmentation_volume, tooth_label, bone_label, padding=25):
+def extract_single_tooth(segmentation_volume, normal_vector, tooth_label, bone_label, padding=25):
     tooth_mask = segmentation_volume == tooth_label
     tooth_coordinates = numpy.argwhere(tooth_mask)
     tooth_center = tooth_coordinates.mean(0)
@@ -14,12 +16,10 @@ def extract_single_tooth(segmentation_volume, tooth_label, bone_label, padding=2
     order = numpy.argsort(eigen_values)[::-1]
     axis = eigen_vectors[:, order]
 
-    volume_center = numpy.array(segmentation_volume.shape) / 2
-    vector = tooth_center - volume_center # 朝前（非垂直於主軸）
     axis_z = axis[:, 0]
     if axis_z[2] < 0:
         axis_z *= -1 # 朝上
-    axis_y = numpy.cross(axis_z, vector) # 朝右
+    axis_y = numpy.cross(axis_z, normal_vector) # 朝右
     axis_y = axis_y / numpy.linalg.norm(axis_y)
     axis_x = numpy.cross(axis_y, axis_z) # 朝前
     axis_x = axis_x / numpy.linalg.norm(axis_x)
@@ -119,3 +119,35 @@ def normalize_slice(segmentation_slice, image_slice, tooth_slice):
     tooth_slice = tooth_slice.astype(numpy.uint8)
 
     return segmentation_slice, image_slice, tooth_slice
+
+def find_normal_vectors(segmentation_volume):
+    tooth_volume = segmentation_volume.copy()
+    tooth_volume[(segmentation_volume < 2) | (segmentation_volume >= Label.UNERUPTED)] = 0
+    bone_volume = segmentation_volume == 1
+
+    upper_tooth, lower_tooth = split_teeth_jaw(tooth_volume, bone_volume)
+
+    normal_vectors = {}
+
+    for tooth_list in (upper_tooth, lower_tooth):
+        points = numpy.array([tooth['center'][:2] for tooth in tooth_list])
+        center = points.mean(0)
+        vectors = points - center
+
+        differences = points[1:] - points[:-1]
+        distances = numpy.linalg.norm(differences, axis=1)
+
+        t = numpy.concatenate([[0], numpy.cumsum(distances)])
+        curve = CubicSpline(t, points, bc_type='natural', axis=0)
+
+        tangents = curve(t, 1)
+        normals = numpy.zeros_like(tangents)
+        normals[:, 0] = tangents[:, 1]
+        normals[:, 1] = -tangents[:, 0]
+
+        normals[numpy.sum(normals * vectors, axis=1) < 0] *= -1
+
+        for normal, tooth in zip(normals, tooth_list):
+            normal_vectors[tooth['label']] = normal
+
+    return normal_vectors

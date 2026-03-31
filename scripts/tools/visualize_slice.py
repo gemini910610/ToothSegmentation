@@ -3,7 +3,7 @@ import numpy
 from PySide6.QtWidgets import QHBoxLayout, QComboBox, QButtonGroup, QRadioButton
 from PySide6.QtGui import QShortcut, Qt
 from .widgets import PatientSelector, IconLabelSelector, VolumeViewer, MainWindowUI, VolumeLoader, Mode, VolumeColorizer, Label, Color, AxisItem, ImageTable
-from scripts.post_processing.tooth_slice import extract_single_tooth, align_crop_tooth, get_slices, normalize_slice
+from scripts.post_processing.tooth_slice import extract_single_tooth, align_crop_tooth, get_slices, normalize_slice, find_normal_vectors
 
 class TopLayout(QHBoxLayout):
     def __init__(self):
@@ -65,19 +65,22 @@ class MainWindow(MainWindowUI):
         self.previous_label_mask = None
         self.colors = None
         self.slices = None
+        self.normal_vectors = None
 
     def _handle_volumes(self, volumes):
         self.volumes = [volumes['origin'][Mode.POST_PROCESSING], volumes['origin'][Mode.IMAGE]]
 
         volume = self.volumes[0]
-        volume = numpy.select([volume == 1, volume > 1], [Label.BONE, Label.TOOTH])
+        volume = numpy.select([volume == 1, (volume > 1) & (volume < Label.CROPPED)], [Label.BONE, Label.TOOTH])
         self.display_volume = VolumeColorizer.color_volume(volume, display_bone=True)
+
+        self.normal_vectors = find_normal_vectors(self.volumes[0])
 
         patient = self.patient_selector.currentText()
         self.volume_viewer.views[0].setTitle(patient)
 
         labels = numpy.unique(self.volumes[0])
-        labels = labels[labels > 1] # exclude background and bone
+        labels = labels[(labels > 1) & (labels < Label.CROPPED)] # exclude background and bone
 
         tooth_count = self.volumes[0].max() - 1
         self.colors = VolumeColorizer.glasbey_palette(tooth_count)
@@ -87,12 +90,13 @@ class MainWindow(MainWindowUI):
         self._on_label_changed(0, reset=True)
 
     def _on_label_changed(self, index, reset=False):
-        if self.volumes is None or self.display_volume is None:
+        if self.volumes is None or self.display_volume is None or self.normal_vectors is None:
             return
 
         label = self.label_selector.current_label()
         segmentation_volume, image_volume = self.volumes
-        filtered_segmentation, transform_meta = extract_single_tooth(segmentation_volume, tooth_label=label, bone_label=1)
+        normal_vector = self.normal_vectors[label]
+        filtered_segmentation, transform_meta = extract_single_tooth(segmentation_volume, normal_vector, tooth_label=label, bone_label=1)
         aligned_segmentation, aligned_image = align_crop_tooth(filtered_segmentation, image_volume, transform_meta)
         self.slices = get_slices(aligned_segmentation, aligned_image, reverse=label // 10 in {2, 3})
 
