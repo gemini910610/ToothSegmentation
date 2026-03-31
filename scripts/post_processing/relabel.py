@@ -2,6 +2,7 @@ import numpy
 
 from scipy import ndimage
 from scipy.interpolate import CubicSpline
+from scripts.tools.widgets import Label
 
 def split_teeth_jaw(tooth_volume, bone_volume):
     upper_tooth = []
@@ -116,6 +117,11 @@ def split_left_right(points, default):
     return center
 
 def relabel_volume(tooth_volume, bone_volume):
+    tooth_volume = tooth_volume.copy()
+
+    removed_mask = tooth_volume >= Label.CROPPED
+    removed_tooth = tooth_volume[removed_mask]
+    tooth_volume[removed_mask] = 0
     upper_tooth, lower_tooth = split_teeth_jaw(tooth_volume, bone_volume)
 
     quadrants = {1: [], 2: [], 3: [], 4: []}
@@ -146,6 +152,8 @@ def relabel_volume(tooth_volume, bone_volume):
             tooth_list = tooth_list[::-1]
         for index, tooth in enumerate(tooth_list, 1):
             volume[tooth['slices']][tooth['roi']] = quadrant * 10 + index
+
+    volume[removed_mask] = removed_tooth
 
     return volume
 
