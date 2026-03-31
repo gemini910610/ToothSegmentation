@@ -11,5 +11,6 @@ outputs/
 pyproject.toml
 refine/
 remove/
+slices/
 splits/
 uv.lock

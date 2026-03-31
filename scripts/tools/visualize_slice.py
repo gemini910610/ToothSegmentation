@@ -80,7 +80,7 @@ class MainWindow(MainWindowUI):
         self.volume_viewer.views[0].setTitle(patient)
 
         labels = numpy.unique(self.volumes[0])
-        labels = labels[(labels > 1) & (labels < Label.CROPPED)] # exclude background and bone
+        labels = labels[(labels > 1) & (labels < Label.CROPPED)] # exclude background, bone and removed teeth
 
         tooth_count = self.volumes[0].max() - 1
         self.colors = VolumeColorizer.glasbey_palette(tooth_count)

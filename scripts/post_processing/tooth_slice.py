@@ -104,7 +104,7 @@ def get_slices(segmentation_volume, image_volume, count=8, reverse=False, offset
         if reverse:
             theta *= -1
         segmentation_slice, image_slice = oblique_slice(segmentation_volume, image_volume, theta, offset)
-        tooth_slice = (segmentation_slice > 0) * image_slice
+        tooth_slice = (segmentation_slice == 1) * image_slice
         slices.append((segmentation_slice, image_slice, tooth_slice))
     return slices
 
@@ -130,6 +130,9 @@ def find_normal_vectors(segmentation_volume):
     normal_vectors = {}
 
     for tooth_list in (upper_tooth, lower_tooth):
+        if len(tooth_list) < 2:
+            continue
+
         points = numpy.array([tooth['center'][:2] for tooth in tooth_list])
         center = points.mean(0)
         vectors = points - center
@@ -148,6 +151,55 @@ def find_normal_vectors(segmentation_volume):
         normals[numpy.sum(normals * vectors, axis=1) < 0] *= -1
 
         for normal, tooth in zip(normals, tooth_list):
-            normal_vectors[tooth['label']] = normal
+            normal_vectors[tooth['label']] = (*normal, 0)
 
     return normal_vectors
+
+if __name__ == '__main__':
+    import os
+    import cv2
+
+    from argparse import ArgumentParser
+    from src.config import load_config
+    from scripts.post_processing.iterators import iterate_fold_patients
+    from scripts.tools.widgets import Mode
+
+    parser = ArgumentParser()
+    parser.add_argument('exp', type=str)
+    parser.add_argument('output', type=str)
+    args = parser.parse_args()
+
+    experiment_name = args.exp
+    output_dir = args.output
+
+    if os.path.exists(output_dir):
+        raise FileExistsError(f'folder "{output_dir}" already exists')
+
+    config = load_config(os.path.join('logs', experiment_name, 'config.toml'))
+    config.split_file_path = os.path.join('logs', experiment_name, f'{config.split_filename}.json')
+
+    for fold, dataset, patient in iterate_fold_patients(config):
+        volume_path = os.path.join('outputs', experiment_name, f'Fold_{fold}', dataset, patient, f'{Mode.POST_PROCESSING}.npy')
+        volume = numpy.load(volume_path)
+        image_volume_path = os.path.join('outputs', experiment_name, f'Fold_{fold}', dataset, patient, f'{Mode.IMAGE}.npy')
+        image_volume = numpy.load(image_volume_path)
+
+        normal_vectors = find_normal_vectors(volume)
+
+        labels = numpy.unique(volume)
+        labels = labels[(labels > 1) & (labels < Label.CROPPED)] # exclude background, bone and removed teeth
+
+        for label in labels:
+            output_path = os.path.join(output_dir, dataset, patient, str(label))
+            os.makedirs(output_path)
+
+            normal_vector = normal_vectors[label]
+            filtered_volume, transform_meta = extract_single_tooth(volume, normal_vector, tooth_label=label, bone_label=1)
+            aligned_volume, aligned_image = align_crop_tooth(filtered_volume, image_volume, transform_meta)
+            slices = get_slices(aligned_volume, aligned_image, reverse=label // 10 in {2, 3})
+
+            for i, (segmentation_slice, image_slice, tooth_slice) in enumerate(slices[:4]):
+                segmentation_slice, image_slice, tooth_slice = normalize_slice(segmentation_slice, image_slice, tooth_slice)
+                degree = i * 45
+                for title, image in {'segmentation': segmentation_slice, 'image': image_slice, 'tooth': tooth_slice}.items():
+                    cv2.imwrite(os.path.join(output_path, f'{title}_{degree}.png'), image)
