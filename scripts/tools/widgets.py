@@ -1,7 +1,9 @@
 import os
 import numpy
 import colorcet
+import json
 
+from collections import defaultdict
 from scipy import ndimage
 from PySide6.QtCore import Signal, QThread, Qt
 from PySide6.QtGui import QVector3D, QPixmap, QColor, QIcon
@@ -15,6 +17,9 @@ class Label:
     TOOTH = 1
     BONE = 2
     CROPPED = 50
+    UNERUPTED = 70
+    RESIDUAL = 90
+    FAKE = 110
 
 class Color:
     TOOTH = (235, 223, 180, 255)
@@ -129,6 +134,7 @@ class VolumeColorizer:
 
         lookup_table = numpy.zeros((max_label + 1, 4), dtype=numpy.uint8)
         lookup_table[1:] = palette[:max_label]
+        lookup_table[Label.CROPPED:] = 0
         if display_bone:
             lookup_table[1] = 0
         rgba = lookup_table[volume]
@@ -479,3 +485,46 @@ class Slider(QWidget):
         self.slider.setMaximum(value)
     def get_maximum(self):
         return self.slider.maximum()
+
+class DataHandler:
+    def __init__(self, data=None):
+        if data is None:
+            data = {}
+        self.data = data
+    def find(self, *args, **kwargs):
+        raise NotImplementedError
+    def set_data(self, *args, **kwargs):
+        raise NotImplementedError
+    def remove_data(self, *args, **kwargs):
+        raise NotImplementedError
+
+class JsonHandler:
+    def __init__(self, path, DataHandler):
+        self.path = path
+        data = self.load(path)
+        self.handler = DataHandler(data)
+
+    def __enter__(self):
+        return self.handler
+
+    def __exit__(self, exc_type, exc, tb):
+        self.save(self.path, self.handler.data)
+
+    @staticmethod
+    def load(path):
+        if not os.path.exists(path):
+            return defaultdict(dict)
+
+        with open(path) as file:
+            data = json.load(file)
+            return defaultdict(dict, data)
+
+    @staticmethod
+    def save(path, data):
+        directory = os.path.dirname(path)
+        if not os.path.exists(directory):
+            os.makedirs(directory, exist_ok=True)
+
+        data = dict(data)
+        with open(path, 'w') as file:
+            json.dump(data, file, indent=4)

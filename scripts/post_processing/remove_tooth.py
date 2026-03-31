@@ -1,10 +1,19 @@
 import numpy
 
-def remove_tooth(volume, labels):
-    volume = volume.copy()
-    lookup_table = numpy.zeros(volume.max() + 1, dtype=bool)
-    lookup_table[labels] = True
-    volume[lookup_table[volume]] = 0
+from scripts.tools.widgets import Label
+
+def remove_tooth(volume, data):
+    remove_types = {
+        'Unerupted Tooth': Label.UNERUPTED,
+        'Residual Root': Label.RESIDUAL,
+        'Fake Tooth': Label.FAKE
+    }
+
+    lookup_table = numpy.arange(volume.max() + 1, dtype=numpy.uint8)
+    for remove_type, labels in data.items():
+        start_label = remove_types[remove_type]
+        lookup_table[labels] = numpy.arange(start_label, start_label + len(labels), dtype=numpy.uint8)
+    volume = lookup_table[volume]
     return volume
 
 if __name__ == '__main__':
@@ -37,7 +46,7 @@ if __name__ == '__main__':
                 volume = numpy.load(volume_path)
                 data = f'{dataset}/{patient}'
                 if data in labels:
-                    volume = remove_tooth(volume, labels[f'{dataset}/{patient}'])
+                    volume = remove_tooth(volume, labels[data])
 
                 removed_path = os.path.join('outputs', experiment_name, f'Fold_{fold}', dataset, patient, f'{Mode.REMOVED}.npy')
                 numpy.save(removed_path, volume)
