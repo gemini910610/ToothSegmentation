@@ -6,7 +6,7 @@ import json
 from collections import defaultdict
 from scipy import ndimage
 from PySide6.QtCore import Signal, QThread, Qt
-from PySide6.QtGui import QVector3D, QPixmap, QColor, QIcon
+from PySide6.QtGui import QVector3D, QPixmap, QColor, QIcon, QPainter, QPen
 from PySide6.QtWidgets import QMainWindow, QGroupBox, QVBoxLayout, QHBoxLayout, QWidget, QApplication, QGridLayout, QLabel, QComboBox, QSlider
 from pyqtgraph.opengl import GLViewWidget, GLVolumeItem, GLLinePlotItem
 from PIL import Image
@@ -78,10 +78,7 @@ class Mode:
 class DataManager:
     def __init__(self, experiment_name, patient_mapping, modes, base_output_dir='outputs'):
         self.experiment_name = experiment_name
-        self.patient_mapping = {
-            patient: fold
-            for patient, fold in sorted(patient_mapping.items(), key=lambda x: (x[0].split('/')[0], int(x[0].split('_')[-1])))
-        }
+        self.patient_mapping = patient_mapping
         self.patients = list(self.patient_mapping.keys())
         self.modes = modes
         self.base_output_dir = base_output_dir
@@ -335,66 +332,148 @@ class VolumeViewer(QWidget):
         app.exec()
 
 def get_patient_fold_mapping(config, base_output_dir='outputs'):
-    return {
+    patient_fold_map = {
         f'{dataset}/{patient}': fold
         for fold in range(1, config.num_folds + 1)
         for dataset in config.datasets
         for patient in os.listdir(os.path.join(base_output_dir, config.experiment, f'Fold_{fold}', dataset))
     }
+    return {
+        patient: fold
+        for patient, fold in sorted(patient_fold_map.items(), key=lambda x: (x[0].split('/')[0], int(x[0].split('_')[-1])))
+    }
+
+class ClickableImage(QLabel):
+    def __init__(self, size=(128, 128)):
+        super().__init__()
+        self.size = size
+        self.setFixedSize(*size)
+
+        self.dragging = False
+        self.image = None
+        self.left_point = None
+        self.right_point = None
+    def update_image(self, image):
+        image = Image.fromarray(image)
+        image = image.resize(self.size, Image.Resampling.NEAREST)
+        image = ImageQt(image)
+        self.image = QPixmap.fromImage(image)
+        self.left_point = None
+        self.right_point = None
+        self.update()
+    def mousePressEvent(self, event):
+        if self.image is None:
+            return
+
+        x = int(event.position().x())
+        y = int(event.position().y())
+
+        button = event.button()
+        if button == Qt.MouseButton.LeftButton:
+            self.left_point = (x, y)
+            self.dragging = button
+        elif button == Qt.MouseButton.RightButton:
+            self.right_point = (x, y)
+            self.dragging = button
+        elif button == Qt.MouseButton.MiddleButton:
+            self.left_point = None
+            self.right_point = None
+
+        self.update()
+    def mouseMoveEvent(self, event):
+        if self.image is None or self.dragging is None:
+            return
+
+        x = int(event.position().x())
+        y = int(event.position().y())
+
+        if self.dragging == Qt.MouseButton.LeftButton:
+            self.left_point = (x, y)
+        elif self.dragging == Qt.MouseButton.RightButton:
+            self.right_point = (x, y)
+
+        self.update()
+    def mouseReleaseEvent(self, event):
+        if self.image is None or self.dragging is None:
+            return
+
+        self.dragging = None
+    def paintEvent(self, event):
+        if self.image is None:
+            super().paintEvent(event)
+            return
+
+        painter = QPainter(self)
+        painter.drawPixmap(0, 0, self.image)
+
+        if self.left_point is not None:
+            x, y = self.left_point
+            painter.setPen(QPen(Qt.GlobalColor.red, 3))
+            painter.drawEllipse(x - 2, y - 2, 4, 4)
+
+        if self.right_point is not None:
+            x, y = self.right_point
+            painter.setPen(QPen(Qt.GlobalColor.green, 3))
+            painter.drawEllipse(x - 2, y - 2, 4, 4)
+
+        painter.end()
 
 class ImageBox(QGroupBox):
     def __init__(self, title, size=(128, 128)):
         super().__init__(title)
 
-        self.size = size
-
         layout = QVBoxLayout()
-        self.label = QLabel()
-        self.label.setFixedSize(*size)
-        layout.addWidget(self.label)
+        self.image = ClickableImage(size)
+        layout.addWidget(self.image)
         self.setLayout(layout)
     def update_image(self, image):
-        image = Image.fromarray(image)
-        image = image.resize(self.size, Image.Resampling.NEAREST)
-        image = ImageQt(image)
-        pixmap = QPixmap.fromImage(image)
-        self.label.setPixmap(pixmap)
+        self.image.update_image(image)
+
+class ImageCell:
+    def __init__(self, title, row, column):
+        self.title = title
+        self.row = row
+        self.column = column
 
 class ImageTable(QWidget):
-    def __init__(self, rows=4, columns=2):
+    def __init__(self, cells, size=(128, 128)):
         super().__init__()
 
-        self.rows = rows
-        self.columns = columns
+        self.cells = cells
 
         self.layout = QGridLayout()
         self.setLayout(self.layout)
 
-        titles = [
-            ['0 (B)', '315 (DB)'],
-            ['45 (MB)', '270 (D)'],
-            ['90 (M)', '225 (DL)'],
-            ['135 (ML)', '180 (L)']
-        ]
-        for row in range(rows):
-            for column in range(columns):
-                title = titles[row][column]
-                self.layout.addWidget(ImageBox(title), row, column)
+        self.boxes = []
+        for cell in self.cells:
+            box = ImageBox(cell.title, size)
+            self.boxes.append(box)
+            self.layout.addWidget(box, cell.row, cell.column)
 
         self.setFixedSize(self.sizeHint())
     def update_images(self, slices):
-        positions = [
-            [0, 0], [1, 0], [2, 0], [3, 0],
-            [3, 1], [2, 1], [1, 1], [0, 1]
-        ]
-        for (row, column), image in zip(positions, slices):
-            self.layout.itemAtPosition(row, column).widget().update_image(image)
+        for cell, image in zip(self.cells, slices):
+            self.layout.itemAtPosition(cell.row, cell.column).widget().update_image(image)
+    def _on_clicked(self, x, y, index):
+        print(x, y, index)
 
-class IconLabelSelector(QComboBox):
-    def update_items(self, labels, count, index_offset):
+class LabelSelector(QComboBox):
+    def update_items(self, *args):
         self.blockSignals(True)
         self.clear()
 
+        self._add_items(*args)
+
+        self.setCurrentIndex(0)
+        self.blockSignals(False)
+    def _add_items(self, labels):
+        for label in labels:
+            self.addItem(f'Label {label}', label)
+    def current_label(self):
+        return self.currentData()
+
+class IconLabelSelector(LabelSelector):
+    def _add_items(self, labels, count, index_offset):
         palette = VolumeColorizer.glasbey_palette(count)
         size = self.font().pointSize()
         for label in labels:
@@ -407,12 +486,6 @@ class IconLabelSelector(QComboBox):
             icon = QIcon(pixmap)
 
             self.addItem(icon, f'Label {label}', label)
-
-        self.setCurrentIndex(0)
-        self.blockSignals(False)
-
-    def current_label(self):
-        return self.currentData()
 
 class VolumeLoader:
     def __init__(self, data_manager, handle_volumes, **kwargs):
@@ -499,7 +572,7 @@ class DataHandler:
         raise NotImplementedError
 
 class JsonHandler:
-    def __init__(self, path, DataHandler):
+    def __init__(self, path, DataHandler=DataHandler):
         self.path = path
         data = self.load(path)
         self.handler = DataHandler(data)
@@ -513,11 +586,10 @@ class JsonHandler:
     @staticmethod
     def load(path):
         if not os.path.exists(path):
-            return defaultdict(dict)
+            return {}
 
         with open(path) as file:
-            data = json.load(file)
-            return defaultdict(dict, data)
+            return json.load(file)
 
     @staticmethod
     def save(path, data):

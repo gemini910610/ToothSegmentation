@@ -2,7 +2,7 @@ import numpy
 
 from PySide6.QtWidgets import QHBoxLayout, QComboBox, QButtonGroup, QRadioButton
 from PySide6.QtGui import QShortcut, Qt
-from .widgets import PatientSelector, IconLabelSelector, VolumeViewer, MainWindowUI, VolumeLoader, Mode, VolumeColorizer, Label, Color, AxisItem, ImageTable
+from .widgets import PatientSelector, IconLabelSelector, VolumeViewer, MainWindowUI, VolumeLoader, Mode, VolumeColorizer, Label, Color, AxisItem, ImageTable, ImageCell
 from scripts.post_processing.tooth_slice import extract_single_tooth, align_crop_tooth, get_slices, normalize_slice, find_normal_vectors
 
 class TopLayout(QHBoxLayout):
@@ -28,7 +28,16 @@ class BottomLayout(QHBoxLayout):
     def __init__(self):
         super().__init__()
         self.volume_viewer = VolumeViewer()
-        self.image_table = ImageTable()
+        self.image_table = ImageTable([
+            ImageCell('0 (B)', 0, 0),
+            ImageCell('45 (MB)', 1, 0),
+            ImageCell('90 (M)', 2, 0),
+            ImageCell('135 (ML)', 3, 0),
+            ImageCell('180 (L)', 3, 1),
+            ImageCell('225 (DL)', 2, 1),
+            ImageCell('270 (D)', 1, 1),
+            ImageCell('315 (DB)', 0, 1),
+        ])
         for widget in [self.volume_viewer, self.image_table]:
             self.addWidget(widget)
         self.axis_item = AxisItem(self.volume_viewer.views[1].view)
@@ -127,6 +136,8 @@ class MainWindow(MainWindowUI):
         index = self.label_selector.currentIndex()
         if index + step < 0 or index + step >= count:
             print('\a', end='', flush=True)
+            return
+
         index = max(0, min(count - 1, index + step))
         self.label_selector.setCurrentIndex(index)
 
