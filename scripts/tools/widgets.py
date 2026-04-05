@@ -3,7 +3,6 @@ import numpy
 import colorcet
 import json
 
-from collections import defaultdict
 from scipy import ndimage
 from PySide6.QtCore import Signal, QThread, Qt
 from PySide6.QtGui import QVector3D, QPixmap, QColor, QIcon, QPainter, QPen
@@ -344,25 +343,41 @@ def get_patient_fold_mapping(config, base_output_dir='outputs'):
     }
 
 class ClickableImage(QLabel):
-    def __init__(self, size=(128, 128)):
+    def __init__(self, size=(128, 128), clickable=False):
         super().__init__()
         self.size = size
         self.setFixedSize(*size)
+        self.clickable = clickable
 
         self.dragging = False
         self.image = None
         self.left_point = None
         self.right_point = None
-    def update_image(self, image):
-        image = Image.fromarray(image)
+    def update_image(self, origin_image, points=None):
+        image = Image.fromarray(origin_image)
         image = image.resize(self.size, Image.Resampling.NEAREST)
         image = ImageQt(image)
         self.image = QPixmap.fromImage(image)
-        self.left_point = None
-        self.right_point = None
+
+        if points is None:
+            self.left_point = None
+            self.right_point = None
+        else:
+            width, height = self.size
+            origin_height, origin_width = origin_image.shape
+
+            left_x, left_y, right_x, right_y = points
+            left_x = left_x * width / origin_width
+            left_y = left_y * height / origin_height
+            right_x = right_x * width / origin_width
+            right_y = right_y * height / origin_height
+
+            self.left_point = (left_x, left_y)
+            self.right_point = (right_x, right_y)
+
         self.update()
     def mousePressEvent(self, event):
-        if self.image is None:
+        if not self.clickable or self.image is None:
             return
 
         x = int(event.position().x())
@@ -381,7 +396,7 @@ class ClickableImage(QLabel):
 
         self.update()
     def mouseMoveEvent(self, event):
-        if self.image is None or self.dragging is None:
+        if not self.clickable or self.image is None or self.dragging is None:
             return
 
         x = int(event.position().x())
@@ -394,7 +409,7 @@ class ClickableImage(QLabel):
 
         self.update()
     def mouseReleaseEvent(self, event):
-        if self.image is None or self.dragging is None:
+        if not self.clickable or self.image is None or self.dragging is None:
             return
 
         self.dragging = None
@@ -419,15 +434,15 @@ class ClickableImage(QLabel):
         painter.end()
 
 class ImageBox(QGroupBox):
-    def __init__(self, title, size=(128, 128)):
+    def __init__(self, title, size=(128, 128), clickable=False):
         super().__init__(title)
 
         layout = QVBoxLayout()
-        self.image = ClickableImage(size)
+        self.image = ClickableImage(size, clickable)
         layout.addWidget(self.image)
         self.setLayout(layout)
-    def update_image(self, image):
-        self.image.update_image(image)
+    def update_image(self, image, points=None):
+        self.image.update_image(image, points)
 
 class ImageCell:
     def __init__(self, title, row, column):
@@ -436,7 +451,7 @@ class ImageCell:
         self.column = column
 
 class ImageTable(QWidget):
-    def __init__(self, cells, size=(128, 128)):
+    def __init__(self, cells, size=(128, 128), clickable=False):
         super().__init__()
 
         self.cells = cells
@@ -446,14 +461,17 @@ class ImageTable(QWidget):
 
         self.boxes = []
         for cell in self.cells:
-            box = ImageBox(cell.title, size)
+            box = ImageBox(cell.title, size, clickable)
             self.boxes.append(box)
             self.layout.addWidget(box, cell.row, cell.column)
 
         self.setFixedSize(self.sizeHint())
-    def update_images(self, slices):
-        for cell, image in zip(self.cells, slices):
-            self.layout.itemAtPosition(cell.row, cell.column).widget().update_image(image)
+    def update_images(self, slices, points=None):
+        if points is None:
+            points = [None] * len(self.cells)
+
+        for cell, image, point in zip(self.cells, slices, points):
+            self.layout.itemAtPosition(cell.row, cell.column).widget().update_image(image, point)
     def _on_clicked(self, x, y, index):
         print(x, y, index)
 

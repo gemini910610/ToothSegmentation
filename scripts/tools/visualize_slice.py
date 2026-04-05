@@ -1,9 +1,10 @@
 import numpy
 
-from PySide6.QtWidgets import QHBoxLayout, QComboBox, QButtonGroup, QRadioButton
+from PySide6.QtWidgets import QHBoxLayout, QComboBox, QButtonGroup, QRadioButton, QCheckBox
 from PySide6.QtGui import QShortcut, Qt
 from .widgets import PatientSelector, IconLabelSelector, VolumeViewer, MainWindowUI, VolumeLoader, Mode, VolumeColorizer, Label, Color, AxisItem, ImageTable, ImageCell
 from scripts.post_processing.tooth_slice import extract_single_tooth, align_crop_tooth, get_slices, normalize_slice, find_normal_vectors
+from keypoint.predict import CEJFinder
 
 class TopLayout(QHBoxLayout):
     def __init__(self):
@@ -14,6 +15,9 @@ class TopLayout(QHBoxLayout):
             self.addWidget(widget)
         self.addStretch()
 
+        self.point_toggle = QCheckBox('Display Points')
+        self.addWidget(self.point_toggle)
+
         self.slice_selector = QButtonGroup()
         group_layout = QHBoxLayout()
         for index, title in enumerate(['Segmentation', 'Image', 'Tooth']):
@@ -22,7 +26,7 @@ class TopLayout(QHBoxLayout):
             group_layout.addWidget(radio)
         self.addLayout(group_layout)
     def get_widgets(self):
-        return self.patient_selector, self.label_selector, self.slice_selector
+        return self.patient_selector, self.label_selector, self.point_toggle, self.slice_selector
 
 class BottomLayout(QHBoxLayout):
     def __init__(self):
@@ -48,18 +52,21 @@ class MainWindow(MainWindowUI):
     def __init__(self, data_manager):
         super().__init__(TopLayout, BottomLayout)
         self.loader = VolumeLoader(data_manager, self._handle_volumes, colorize=False, keep_origin=True)
+        self.cej_finder = CEJFinder('logs/keypoint_baseline/best.pth')
 
         self.setWindowTitle(data_manager.experiment_name)
 
-        self.patient_selector, self.label_selector, self.slice_selector = self.top_layout.get_widgets()
+        self.patient_selector, self.label_selector, self.point_toggle, self.slice_selector = self.top_layout.get_widgets()
         self.volume_viewer, self.image_table, self.axis_item = self.bottom_layout.get_widgets()
 
         self.patient_selector.setup(data_manager.patients, self.loader.load_patient)
+        self.point_toggle.setChecked(True)
         self.slice_selector.buttons()[0].setChecked(True)
 
-        self.loader.setup(self.patient_selector, self.label_selector, *self.slice_selector.buttons())
+        self.loader.setup(self.patient_selector, self.label_selector, self.point_toggle, *self.slice_selector.buttons())
 
         self.label_selector.currentIndexChanged.connect(self._on_label_changed)
+        self.point_toggle.stateChanged.connect(lambda x: self._on_slice_changed(self.slice_selector.checkedId()))
         self.slice_selector.idClicked.connect(self._on_slice_changed)
         for view in self.volume_viewer.views:
             view.view.viewChanged.connect(self.axis_item.sync_camera)
@@ -126,7 +133,7 @@ class MainWindow(MainWindowUI):
         self.axis_item.update_axes(*transform_meta['axes'])
         self.axis_item.sync_camera(self.volume_viewer.views[1].view.opts)
 
-        self._on_slice_changed(0)
+        self._on_slice_changed(self.slice_selector.checkedId())
 
     def _on_label_step(self, step):
         if self.volumes is None:
@@ -145,12 +152,20 @@ class MainWindow(MainWindowUI):
         if self.slices is None:
             return
 
-        slices = []
-        for segmentation_slice, image_slice, tooth_slice in self.slices:
-            volume_slice = normalize_slice(segmentation_slice, image_slice, tooth_slice)[index]
-            slices.append(volume_slice)
+        origin_segmentation_slices = []
+        segmentation_slices = []
+        image_slices = []
+        tooth_slices = []
+        for origin_segmentation_slice, image_slice, tooth_slice in self.slices:
+            segmentation_slice, image_slice, tooth_slice = normalize_slice(origin_segmentation_slice, image_slice, tooth_slice)
+            origin_segmentation_slices.append(origin_segmentation_slice)
+            segmentation_slices.append(segmentation_slice)
+            image_slices.append(image_slice)
+            tooth_slices.append(tooth_slice)
 
-        self.image_table.update_images(slices)
+        slices = [segmentation_slices, image_slices, tooth_slices][index]
+        points = None if not self.point_toggle.isChecked() else self.cej_finder.find(origin_segmentation_slices, tooth_slices)
+        self.image_table.update_images(slices, points)
 
 if __name__ == '__main__':
     import os

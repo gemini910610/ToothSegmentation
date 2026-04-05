@@ -25,7 +25,7 @@ class BottomLayout(QHBoxLayout):
             ImageCell('45 (MB)', 0, 1),
             ImageCell('90 (M)', 0, 2),
             ImageCell('135 (ML)', 0, 3)
-        ], (384, 384))
+        ], (384, 384), clickable=True)
         self.addWidget(self.image_table)
     def get_widgets(self):
         return self.image_table
