@@ -2,8 +2,10 @@ import numpy
 
 from scipy import ndimage
 from scipy.interpolate import CubicSpline
+from scipy.spatial import KDTree
 from scripts.tools.widgets import Label
 from scripts.post_processing.relabel import split_teeth_jaw
+from collections import defaultdict, deque
 
 def extract_single_tooth(segmentation_volume, normal_vector, tooth_label, bone_label, padding=25):
     tooth_mask = segmentation_volume == tooth_label
@@ -154,6 +156,120 @@ def find_normal_vectors(segmentation_volume):
             normal_vectors[tooth['label']] = (*normal, 0)
 
     return normal_vectors
+
+def restore_coordinates(points, aligned_shape, thetas, transform_meta, offset=90):
+    xs = points[:, 0]
+    ys = points[:, 1]
+
+    width, height, depth = aligned_shape
+
+    center = transform_meta['center']
+    axes = transform_meta['axes']
+    length = transform_meta['length']
+    u_min, v_min, w_min = -length
+
+    w = depth - 1 - ys + w_min
+
+    u_size = width
+    v_size = height
+    size = numpy.sqrt(u_size ** 2 + v_size ** 2)
+    hh = xs - size / 2
+
+    radian = numpy.deg2rad(thetas + offset)
+    u = (u_size / 2) + hh * numpy.cos(radian) + u_min
+    v = (v_size / 2) + hh * numpy.sin(radian) + v_min
+
+    uvw = numpy.stack([u, v, w], axis=1)
+
+    rotate_matrix = numpy.stack(axes, axis=1)
+    points = uvw @ rotate_matrix.T + center
+
+    return points
+
+def split_surface(points, filtered_segmentation):
+    tooth_area = filtered_segmentation == Label.TOOTH
+    erosion = ndimage.binary_erosion(tooth_area)
+    tooth_surface = tooth_area & ~erosion
+    coordinates = numpy.argwhere(tooth_surface)
+
+    tree = KDTree(coordinates)
+    _, indices = tree.query(points)
+
+    pairs = tree.query_pairs(1.75) # sqrt(3) 26-connectivity
+    neighbors = defaultdict(list)
+    for i, j in pairs:
+        neighbors[i].append(j)
+        neighbors[j].append(i)
+
+    paths = []
+    length = len(indices)
+    for index in range(length):
+        path = bfs(neighbors, indices[index], indices[(index + 1) % length])
+        paths.extend(path[1:])
+
+    path_coordinates = coordinates[paths]
+
+    path_mask = numpy.zeros_like(filtered_segmentation, dtype=bool)
+    path_mask[*path_coordinates.T] = True
+    structure = ndimage.generate_binary_structure(3, 3)
+    path_mask = ndimage.binary_dilation(path_mask, structure)
+
+    surface_mask = numpy.zeros_like(filtered_segmentation, dtype=bool)
+    surface_mask[*coordinates.T] = True
+    surface_mask[path_mask] = False
+
+    upper_seed = coordinates[numpy.argmax(coordinates[:, 2])]
+    upper_mask = numpy.zeros_like(surface_mask)
+    upper_mask[*upper_seed.T] = True
+    upper_surface = ndimage.binary_propagation(upper_mask, structure, surface_mask)
+
+    lower_seed = coordinates[numpy.argmin(coordinates[:, 2])]
+    lower_mask = numpy.zeros_like(surface_mask)
+    lower_mask[*lower_seed.T] = True
+    lower_surface = ndimage.binary_propagation(lower_mask, structure, surface_mask)
+
+    labels = numpy.zeros_like(filtered_segmentation, dtype=numpy.uint8)
+    labels[upper_surface] = 1
+    labels[lower_surface] = 2
+
+    unassigned_surface = tooth_surface & (labels == 0)
+    unassigned_surface[*path_coordinates.T] = False
+    unassigned_coordinates = numpy.argwhere(unassigned_surface)
+
+    assigned_mask = labels > 0
+    assigned_coordinates = numpy.argwhere(assigned_mask)
+    assigned_labels = labels[assigned_mask]
+
+    tree = KDTree(assigned_coordinates)
+    _, indices = tree.query(unassigned_coordinates)
+
+    labels[*unassigned_coordinates.T] = assigned_labels[indices]
+
+    upper_surface = numpy.argwhere(labels == 1)
+    lower_surface = numpy.argwhere(labels == 2)
+
+    return path_coordinates, upper_surface, lower_surface
+
+def bfs(neighbors, start_index, end_index):
+    if start_index == end_index:
+        return [start_index]
+
+    queue = deque([[start_index]])
+    visited = {start_index}
+
+    while queue:
+        path = queue.popleft()
+        node = path[-1]
+
+        for neighbor in neighbors[node]:
+            if neighbor == end_index:
+                return path + [neighbor]
+
+            if neighbor not in visited:
+                queue.append(path + [neighbor])
+                visited.add(neighbor)
+
+    return None
 
 if __name__ == '__main__':
     import os

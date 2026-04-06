@@ -3,7 +3,7 @@ import numpy
 from PySide6.QtWidgets import QHBoxLayout, QComboBox, QButtonGroup, QRadioButton, QCheckBox
 from PySide6.QtGui import QShortcut, Qt
 from .widgets import PatientSelector, IconLabelSelector, VolumeViewer, MainWindowUI, VolumeLoader, Mode, VolumeColorizer, Label, Color, AxisItem, ImageTable, ImageCell
-from scripts.post_processing.tooth_slice import extract_single_tooth, align_crop_tooth, get_slices, normalize_slice, find_normal_vectors
+from scripts.post_processing.tooth_slice import extract_single_tooth, align_crop_tooth, get_slices, normalize_slice, find_normal_vectors, restore_coordinates, split_surface
 from keypoint.predict import CEJFinder
 
 class TopLayout(QHBoxLayout):
@@ -81,6 +81,7 @@ class MainWindow(MainWindowUI):
         self.previous_label_mask = None
         self.colors = None
         self.slices = None
+        self.points = None
         self.normal_vectors = None
 
     def _handle_volumes(self, volumes):
@@ -114,10 +115,7 @@ class MainWindow(MainWindowUI):
         normal_vector = self.normal_vectors[label]
         filtered_segmentation, transform_meta = extract_single_tooth(segmentation_volume, normal_vector, tooth_label=label, bone_label=1)
         aligned_segmentation, aligned_image = align_crop_tooth(filtered_segmentation, image_volume, transform_meta)
-        self.slices = get_slices(aligned_segmentation, aligned_image, reverse=label // 10 in {2, 3})
-
-        volume = VolumeColorizer.color_volume(filtered_segmentation, display_bone=True)
-        self.volume_viewer.views[1].view.update_volume(volume, reset=reset)
+        slices = get_slices(aligned_segmentation, aligned_image, reverse=label // 10 in {2, 3})
 
         self.volume_viewer.views[1].setTitle(f'Label {label}')
 
@@ -129,6 +127,28 @@ class MainWindow(MainWindowUI):
         self.previous_label_mask = mask
 
         self.volume_viewer.views[0].view.update_volume(self.display_volume, reset=reset)
+
+        segmentation_slices = []
+        image_slices = []
+        tooth_slices = []
+        for segmentation_slice, image_slice, tooth_slice in slices:
+            segmentation_slice, image_slice, tooth_slice = normalize_slice(segmentation_slice, image_slice, tooth_slice)
+
+            segmentation_slices.append(segmentation_slice)
+            image_slices.append(image_slice)
+            tooth_slices.append(tooth_slice)
+
+        self.slices = [segmentation_slices, image_slices, tooth_slices]
+        self.points = self.cej_finder.find(tooth_slices)
+
+        points = restore_coordinates(self.points, aligned_segmentation.shape, numpy.arange(0, 360, 45), transform_meta)
+        points, upper_surface, lower_surface = split_surface(points, filtered_segmentation)
+        surface = upper_surface if label // 10 in {1, 2} else lower_surface
+
+        volume = VolumeColorizer.color_volume(filtered_segmentation, display_bone=True)
+        volume[*points.T] = (0, 0, 0, 255)
+        volume[*surface.T] = (255, 0, 0, 255)
+        self.volume_viewer.views[1].view.update_volume(volume, reset=reset)
 
         self.axis_item.update_axes(*transform_meta['axes'])
         self.axis_item.sync_camera(self.volume_viewer.views[1].view.opts)
@@ -152,19 +172,8 @@ class MainWindow(MainWindowUI):
         if self.slices is None:
             return
 
-        origin_segmentation_slices = []
-        segmentation_slices = []
-        image_slices = []
-        tooth_slices = []
-        for origin_segmentation_slice, image_slice, tooth_slice in self.slices:
-            segmentation_slice, image_slice, tooth_slice = normalize_slice(origin_segmentation_slice, image_slice, tooth_slice)
-            origin_segmentation_slices.append(origin_segmentation_slice)
-            segmentation_slices.append(segmentation_slice)
-            image_slices.append(image_slice)
-            tooth_slices.append(tooth_slice)
-
-        slices = [segmentation_slices, image_slices, tooth_slices][index]
-        points = None if not self.point_toggle.isChecked() else self.cej_finder.find(origin_segmentation_slices, tooth_slices)
+        slices = self.slices[index]
+        points = None if not self.point_toggle.isChecked() else self.points
         self.image_table.update_images(slices, points)
 
 if __name__ == '__main__':
