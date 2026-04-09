@@ -178,120 +178,6 @@ class MainWindow(MainWindowUI):
         points = None if not self.point_toggle.isChecked() else self.points
         self.image_table.update_images(slices, points)
 
-class SliceOnlyLayout(QHBoxLayout):
-    def __init__(self):
-        super().__init__()
-        self.image_table = ImageTable([
-            ImageCell('0 (B)', 0, 0),
-            ImageCell('45 (MB)', 0, 1),
-            ImageCell('90 (M)', 0, 2),
-            ImageCell('135 (ML)', 0, 3),
-            ImageCell('180 (L)', 1, 3),
-            ImageCell('225 (DL)', 1, 2),
-            ImageCell('270 (D)', 1, 1),
-            ImageCell('315 (DB)', 1, 0),
-        ], size=(224, 224))
-        self.addWidget(self.image_table)
-    def get_widgets(self):
-        return self.image_table
-
-class SliceOnlyWindow(MainWindowUI):
-    def __init__(self, data_manager):
-        super().__init__(TopLayout, SliceOnlyLayout)
-        self.loader = VolumeLoader(data_manager, self._handle_volumes, colorize=False, keep_origin=True)
-        self.cej_finder = CEJFinder('logs/keypoint_baseline/best.pth')
-
-        self.setWindowTitle(data_manager.experiment_name)
-
-        self.patient_selector, self.label_selector, self.point_toggle, self.slice_selector = self.top_layout.get_widgets()
-        self.image_table = self.bottom_layout.get_widgets()
-
-        self.patient_selector.setup(data_manager.patients, self.loader.load_patient)
-        self.point_toggle.setChecked(True)
-        self.slice_selector.buttons()[0].setChecked(True)
-
-        self.loader.setup(self.patient_selector, self.label_selector, self.point_toggle, *self.slice_selector.buttons())
-
-        self.label_selector.currentIndexChanged.connect(self._on_label_changed)
-        self.point_toggle.stateChanged.connect(lambda x: self._on_slice_changed(self.slice_selector.checkedId()))
-        self.slice_selector.idClicked.connect(self._on_slice_changed)
-
-        shortcut_left = QShortcut(Qt.Key.Key_Left, self)
-        shortcut_left.activated.connect(lambda: self._on_label_step(-1))
-        shortcut_right = QShortcut(Qt.Key.Key_Right, self)
-        shortcut_right.activated.connect(lambda: self._on_label_step(1))
-
-        self.volumes = None
-        self.slices = None
-        self.points = None
-        self.normal_vectors = None
-
-    def _handle_volumes(self, volumes):
-        self.volumes = [volumes['origin'][Mode.POST_PROCESSING], volumes['origin'][Mode.IMAGE]]
-
-        self.normal_vectors = find_normal_vectors(self.volumes[0])
-
-        labels = numpy.unique(self.volumes[0])
-        labels = labels[(labels > 1) & (labels < Label.CROPPED)] # exclude background, bone and removed teeth
-
-        tooth_count = self.volumes[0].max() - 1
-        self.label_selector.update_items(labels, tooth_count, -2)
-
-        self._on_label_changed(0, reset=True)
-
-    def _on_label_changed(self, index, reset=False):
-        if self.volumes is None or self.normal_vectors is None:
-            return
-
-        label = self.label_selector.current_label()
-        segmentation_volume, image_volume = self.volumes
-        normal_vector = self.normal_vectors[label]
-        filtered_segmentation, transform_meta = extract_single_tooth(segmentation_volume, normal_vector, tooth_label=label, bone_label=1)
-        aligned_segmentation, aligned_image = align_crop_tooth(filtered_segmentation, image_volume, transform_meta)
-        slices = get_slices(aligned_segmentation, aligned_image, reverse=label // 10 in {2, 3})
-
-        origin_segmentation_slices = []
-        segmentation_slices = []
-        image_slices = []
-        tooth_slices = []
-        for origin_segmentation_slice, image_slice, tooth_slice in slices:
-            segmentation_slice, image_slice, tooth_slice = normalize_slice(origin_segmentation_slice, image_slice, tooth_slice)
-
-            origin_segmentation_slices.append(origin_segmentation_slice)
-            segmentation_slices.append(segmentation_slice)
-            image_slices.append(image_slice)
-            tooth_slices.append(tooth_slice)
-
-        self.slices = [segmentation_slices, image_slices, tooth_slices]
-        self.points = self.cej_finder.find(origin_segmentation_slices, tooth_slices)
-
-        # points = restore_coordinates(self.points, aligned_segmentation.shape, numpy.arange(0, 360, 45), transform_meta)
-        # points, upper_surface, lower_surface = split_surface(points, filtered_segmentation)
-        # surface = upper_surface if label // 10 in {1, 2} else lower_surface
-
-        self._on_slice_changed(self.slice_selector.checkedId())
-
-    def _on_label_step(self, step):
-        if self.volumes is None:
-            return
-
-        count = self.label_selector.count()
-        index = self.label_selector.currentIndex()
-        if index + step < 0 or index + step >= count:
-            print('\a', end='', flush=True)
-            return
-
-        index = max(0, min(count - 1, index + step))
-        self.label_selector.setCurrentIndex(index)
-
-    def _on_slice_changed(self, index):
-        if self.slices is None:
-            return
-
-        slices = self.slices[index]
-        points = None if not self.point_toggle.isChecked() else self.points
-        self.image_table.update_images(slices, points)
-
 if __name__ == '__main__':
     import os
 
@@ -302,11 +188,9 @@ if __name__ == '__main__':
 
     parser = ArgumentParser()
     parser.add_argument('exp', type=str)
-    parser.add_argument('--slice-only', action='store_true')
     args = parser.parse_args()
 
     experiment_name = args.exp
-    slice_only = args.slice_only
 
     config = load_config(os.path.join('logs', experiment_name, 'config.toml'))
     patient_fold_map = get_patient_fold_mapping(config)
@@ -314,7 +198,7 @@ if __name__ == '__main__':
     app = QApplication([])
 
     data_manager = DataManager(experiment_name, patient_fold_map, [Mode.POST_PROCESSING, Mode.IMAGE])
-    window = (SliceOnlyWindow if slice_only else MainWindow)(data_manager)
+    window = MainWindow(data_manager)
 
     window.show()
 

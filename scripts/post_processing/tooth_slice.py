@@ -314,7 +314,7 @@ if __name__ == '__main__':
             aligned_volume, aligned_image = align_crop_tooth(filtered_volume, image_volume, transform_meta)
             slices = get_slices(aligned_volume, aligned_image, reverse=label // 10 in {2, 3})
 
-            for i, (segmentation_slice, image_slice, tooth_slice) in enumerate(slices[:4]):
+            for i, (segmentation_slice, image_slice, tooth_slice) in enumerate(slices):
                 segmentation_slice, image_slice, tooth_slice = normalize_slice(segmentation_slice, image_slice, tooth_slice)
                 degree = i * 45
                 for title, image in {'segmentation': segmentation_slice, 'image': image_slice, 'tooth': tooth_slice}.items():
