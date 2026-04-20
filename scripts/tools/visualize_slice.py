@@ -115,7 +115,7 @@ class MainWindow(MainWindowUI):
         normal_vector = self.normal_vectors[label]
         filtered_segmentation, transform_meta = extract_single_tooth(segmentation_volume, normal_vector, tooth_label=label, bone_label=1)
         aligned_segmentation, aligned_image = align_crop_tooth(filtered_segmentation, image_volume, transform_meta)
-        slices = get_slices(aligned_segmentation, aligned_image, reverse=label // 10 in {2, 3})
+        slices = get_slices(aligned_segmentation, aligned_image, count=64, reverse=label // 10 in {2, 3})
 
         self.volume_viewer.views[1].setTitle(f'Label {label}')
 
@@ -143,7 +143,7 @@ class MainWindow(MainWindowUI):
         self.slices = [segmentation_slices, image_slices, tooth_slices]
         self.points = self.cej_finder.find(origin_segmentation_slices, tooth_slices)
 
-        points = restore_coordinates(self.points, aligned_segmentation.shape, numpy.arange(0, 360, 45), transform_meta)
+        points = restore_coordinates(self.points, aligned_segmentation.shape, transform_meta)
         points, upper_surface, lower_surface = split_surface(points, filtered_segmentation)
         surface = upper_surface if label // 10 in {1, 2} else lower_surface
 
@@ -175,7 +175,9 @@ class MainWindow(MainWindowUI):
             return
 
         slices = self.slices[index]
-        points = None if not self.point_toggle.isChecked() else self.points
+        indices = numpy.linspace(0, len(slices) - 1, 8, endpoint=False, dtype=numpy.int32)
+        points = None if not self.point_toggle.isChecked() else [self.points[index] for index in indices]
+        slices = [slices[index] for index in indices]
         self.image_table.update_images(slices, points)
 
 if __name__ == '__main__':

@@ -157,7 +157,7 @@ def find_normal_vectors(segmentation_volume):
 
     return normal_vectors
 
-def restore_coordinates(points, aligned_shape, thetas, transform_meta, offset=90):
+def restore_coordinates(points, aligned_shape, transform_meta, offset=90):
     xs = points[:, 0]
     ys = points[:, 1]
 
@@ -175,6 +175,7 @@ def restore_coordinates(points, aligned_shape, thetas, transform_meta, offset=90
     size = numpy.sqrt(u_size ** 2 + v_size ** 2)
     hh = xs - size / 2
 
+    thetas = numpy.linspace(0, 360, len(points), endpoint=False)
     radian = numpy.deg2rad(thetas + offset)
     u = (u_size / 2) + hh * numpy.cos(radian) + u_min
     v = (v_size / 2) + hh * numpy.sin(radian) + v_min
@@ -186,12 +187,7 @@ def restore_coordinates(points, aligned_shape, thetas, transform_meta, offset=90
 
     return points
 
-def split_surface(points, filtered_segmentation):
-    tooth_area = filtered_segmentation == Label.TOOTH
-    erosion = ndimage.binary_erosion(tooth_area)
-    tooth_surface = tooth_area & ~erosion
-    coordinates = numpy.argwhere(tooth_surface)
-
+def find_path(coordinates, points):
     tree = KDTree(coordinates)
     _, indices = tree.query(points)
 
@@ -201,13 +197,23 @@ def split_surface(points, filtered_segmentation):
         neighbors[i].append(j)
         neighbors[j].append(i)
 
-    paths = []
+    path_indices = []
     length = len(indices)
     for index in range(length):
         path = bfs(neighbors, indices[index], indices[(index + 1) % length])
-        paths.extend(path[1:])
+        path_indices.extend(path[1:])
 
-    path_coordinates = coordinates[paths]
+    path_coordinates = coordinates[path_indices]
+
+    return path_coordinates
+
+def split_surface(points, filtered_segmentation):
+    tooth_area = filtered_segmentation == Label.TOOTH
+    erosion = ndimage.binary_erosion(tooth_area)
+    tooth_surface = tooth_area & ~erosion
+    coordinates = numpy.argwhere(tooth_surface)
+
+    path_coordinates = find_path(coordinates, points)
 
     path_mask = numpy.zeros_like(filtered_segmentation, dtype=bool)
     path_mask[*path_coordinates.T] = True
@@ -218,19 +224,16 @@ def split_surface(points, filtered_segmentation):
     surface_mask[*coordinates.T] = True
     surface_mask[path_mask] = False
 
-    upper_seed = coordinates[numpy.argmax(coordinates[:, 2])]
-    upper_mask = numpy.zeros_like(surface_mask)
-    upper_mask[*upper_seed.T] = True
-    upper_surface = ndimage.binary_propagation(upper_mask, structure, surface_mask)
-
-    lower_seed = coordinates[numpy.argmin(coordinates[:, 2])]
-    lower_mask = numpy.zeros_like(surface_mask)
-    lower_mask[*lower_seed.T] = True
-    lower_surface = ndimage.binary_propagation(lower_mask, structure, surface_mask)
-
     labels = numpy.zeros_like(filtered_segmentation, dtype=numpy.uint8)
-    labels[upper_surface] = 1
-    labels[lower_surface] = 2
+
+    upper_seed = coordinates[numpy.argmax(coordinates[:, 2])]
+    lower_seed = coordinates[numpy.argmin(coordinates[:, 2])]
+
+    for label, seed in enumerate((upper_seed, lower_seed), 1):
+        seed_mask = numpy.zeros_like(surface_mask)
+        seed_mask[*seed.T] = True
+        seed_surface = ndimage.binary_propagation(seed_mask, structure, surface_mask)
+        labels[seed_surface] = label
 
     unassigned_surface = tooth_surface & (labels == 0)
     unassigned_surface[*path_coordinates.T] = False
@@ -314,8 +317,10 @@ if __name__ == '__main__':
             aligned_volume, aligned_image = align_crop_tooth(filtered_volume, image_volume, transform_meta)
             slices = get_slices(aligned_volume, aligned_image, reverse=label // 10 in {2, 3})
 
-            for i, (segmentation_slice, image_slice, tooth_slice) in enumerate(slices):
+            degrees = numpy.linspace(0, 360, len(slices), endpoint=False)
+            for degree, (segmentation_slice, image_slice, tooth_slice) in zip(degrees, slices):
+                if degree.is_integer():
+                    degree = int(degree)
                 segmentation_slice, image_slice, tooth_slice = normalize_slice(segmentation_slice, image_slice, tooth_slice)
-                degree = i * 45
                 for title, image in {'segmentation': segmentation_slice, 'image': image_slice, 'tooth': tooth_slice}.items():
                     cv2.imwrite(os.path.join(output_path, f'{title}_{degree}.png'), image)

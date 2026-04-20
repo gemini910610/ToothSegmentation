@@ -43,6 +43,7 @@ class CEJFinder:
 
     def _move_to_surface(self, segmentation_slice, left_x, left_y, right_x, right_y):
         tooth_area = segmentation_slice == Label.TOOTH
+        tooth_area = ndimage.binary_fill_holes(tooth_area)
         structure = ndimage.generate_binary_structure(2, 1)
         erosion = ndimage.binary_erosion(tooth_area, structure)
         tooth_surface = tooth_area & ~erosion
