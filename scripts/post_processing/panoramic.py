@@ -125,12 +125,8 @@ def draw_label(image_panoramic, segmentation_panoramic):
     for label in labels:
         area = segmentation_panoramic == label
         area = ndimage.binary_fill_holes(area)
-        dilation = ndimage.binary_dilation(area)
-        erosion = ndimage.binary_erosion(area)
-        edge = dilation & ~erosion
 
         color = palette[label - 1][:3]
-        image_panoramic[edge] = color
 
         points = numpy.argwhere(area)
         center = points.mean(0)[::-1]

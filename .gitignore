@@ -8,6 +8,7 @@ datasets/
 logs/
 output_slices/
 outputs/
+pano_predict/
 pyproject.toml
 refine/
 remove/
