@@ -47,13 +47,14 @@ def evaluate_fold(config, criterion, metric_fn):
 
 if __name__ == '__main__':
     from argparse import ArgumentParser
+    from collections import defaultdict
+
     from src.config import load_config
     from src.console import track, Table
-    from src.metrics import get_metric
-    from src.losses import get_loss
     from src.dataset import get_loader
-    from collections import defaultdict
     from src.downloader import ensure_experiment_exists
+    from src.losses import get_loss
+    from src.metrics import get_metric
 
     parser = ArgumentParser()
     parser.add_argument('exp', type=str)

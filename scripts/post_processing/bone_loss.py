@@ -1,9 +1,10 @@
 import numpy
 
 from scipy import ndimage
-from src.console import track
+
+from scripts.post_processing.tooth_slice import align_crop_tooth, extract_single_tooth, find_normal_vectors, get_slices, normalize_slice, restore_coordinates, split_surface
 from scripts.tools.widgets import Label
-from scripts.post_processing.tooth_slice import find_normal_vectors, extract_single_tooth, align_crop_tooth, get_slices, normalize_slice, restore_coordinates, split_surface
+from src.console import track
 
 def compute_bone_loss(segmentation_volume, image_volume, cej_finder):
     normal_vectors = find_normal_vectors(segmentation_volume)
@@ -57,12 +58,13 @@ def compute_bone_loss(segmentation_volume, image_volume, cej_finder):
 if __name__ == '__main__':
     import os
 
-    from src.console import Table
     from argparse import ArgumentParser
-    from src.config import load_config
+
+    from keypoint.predict import CEJFinder
     from scripts.post_processing.iterators import iterate_fold_patients
     from scripts.tools.widgets import Mode
-    from keypoint.predict import CEJFinder
+    from src.config import load_config
+    from src.console import Table
 
     parser = ArgumentParser()
     parser.add_argument('exp', type=str)

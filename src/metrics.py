@@ -49,10 +49,10 @@ def get_metric(config):
 if __name__ == '__main__':
     import os
 
+    from src.config import load_config
+    from src.console import Table
     from src.dataset import get_loader
     from src.models import get_model
-    from src.console import Table
-    from src.config import load_config
 
     config = load_config('configs/unet.toml')
     config.fold = 1

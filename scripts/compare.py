@@ -1,14 +1,15 @@
-import torch
-import os
 import numpy
+import os
+import torch
 
-from torchvision.transforms import ToPILImage
 from PIL import ImageFont
 from PIL.ImageDraw import Draw
-from src.dataset import CBCTDataset
-from src.console import track
 from torch.utils.data import DataLoader
+from torchvision.transforms import ToPILImage
+
 from scripts.tools.widgets import Mode
+from src.console import track
+from src.dataset import CBCTDataset
 
 def save_image(image, output_dir, filename):
     to_image = ToPILImage()
@@ -83,10 +84,11 @@ def predict_patient(model, dataset, patient, output_dir, config, out_image=False
 
 if __name__ == '__main__':
     from argparse import ArgumentParser
+
     from src.config import load_config
     from src.dataset import get_fold
-    from src.models import load_model
     from src.downloader import ensure_experiment_exists
+    from src.models import load_model
 
     parser = ArgumentParser()
     parser.add_argument('exp', type=str)

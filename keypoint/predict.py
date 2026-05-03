@@ -1,9 +1,10 @@
-import torch
 import numpy
+import torch
+
+from scipy import ndimage
+from torchvision import transforms
 
 from keypoint.models import KeypointModel
-from torchvision import transforms
-from scipy import ndimage
 from scripts.tools.widgets import Label
 
 class CEJFinder:

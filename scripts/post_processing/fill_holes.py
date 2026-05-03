@@ -1,6 +1,7 @@
 import numpy
 
 from scipy import ndimage
+
 from scripts.post_processing.connected_component import get_bounding_box
 
 def fill_holes(tooth_volume, bone_volume):
@@ -32,9 +33,10 @@ if __name__ == '__main__':
     import os
 
     from argparse import ArgumentParser
-    from src.config import load_config
-    from scripts.tools.widgets import Mode
+
     from scripts.post_processing.iterators import iterate_fold_patients
+    from scripts.tools.widgets import Mode
+    from src.config import load_config
 
     parser = ArgumentParser()
     parser.add_argument('exp', type=str)

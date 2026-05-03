@@ -1,8 +1,9 @@
 import numpy
 
-from PySide6.QtWidgets import QHBoxLayout, QComboBox, QSpinBox, QPushButton
-from .widgets import VolumeViewer, Mode, VolumeColorizer, IconLabelSelector, VolumeLoader, PatientSelector, MainWindowUI
+from PySide6.QtWidgets import QComboBox, QHBoxLayout, QPushButton, QSpinBox
+
 from scripts.post_processing.watershed import split_k_component
+from scripts.tools.widgets import IconLabelSelector, MainWindowUI, Mode, PatientSelector, VolumeColorizer, VolumeLoader, VolumeViewer
 
 class TopLayout(QHBoxLayout):
     def __init__(self):
@@ -92,8 +93,9 @@ if __name__ == '__main__':
 
     from argparse import ArgumentParser
     from PySide6.QtWidgets import QApplication
+
+    from scripts.tools.widgets import DataManager, get_patient_fold_mapping
     from src.config import load_config
-    from .widgets import get_patient_fold_mapping, DataManager
 
     parser = ArgumentParser()
     parser.add_argument('exp', type=str)

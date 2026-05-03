@@ -3,7 +3,8 @@ import os
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QShortcut
 from PySide6.QtWidgets import QApplication, QHBoxLayout
-from .widgets import Mode, VolumeViewer, VolumeLoader, PatientSelector, MainWindowUI, Color, Slider
+
+from scripts.tools.widgets import Color, MainWindowUI, Mode, PatientSelector, Slider, VolumeLoader, VolumeViewer
 
 class TopLayout(QHBoxLayout):
     def __init__(self):
@@ -77,8 +78,9 @@ class MainWindow(MainWindowUI):
 
 if __name__ == '__main__':
     from argparse import ArgumentParser
+
+    from scripts.tools.widgets import DataManager, get_patient_fold_mapping
     from src.config import load_config
-    from .widgets import DataManager, get_patient_fold_mapping
 
     parser = ArgumentParser()
     parser.add_argument('exp', type=str)

@@ -2,17 +2,18 @@ import os
 import numpy
 import json
 
-from .connected_component import filter_connected_component, remove_outlier
-from .watershed import split_component
-from .refine_component import refine_component
-from .remove_cropped import remove_cropped
-from .remove_tooth import remove_tooth
-from .fill_holes import fill_holes
-from .relabel import relabel_volume
-from .iterators import iterate_fold_patients
-from src.config import load_config
 from argparse import ArgumentParser
-from scripts.tools.widgets import Mode, Label
+
+from scripts.post_processing.connected_component import filter_connected_component, remove_outlier
+from scripts.post_processing.fill_holes import fill_holes
+from scripts.post_processing.iterators import iterate_fold_patients
+from scripts.post_processing.refine_component import refine_component
+from scripts.post_processing.relabel import relabel_volume
+from scripts.post_processing.remove_cropped import remove_cropped
+from scripts.post_processing.remove_tooth import remove_tooth
+from scripts.post_processing.watershed import split_component
+from scripts.tools.widgets import Label, Mode
+from src.config import load_config
 
 parser = ArgumentParser()
 parser.add_argument('exp', type=str)

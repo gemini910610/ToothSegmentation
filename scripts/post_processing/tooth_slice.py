@@ -1,11 +1,12 @@
 import numpy
 
+from collections import defaultdict, deque
 from scipy import ndimage
 from scipy.interpolate import CubicSpline
 from scipy.spatial import KDTree
-from scripts.tools.widgets import Label
+
 from scripts.post_processing.relabel import split_teeth_jaw
-from collections import defaultdict, deque
+from scripts.tools.widgets import Label
 
 def extract_single_tooth(segmentation_volume, normal_vector, tooth_label, bone_label, padding=25):
     tooth_mask = segmentation_volume == tooth_label
@@ -275,13 +276,14 @@ def bfs(neighbors, start_index, end_index):
     return None
 
 if __name__ == '__main__':
-    import os
     import cv2
+    import os
 
     from argparse import ArgumentParser
-    from src.config import load_config
+
     from scripts.post_processing.iterators import iterate_fold_patients
     from scripts.tools.widgets import Mode
+    from src.config import load_config
 
     parser = ArgumentParser()
     parser.add_argument('exp', type=str)

@@ -1,10 +1,11 @@
-import os
 import cv2
 import numpy
+import os
 
-from PySide6.QtGui import QShortcut, QKeySequence, Qt
-from PySide6.QtWidgets import QHBoxLayout, QComboBox
-from .widgets import PatientSelector, LabelSelector, ImageTable, MainWindowUI, ImageCell, DataHandler, JsonHandler
+from PySide6.QtGui import QKeySequence, QShortcut, Qt
+from PySide6.QtWidgets import QComboBox, QHBoxLayout
+
+from scripts.tools.widgets import DataHandler, ImageCell, ImageTable, JsonHandler, LabelSelector, MainWindowUI, PatientSelector
 
 class TopLayout(QHBoxLayout):
     def __init__(self):

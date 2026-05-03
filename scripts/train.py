@@ -1,5 +1,5 @@
-from src.trainer import Trainer
 from src.console import Table
+from src.trainer import Trainer
 
 def train(config):
     Table(
@@ -14,6 +14,7 @@ if __name__ == '__main__':
     import os
 
     from argparse import ArgumentParser
+
     from src.config import load_config
 
     config = load_config('configs/config.toml')

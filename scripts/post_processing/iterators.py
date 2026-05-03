@@ -1,5 +1,5 @@
-from src.dataset import get_fold
 from src.console import track
+from src.dataset import get_fold
 
 def iterate_fold_patients(config):
     for fold in range(1, config.num_folds + 1):

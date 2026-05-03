@@ -2,6 +2,7 @@ import numpy
 
 from scipy import ndimage
 from scipy.interpolate import CubicSpline
+
 from scripts.tools.widgets import Label
 
 def split_teeth_jaw(tooth_volume, bone_volume):
@@ -159,9 +160,10 @@ if __name__ == '__main__':
     import os
 
     from argparse import ArgumentParser
-    from src.config import load_config
-    from scripts.tools.widgets import Mode
+
     from scripts.post_processing.iterators import iterate_fold_patients
+    from scripts.tools.widgets import Mode
+    from src.config import load_config
 
     parser = ArgumentParser()
     parser.add_argument('exp', type=str)

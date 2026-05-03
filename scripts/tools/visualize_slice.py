@@ -2,9 +2,10 @@ import numpy
 
 from PySide6.QtWidgets import QHBoxLayout, QComboBox, QButtonGroup, QRadioButton, QCheckBox
 from PySide6.QtGui import QShortcut, Qt
-from .widgets import PatientSelector, IconLabelSelector, VolumeViewer, MainWindowUI, VolumeLoader, Mode, VolumeColorizer, Label, Color, AxisItem, ImageTable, ImageCell
-from scripts.post_processing.tooth_slice import extract_single_tooth, align_crop_tooth, get_slices, normalize_slice, find_normal_vectors, restore_coordinates, split_surface
+
 from keypoint.predict import CEJFinder
+from scripts.post_processing.tooth_slice import align_crop_tooth, extract_single_tooth, find_normal_vectors, get_slices, normalize_slice, restore_coordinates, split_surface
+from scripts.tools.widgets import AxisItem, Color, ImageCell, IconLabelSelector, ImageTable, Label, MainWindowUI, Mode, PatientSelector, VolumeColorizer, VolumeLoader, VolumeViewer
 
 class TopLayout(QHBoxLayout):
     def __init__(self):
@@ -185,8 +186,9 @@ if __name__ == '__main__':
 
     from argparse import ArgumentParser
     from PySide6.QtWidgets import QApplication
+
+    from scripts.tools.widgets import DataManager, get_patient_fold_mapping
     from src.config import load_config
-    from .widgets import get_patient_fold_mapping, DataManager
 
     parser = ArgumentParser()
     parser.add_argument('exp', type=str)

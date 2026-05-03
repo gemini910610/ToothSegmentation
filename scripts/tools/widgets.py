@@ -1,15 +1,15 @@
-import os
-import numpy
 import colorcet
 import json
+import numpy
+import os
 
-from scipy import ndimage
-from PySide6.QtCore import Signal, QThread, Qt
-from PySide6.QtGui import QVector3D, QPixmap, QColor, QIcon, QPainter, QPen
-from PySide6.QtWidgets import QMainWindow, QGroupBox, QVBoxLayout, QHBoxLayout, QWidget, QApplication, QGridLayout, QLabel, QComboBox, QSlider
-from pyqtgraph.opengl import GLViewWidget, GLVolumeItem, GLLinePlotItem
 from PIL import Image
 from PIL.ImageQt import ImageQt
+from pyqtgraph.opengl import GLLinePlotItem, GLViewWidget, GLVolumeItem
+from PySide6.QtCore import QThread, Qt, Signal
+from PySide6.QtGui import QColor, QIcon, QPainter, QPen, QPixmap, QVector3D
+from PySide6.QtWidgets import QApplication, QComboBox, QGridLayout, QGroupBox, QHBoxLayout, QLabel, QMainWindow, QSlider, QVBoxLayout, QWidget
+from scipy import ndimage
 
 class Label:
     BACKGROUND = 0

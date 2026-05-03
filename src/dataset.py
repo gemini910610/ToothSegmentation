@@ -4,7 +4,7 @@ import os
 import torch
 
 from collections import defaultdict
-from torch.utils.data import Dataset, DataLoader, ConcatDataset
+from torch.utils.data import ConcatDataset, DataLoader, Dataset
 
 def get_fold(split_file_path, fold_id):
     with open(split_file_path) as file:
@@ -97,8 +97,8 @@ def get_loader(config, return_mask=True):
     return train_loader, val_loader
 
 if __name__ == '__main__':
-    from src.console import Table
     from src.config import load_config
+    from src.console import Table
 
     config = load_config('configs/config.toml')
     config.fold = 1

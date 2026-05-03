@@ -1,8 +1,8 @@
-import os
-import SimpleITK
-import numpy
 import cv2
+import numpy
+import os
 import re
+import SimpleITK
 
 from pathlib import Path
 
@@ -70,6 +70,7 @@ def save_volume(volume, output_dir):
 
 if __name__ == '__main__':
     from argparse import ArgumentParser
+
     from src.console import Table, track
 
     parser = ArgumentParser()

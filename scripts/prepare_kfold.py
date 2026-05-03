@@ -3,8 +3,9 @@ import os
 
 from collections import defaultdict
 from sklearn.model_selection import GroupKFold
-from src.console import Table
+
 from src.config import load_config
+from src.console import Table
 
 config = load_config('configs/config.toml')
 

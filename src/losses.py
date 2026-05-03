@@ -74,13 +74,13 @@ def get_loss(config):
     return LOSSES[config.loss.name](**config.loss.parameters)
 
 if __name__ == '__main__':
-    import torch
     import os
+    import torch
 
+    from src.config import load_config
+    from src.console import Table
     from src.dataset import get_loader
     from src.models import get_model
-    from src.console import Table
-    from src.config import load_config
 
     config = load_config('configs/unet.toml')
     config.fold = 1

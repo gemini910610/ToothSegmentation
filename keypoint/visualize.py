@@ -1,12 +1,13 @@
-import os
-import numpy
 import cv2
+import numpy
+import os
 
-from scripts.tools.widgets import PatientSelector, IconLabelSelector, ImageTable, ImageCell, MainWindowUI
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QShortcut
-from PySide6.QtWidgets import QHBoxLayout, QComboBox, QCheckBox, QButtonGroup, QRadioButton
+from PySide6.QtWidgets import QButtonGroup, QCheckBox, QComboBox, QHBoxLayout, QRadioButton
+
 from keypoint.predict import CEJFinder
+from scripts.tools.widgets import IconLabelSelector, ImageCell, ImageTable, MainWindowUI, PatientSelector
 
 class TopLayout(QHBoxLayout):
     def __init__(self):

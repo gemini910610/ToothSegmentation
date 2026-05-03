@@ -1,9 +1,10 @@
 import numpy
 import os
 
-from PySide6.QtWidgets import QHBoxLayout, QComboBox, QButtonGroup, QRadioButton, QPushButton
-from .widgets import VolumeViewer, Mode, VolumeColorizer, IconLabelSelector, VolumeLoader, PatientSelector, MainWindowUI, Color, JsonHandler, DataHandler, Label
+from PySide6.QtWidgets import QButtonGroup, QComboBox, QHBoxLayout, QPushButton, QRadioButton
 from scipy import ndimage
+
+from scripts.tools.widgets import Color, DataHandler, IconLabelSelector, JsonHandler, Label, MainWindowUI, Mode, PatientSelector, VolumeColorizer, VolumeLoader, VolumeViewer
 
 class RemoveDataHandler(DataHandler):
     def find(self, patient, label):
@@ -145,8 +146,9 @@ class MainWindow(MainWindowUI):
 if __name__ == '__main__':
     from argparse import ArgumentParser
     from PySide6.QtWidgets import QApplication
+
+    from scripts.tools.widgets import DataManager, get_patient_fold_mapping
     from src.config import load_config
-    from .widgets import get_patient_fold_mapping, DataManager
 
     parser = ArgumentParser()
     parser.add_argument('exp', type=str)

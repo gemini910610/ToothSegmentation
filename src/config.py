@@ -1,7 +1,7 @@
-import torch
 import tomllib
+import torch
 
-from omegaconf import OmegaConf, MISSING
+from omegaconf import MISSING, OmegaConf
 
 def load_config(load_path):
     with open(load_path, 'rb') as file:
@@ -20,8 +20,9 @@ def load_config(load_path):
 if __name__ == '__main__':
     import os
 
-    from src.console import Table
     from omegaconf.dictconfig import DictConfig
+
+    from src.console import Table
 
     def get_items(config, prefix=''):
         for key, value in config.items():

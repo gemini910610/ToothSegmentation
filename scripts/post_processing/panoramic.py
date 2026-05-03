@@ -1,10 +1,11 @@
-import numpy
 import cv2
+import numpy
 
 from scipy import ndimage
 from scipy.interpolate import make_splprep
-from scripts.tools.widgets import VolumeColorizer, Label
+
 from scripts.post_processing.relabel import split_teeth_jaw
+from scripts.tools.widgets import Label, VolumeColorizer
 
 def extract_curve(tooth_list):
     points = numpy.array([tooth['center'][:2] for tooth in tooth_list])
@@ -143,9 +144,10 @@ if __name__ == '__main__':
     import os
 
     from argparse import ArgumentParser
-    from src.config import load_config
+
     from scripts.post_processing.iterators import iterate_fold_patients
     from scripts.tools.widgets import Mode
+    from src.config import load_config
 
     parser = ArgumentParser()
     parser.add_argument('exp', type=str)

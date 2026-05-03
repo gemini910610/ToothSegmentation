@@ -1,13 +1,14 @@
 import os
 import torch
 
-from keypoint.datasets import get_loader
-from keypoint.models import KeypointModel
-from keypoint.metrics import EuclideanDistance
 from collections import defaultdict
-from src.console import track, Table
 from torch import amp
 from torch.utils.tensorboard import SummaryWriter
+
+from keypoint.datasets import get_loader
+from keypoint.metrics import EuclideanDistance
+from keypoint.models import KeypointModel
+from src.console import Table, track
 
 class Trainer:
     def __init__(self):

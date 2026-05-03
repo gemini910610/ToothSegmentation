@@ -4,12 +4,13 @@ import torch
 from collections import defaultdict
 from torch import amp
 from torch.utils.tensorboard import SummaryWriter
+
 from src.console import track, Table
-from src.optimizers import get_optimizer
 from src.dataset import get_loader
-from src.models import get_model
 from src.losses import get_loss
 from src.metrics import get_metric
+from src.models import get_model
+from src.optimizers import get_optimizer
 
 class Trainer:
     def __init__(self, config):
