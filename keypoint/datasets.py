@@ -4,21 +4,23 @@ import cv2
 import torch
 
 from torchvision import transforms
-from torch.utils.data import Dataset, DataLoader, random_split
+from torch.utils.data import Dataset, DataLoader
+from sklearn.model_selection import GroupShuffleSplit
 
 class KeypointDataset(Dataset):
-    def __init__(self, dataset_dir):
+    def __init__(self, dataset_dir, patients):
         self.dataset_dir = dataset_dir
 
         with open(os.path.join(dataset_dir, 'points.json')) as file:
             data = json.load(file)
 
         self.points = []
-        for patient, labels in data.items():
-            for label, degrees in labels.items():
+        for patient in patients:
+            for label, degrees in data[patient].items():
                 for degree, points in degrees.items():
                     filename = os.path.join(patient, label, f'tooth_{degree}.png')
-                    self.points.append((filename, points))
+                    self.points.append((filename, points, True))
+                    self.points.append((filename, points, False))
 
         self.length = len(self.points)
 
@@ -26,12 +28,15 @@ class KeypointDataset(Dataset):
     def __len__(self):
         return self.length
     def __getitem__(self, index):
-        filename, ((left_x, left_y), (right_x, right_y)) = self.points[index]
+        filename, ((left_x, left_y), (right_x, right_y)), flip = self.points[index]
         image_path = os.path.join(self.dataset_dir, filename)
         image = KeypointDataset.load_image(image_path)
         _, height, width = image.shape
         origin_size = torch.tensor([width, height])
         image = self.transforms(image)
+        if flip:
+            image = image.flip(2)
+            left_x, left_y, right_x, right_y = 1 - right_x, right_y, 1 - left_x, left_y
         points = torch.tensor([left_x, left_y, right_x, right_y])
         return image, points, origin_size
     def load_image(image_path):
@@ -42,10 +47,21 @@ class KeypointDataset(Dataset):
         return image
 
 def get_loader(dataset_dir):
-    dataset = KeypointDataset(dataset_dir)
-    generator = torch.Generator()
-    generator.manual_seed(42)
-    train_dataset, valid_dataset = random_split(dataset, [0.8, 0.2], generator)
+    with open(f'{dataset_dir}/points.json') as file:
+        data = json.load(file)
+
+    groups = []
+    for patient, labels in data.items():
+        groups.extend([patient] * len(labels))
+    splitter = GroupShuffleSplit(test_size=0.2, random_state=42)
+    for train_indices, valid_indices in splitter.split(groups, groups=groups):
+        break
+
+    train_patients = sorted({groups[index] for index in train_indices}, key=lambda x: (x.split('/')[0], int(x.split('/')[1][5:])))
+    valid_patients = sorted({groups[index] for index in valid_indices}, key=lambda x: (x.split('/')[0], int(x.split('/')[1][5:])))
+
+    train_dataset = KeypointDataset(dataset_dir, train_patients)
+    valid_dataset = KeypointDataset(dataset_dir, valid_patients)
 
     loader_parameters = {
         'batch_size': 32,

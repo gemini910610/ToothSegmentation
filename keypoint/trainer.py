@@ -11,7 +11,7 @@ from torch.utils.tensorboard import SummaryWriter
 
 class Trainer:
     def __init__(self):
-        self.log_dir = os.path.join('logs', 'keypoint_flip')
+        self.log_dir = os.path.join('logs', 'keypoint_baseline')
         self.train_loader, self.valid_loader = get_loader('datasets/slices')
         self.model = KeypointModel().cuda()
         self.optimizer = torch.optim.Adam(self.model.parameters(), lr=1e-4)

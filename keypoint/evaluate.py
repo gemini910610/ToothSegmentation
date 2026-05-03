@@ -45,10 +45,18 @@ def evaluate_loader(loader, model, desc):
     }
 
 if __name__ == '__main__':
+    from argparse import ArgumentParser
+
+    parser = ArgumentParser()
+    parser.add_argument('exp', type=str)
+    args = parser.parse_args()
+
+    experiment_name = args.exp
+
     train_loader, valid_loader = get_loader('datasets/slices')
 
     model = KeypointModel().cuda()
-    state_dict = torch.load('logs/keypoint_baseline/best.pth')
+    state_dict = torch.load(f'logs/{experiment_name}/best.pth')
     model.load_state_dict(state_dict)
     model.eval()
 
