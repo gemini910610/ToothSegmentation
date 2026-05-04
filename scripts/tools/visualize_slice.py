@@ -26,6 +26,7 @@ class TopLayout(QHBoxLayout):
             self.slice_selector.addButton(radio, index)
             group_layout.addWidget(radio)
         self.addLayout(group_layout)
+
     def get_widgets(self):
         return self.patient_selector, self.label_selector, self.point_toggle, self.slice_selector
 
@@ -46,6 +47,7 @@ class BottomLayout(QHBoxLayout):
         for widget in [self.volume_viewer, self.image_table]:
             self.addWidget(widget)
         self.axis_item = AxisItem(self.volume_viewer.views[1].view)
+
     def get_widgets(self):
         return self.volume_viewer, self.image_table, self.axis_item
 
@@ -57,8 +59,8 @@ class MainWindow(MainWindowUI):
 
         self.setWindowTitle(data_manager.experiment_name)
 
-        self.patient_selector, self.label_selector, self.point_toggle, self.slice_selector = self.top_layout.get_widgets()
-        self.volume_viewer, self.image_table, self.axis_item = self.bottom_layout.get_widgets()
+        self.patient_selector, self.label_selector, self.point_toggle, self.slice_selector = self.layouts[0].get_widgets()
+        self.volume_viewer, self.image_table, self.axis_item = self.layouts[1].get_widgets()
 
         self.patient_selector.setup(data_manager.patients, self.loader.load_patient)
         self.point_toggle.setChecked(True)

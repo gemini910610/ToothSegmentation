@@ -7,6 +7,7 @@ class EuclideanDistance(Metric):
         super().__init__()
         self.add_state('total', default=torch.tensor(0.0), dist_reduce_fx='sum')
         self.add_state('count', default=torch.tensor(0), dist_reduce_fx='sum')
+
     def update(self, predicts, targets, origin_sizes):
         predicts = predicts.view(-1, 2, 2)
         targets = targets.view(-1, 2, 2)
@@ -17,8 +18,10 @@ class EuclideanDistance(Metric):
         distances = torch.norm(predicts - targets, dim=-1)
         self.total += distances.sum()
         self.count += distances.numel()
+
     def compute(self):
         return self.total / self.count
+
     def compute_reset(self):
         metric = self.compute()
         self.reset()

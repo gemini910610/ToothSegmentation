@@ -88,6 +88,8 @@ def get_panoramic(image_volume, segmentation_volume):
     jaw_segmentation_panoramic = []
 
     upper_tooth, lower_tooth = split_teeth_jaw(tooth_volume, bone_volume)
+    upper_tooth = [tooth for tooth in upper_tooth if tooth['label'] < Label.CROPPED]
+    lower_tooth = [tooth for tooth in lower_tooth if tooth['label'] < Label.CROPPED]
 
     for tooth_list in (upper_tooth, lower_tooth):
         if len(tooth_list) == 0:

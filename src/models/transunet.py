@@ -13,6 +13,7 @@ class Block(nn.Module):
             nn.BatchNorm2d(out_channels),
             nn.ReLU(inplace=True)
         )
+
     def forward(self, x):
         return self.net(x)
 
@@ -26,6 +27,7 @@ class Encoder(nn.Module):
             Block(256, 512)
         ])
         self.downsample = nn.MaxPool2d(2)
+
     def forward(self, x):
         features = []
         for block in self.blocks:
@@ -47,6 +49,7 @@ class PositionEncoder(nn.Module):
         encoding = torch.cat([torch.sin(y), torch.cos(y), torch.sin(x), torch.cos(x)], dim=-1)
         encoding = encoding.unsqueeze(0)
         self.register_buffer('encoding', encoding, persistent=False)
+
     def forward(self, x):
         encoding = self.encoding.to(x.dtype)
         return x + encoding
@@ -68,6 +71,7 @@ class ViTEncoder(nn.Module):
             nn.TransformerEncoder(encoder_layer, num_layers=8, enable_nested_tensor=False),
             nn.LayerNorm(768)
         )
+
     def forward(self, x):
         return self.encoder(x)
 
@@ -79,6 +83,7 @@ class Bottleneck(nn.Module):
         self.vit = ViTEncoder()
         self.patch_unembed = nn.ConvTranspose2d(768, 768, 2, 2, bias=False)
         self.to_features = nn.Conv2d(768, 1024, 1)
+
     def forward(self, x):
         x = self.to_tokens(x)
         x = self.patch_embed(x)
@@ -110,6 +115,7 @@ class Decoder(nn.Module):
             Block(256, 128),
             Block(128, 64)
         ])
+
     def forward(self, x, encoder_features):
         features = encoder_features[::-1]
         for feature, upsample, block in zip(features, self.upsample, self.blocks):
@@ -125,6 +131,7 @@ class TransUNet(nn.Module):
         self.bottleneck = Bottleneck()
         self.decoder = Decoder()
         self.classification = nn.Conv2d(64, num_classes, 1)
+
     def forward(self, x):
         x, encoder_features = self.encoder(x)
         x = self.bottleneck(x)

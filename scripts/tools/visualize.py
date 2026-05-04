@@ -13,6 +13,7 @@ class TopLayout(QHBoxLayout):
         self.addWidget(self.patient_selector)
         self.slice_slider = Slider()
         self.addWidget(self.slice_slider)
+
     def get_widgets(self):
         return self.patient_selector, self.slice_slider
 
@@ -21,18 +22,19 @@ class BottomLayout(QHBoxLayout):
         super().__init__()
         self.volume_viewer = VolumeViewer(count, size)
         self.addWidget(self.volume_viewer)
+
     def get_widgets(self):
         return self.volume_viewer
 
 class MainWindow(MainWindowUI):
     def __init__(self, data_manager):
-        super().__init__(TopLayout, BottomLayout, bottom_kwargs={'count': len(data_manager.modes), 'size': (640, 640) if len(data_manager.modes) <= 2 else (512, 512)})
+        super().__init__(TopLayout, (BottomLayout, {'count': len(data_manager.modes), 'size': (640, 640) if len(data_manager.modes) <= 2 else (512, 512)}))
         self.loader = VolumeLoader(data_manager, self._handle_volumes)
 
         self.setWindowTitle(data_manager.experiment_name)
 
-        self.patient_selector, self.slice_slider = self.top_layout.get_widgets()
-        self.volume_viewer = self.bottom_layout.get_widgets()
+        self.patient_selector, self.slice_slider = self.layouts[0].get_widgets()
+        self.volume_viewer = self.layouts[1].get_widgets()
 
         self.patient_selector.setup(data_manager.patients, self.loader.load_patient)
 

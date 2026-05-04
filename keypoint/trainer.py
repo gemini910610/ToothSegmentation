@@ -22,6 +22,7 @@ class Trainer:
         self.grad_scaler = amp.GradScaler('cuda')
         self.summary_writer = SummaryWriter(self.log_dir)
         self.columns = ['Loss', 'Metric']
+
     def _run_epoch(self, train=True):
         if train:
             self.model.train()
@@ -29,6 +30,7 @@ class Trainer:
         else:
             self.model.eval()
             return self._run_loader(self.valid_loader, 'Valid', train=False)
+
     def _run_loader(self, loader, desc, train=True):
         logs = defaultdict(float)
 
@@ -58,14 +60,17 @@ class Trainer:
         }
 
         return logs
+
     def _model_step(self, images, points):
         with torch.autocast('cuda'):
             predicts = self.model(images)
             loss = self.criterion(predicts, points)
         return predicts, loss
+
     def _write_summary(self, train_data, valid_data, epoch):
         for title in self.columns:
             self.summary_writer.add_scalars(title, {'Train': train_data[title], 'Valid': valid_data[title]}, epoch)
+
     def fit(self, epochs):
         width = len(str(epochs))
         best_metric = torch.inf

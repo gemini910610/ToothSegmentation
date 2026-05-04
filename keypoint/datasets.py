@@ -25,8 +25,10 @@ class KeypointDataset(Dataset):
         self.length = len(self.points)
 
         self.transforms = transforms.Resize((224, 224))
+
     def __len__(self):
         return self.length
+
     def __getitem__(self, index):
         filename, ((left_x, left_y), (right_x, right_y)), flip = self.points[index]
         image_path = os.path.join(self.dataset_dir, filename)
@@ -39,6 +41,7 @@ class KeypointDataset(Dataset):
             left_x, left_y, right_x, right_y = 1 - right_x, right_y, 1 - left_x, left_y
         points = torch.tensor([left_x, left_y, right_x, right_y])
         return image, points, origin_size
+
     def load_image(image_path):
         image = cv2.imread(image_path, cv2.IMREAD_GRAYSCALE)
         image = torch.from_numpy(image)

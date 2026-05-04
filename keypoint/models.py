@@ -7,6 +7,7 @@ class KeypointModel(nn.Module):
         self.net = resnet18()
         self.net.conv1 = nn.Conv2d(1, 64, 7, 2, 3, bias=False)
         self.net.fc = nn.Linear(self.net.fc.in_features, 4)
+
     def forward(self, x):
         return self.net(x)
 

@@ -5,6 +5,7 @@ class DiceLoss(nn.Module):
     def __init__(self, num_classes):
         super().__init__()
         self.num_classes = num_classes
+
     def forward(self, predicts, targets):
         predicts = predicts.softmax(1) # (B, C, H, W)
         predicts = predicts.permute(1, 0, 2, 3) # (C, B, H, W)
@@ -35,6 +36,7 @@ class MultipleLoss(nn.Module):
         self.dice_loss = DiceLoss(num_classes)
         self.cross_entropy_loss = nn.CrossEntropyLoss()
         self.components = ['Total Loss', 'Dice Loss', 'Cross Entropy Loss']
+
     def forward(self, predicts, targets):
         dice_loss = self.dice_loss(predicts, targets)
         cross_entropy_loss = self.cross_entropy_loss(predicts, targets)
@@ -49,6 +51,7 @@ class DeepSupervisionLoss(MultipleLoss):
     def __init__(self, num_classes, dice_weight=0.5, cross_entropy_weight=0.5, ds_weighted=False):
         super().__init__(num_classes, dice_weight, cross_entropy_weight)
         self.ds_weighted = ds_weighted
+
     def forward(self, predicts, targets):
         loss = {
             'Total Loss': 0,

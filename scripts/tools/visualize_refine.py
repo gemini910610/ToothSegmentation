@@ -15,6 +15,7 @@ class TopLayout(QHBoxLayout):
         for widget in [self.patient_selector, self.label_selector, self.cluster_input, self.execute_button]:
             self.addWidget(widget)
         self.addStretch()
+
     def get_widgets(self):
         return self.patient_selector, self.label_selector, self.cluster_input, self.execute_button
 
@@ -23,6 +24,7 @@ class BottomLayout(QHBoxLayout):
         super().__init__()
         self.volume_viewer = VolumeViewer(3, (512, 512))
         self.addWidget(self.volume_viewer)
+
     def get_widgets(self):
         return self.volume_viewer
 
@@ -33,8 +35,8 @@ class MainWindow(MainWindowUI):
 
         self.setWindowTitle(data_manager.experiment_name)
 
-        self.patient_selector, self.label_selector, self.cluster_input, self.execute_button = self.top_layout.get_widgets()
-        self.volume_viewer = self.bottom_layout.get_widgets()
+        self.patient_selector, self.label_selector, self.cluster_input, self.execute_button = self.layouts[0].get_widgets()
+        self.volume_viewer = self.layouts[1].get_widgets()
 
         self.patient_selector.setup(data_manager.patients, self.loader.load_patient)
 

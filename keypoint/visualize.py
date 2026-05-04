@@ -28,6 +28,7 @@ class TopLayout(QHBoxLayout):
             self.slice_selector.addButton(radio, index)
             group_layout.addWidget(radio)
         self.addLayout(group_layout)
+
     def get_widgets(self):
         return self.patient_selector, self.label_selector, self.point_toggle, self.slice_selector
 
@@ -45,6 +46,7 @@ class BottomLayout(QHBoxLayout):
             ImageCell('315 (DB)', 1, 0),
         ], size=(224, 224))
         self.addWidget(self.image_table)
+
     def get_widgets(self):
         return self.image_table
 
@@ -55,8 +57,8 @@ class MainWindow(MainWindowUI):
 
         self.setWindowTitle('keypoint_baseline')
 
-        self.patient_selector, self.label_selector, self.point_toggle, self.slice_selector = self.top_layout.get_widgets()
-        self.image_table = self.bottom_layout.get_widgets()
+        self.patient_selector, self.label_selector, self.point_toggle, self.slice_selector = self.layouts[0].get_widgets()
+        self.image_table = self.layouts[1].get_widgets()
 
         for dataset in os.listdir('datasets/slices'):
             if not os.path.isdir(f'datasets/slices/{dataset}'):

@@ -14,6 +14,7 @@ class RemoveDataHandler(DataHandler):
             if label in self.data[patient][remove_type]:
                 return remove_type
         return None
+
     def set_data(self, patient, remove_type, label):
         origin_remove_type = self.find(patient, label)
         if origin_remove_type is not None:
@@ -32,6 +33,7 @@ class RemoveDataHandler(DataHandler):
         data = data[remove_type]
         if label not in data:
             data.append(label)
+
     def remove_data(self, patient, label):
         remove_type = self.find(patient, label)
         if remove_type is None:
@@ -64,6 +66,7 @@ class TopLayout(QHBoxLayout):
         group_layout.addWidget(self.save_button)
         group_layout.addStretch()
         self.addLayout(group_layout)
+
     def get_widgets(self):
         return self.patient_selector, self.label_selector, self.remove_selector, self.save_button
 
@@ -72,6 +75,7 @@ class BottomLayout(QHBoxLayout):
         super().__init__()
         self.volume_viewer = VolumeViewer()
         self.addWidget(self.volume_viewer)
+
     def get_widgets(self):
         return self.volume_viewer
 
@@ -82,8 +86,8 @@ class MainWindow(MainWindowUI):
 
         self.setWindowTitle(data_manager.experiment_name)
 
-        self.patient_selector, self.label_selector, self.remove_selector, self.save_button = self.top_layout.get_widgets()
-        self.volume_viewer = self.bottom_layout.get_widgets()
+        self.patient_selector, self.label_selector, self.remove_selector, self.save_button = self.layouts[0].get_widgets()
+        self.volume_viewer = self.layouts[1].get_widgets()
 
         self.patient_selector.setup(data_manager.patients, self.loader.load_patient)
         self.remove_selector.buttons()[0].setChecked(True)

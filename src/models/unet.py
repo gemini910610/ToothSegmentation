@@ -13,6 +13,7 @@ class Block(nn.Module):
             nn.BatchNorm2d(out_channels),
             nn.ReLU(inplace=True)
         )
+
     def forward(self, x):
         return self.net(x)
 
@@ -26,6 +27,7 @@ class Encoder(nn.Module):
             Block(256, 512)
         ])
         self.downsample = nn.MaxPool2d(2)
+
     def forward(self, x):
         features = []
         for block in self.blocks:
@@ -49,6 +51,7 @@ class Decoder(nn.Module):
             Block(256, 128),
             Block(128, 64)
         ])
+
     def forward(self, x, encoder_features):
         features = encoder_features[::-1]
         for feature, upsample, block in zip(features, self.upsample, self.blocks):
@@ -64,6 +67,7 @@ class UNet(nn.Module):
         self.bottleneck = Block(512, 1024)
         self.decoder = Decoder()
         self.classification = nn.Conv2d(64, num_classes, 1)
+
     def forward(self, x):
         x, encoder_features = self.encoder(x)
         x = self.bottleneck(x)

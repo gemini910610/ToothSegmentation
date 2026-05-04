@@ -13,6 +13,7 @@ class mIoU(Module):
         self.columns = [*[f'IoU ({class_name})' for class_name in class_names or []], 'mIoU']
         self.predict_index = predict_index
         self.register_buffer('valid_count', torch.zeros(num_classes - 1, dtype=torch.long))
+
     def update(self, predicts, targets):
         if self.predict_index is not None:
             predicts = predicts[self.predict_index]
@@ -25,6 +26,7 @@ class mIoU(Module):
         for label in range(1, self.num_classes):
             exist = (predicts == label).any(1) | (targets == label).any(1)
             self.valid_count[label - 1] += exist.sum()
+
     def compute_reset(self):
         metric = self.metric_fn.compute()
         self.metric_fn.reset()

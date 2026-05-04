@@ -160,6 +160,7 @@ class VolumeColorizer:
 
 class VolumeLoaderThread(QThread):
     finished = Signal(object) # {mode: rgba_volume, "origin": {mode: volume}}
+
     def __init__(self, data_manager, patient, colorize=True, keep_origin=False):
         super().__init__()
         self.data_manager = data_manager
@@ -195,6 +196,7 @@ class VolumeLoaderThread(QThread):
 
 class SyncGLView(GLViewWidget):
     viewChanged = Signal(object)
+
     def __init__(self, size=(640, 640), *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.setBackgroundColor('white')
@@ -353,6 +355,7 @@ class ClickableImage(QLabel):
         self.image = None
         self.left_point = None
         self.right_point = None
+
     def update_image(self, origin_image, points=None):
         image = Image.fromarray(origin_image)
         image = image.resize(self.size, Image.Resampling.NEAREST)
@@ -376,6 +379,7 @@ class ClickableImage(QLabel):
             self.right_point = (right_x, right_y)
 
         self.update()
+
     def mousePressEvent(self, event):
         if not self.clickable or self.image is None:
             return
@@ -395,6 +399,7 @@ class ClickableImage(QLabel):
             self.right_point = None
 
         self.update()
+
     def mouseMoveEvent(self, event):
         if not self.clickable or self.image is None or self.dragging is None:
             return
@@ -408,11 +413,13 @@ class ClickableImage(QLabel):
             self.right_point = (x, y)
 
         self.update()
+
     def mouseReleaseEvent(self, event):
         if not self.clickable or self.image is None or self.dragging is None:
             return
 
         self.dragging = None
+
     def paintEvent(self, event):
         if self.image is None:
             super().paintEvent(event)
@@ -441,6 +448,7 @@ class ImageBox(QGroupBox):
         self.image = ClickableImage(size, clickable)
         layout.addWidget(self.image)
         self.setLayout(layout)
+
     def update_image(self, image, points=None):
         self.image.update_image(image, points)
 
@@ -466,12 +474,14 @@ class ImageTable(QWidget):
             self.layout.addWidget(box, cell.row, cell.column)
 
         self.setFixedSize(self.sizeHint())
+
     def update_images(self, slices, points=None):
         if points is None:
             points = [None] * len(self.cells)
 
         for cell, image, point in zip(self.cells, slices, points):
             self.layout.itemAtPosition(cell.row, cell.column).widget().update_image(image, point)
+
     def _on_clicked(self, x, y, index):
         print(x, y, index)
 
@@ -484,9 +494,11 @@ class LabelSelector(QComboBox):
 
         self.setCurrentIndex(0)
         self.blockSignals(False)
+
     def _add_items(self, labels):
         for label in labels:
             self.addItem(f'Label {label}', label)
+
     def current_label(self):
         return self.currentData()
 
@@ -511,8 +523,10 @@ class VolumeLoader:
         self.handle_volumes = handle_volumes
         self.loader_kwargs = kwargs
         self._loading_widgets = None
+
     def setup(self, *loading_widgets):
         self._loading_widgets = loading_widgets
+
     def load_patient(self, index):
         self._set_loading(True)
         patient = self.data_manager.patients[index]
@@ -520,9 +534,11 @@ class VolumeLoader:
         self.loader.finished.connect(self._on_volume_loaded)
         self.loader.finished.connect(self.loader.deleteLater)
         self.loader.start()
+
     def _on_volume_loaded(self, volumes):
         self.handle_volumes(volumes)
         self._set_loading(False)
+
     def _set_loading(self, loading):
         if self._loading_widgets is None:
             return
@@ -537,21 +553,27 @@ class PatientSelector(QComboBox):
         self.currentIndexChanged.connect(current_index_changed)
 
 class MainWindowUI(QMainWindow):
-    def __init__(self, TopLayout, BottomLayout, top_kwargs={}, bottom_kwargs={}):
+    def __init__(self, *Layouts, vertical=True):
         super().__init__()
         self.move(0, 0)
 
         widget = QWidget()
-        layout = QVBoxLayout(widget)
+        main_layout = (QVBoxLayout if vertical else QHBoxLayout)(widget)
         self.setCentralWidget(widget)
 
-        self.top_layout = TopLayout(**top_kwargs)
-        self.bottom_layout = BottomLayout(**bottom_kwargs)
-        layout.addLayout(self.top_layout)
-        layout.addLayout(self.bottom_layout)
+        self.layouts = []
+        for Layout in Layouts:
+            if isinstance(Layout, (tuple, list)):
+                Layout, kwargs = Layout
+                layout = Layout(**kwargs)
+            else:
+                layout = Layout()
+            self.layouts.append(layout)
+            main_layout.addLayout(layout)
 
 class Slider(QWidget):
     valueChanged = Signal(int)
+
     def __init__(self):
         super().__init__()
         layout = QHBoxLayout()
@@ -568,12 +590,16 @@ class Slider(QWidget):
         self.slider.sliderReleased.connect(lambda: self.valueChanged.emit(self.get_value()))
 
         self.dragging = False
+
     def set_value(self, value):
         self.slider.setValue(value)
+
     def get_value(self):
         return self.slider.value()
+
     def set_maximum(self, value):
         self.slider.setMaximum(value)
+
     def get_maximum(self):
         return self.slider.maximum()
 
@@ -582,10 +608,13 @@ class DataHandler:
         if data is None:
             data = {}
         self.data = data
+
     def find(self, *args, **kwargs):
         raise NotImplementedError
+
     def set_data(self, *args, **kwargs):
         raise NotImplementedError
+
     def remove_data(self, *args, **kwargs):
         raise NotImplementedError
 

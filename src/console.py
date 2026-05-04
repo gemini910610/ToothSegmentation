@@ -17,6 +17,7 @@ class RuntimeColumn(ProgressColumn):
         super().__init__()
         self.elapsed = TimeElapsedColumn()
         self.remaining = TimeRemainingColumn()
+
     def render(self, task):
         elapsed = self.elapsed.render(task)
         remaining = self.remaining.render(task)
@@ -66,9 +67,11 @@ class Table:
         self.headers = headers
         rows = [[self._convert_str(data) for data in row] for row in rows]
         self.rows = rows
+
     def add_row(self, row):
         row = [self._convert_str(data) for data in row]
         self.rows.append(row)
+
     def _convert_str(self, data):
         if isinstance(data, torch.Size):
             return str(tuple(data))
@@ -77,15 +80,18 @@ class Table:
         if not isinstance(data, str):
             return str(data)
         return data
+
     def _display_line(self, tokens, widths):
         left, line, center, right = tokens
         left = left + line
         center = line + center + line
         right = line + right
         print(f'{left}{center.join(line * width for width in widths)}{right}')
+
     def _display_rows(self, row, widths, align_center=False):
         align = '^' if align_center else '<'
         print(f'│ {" │ ".join(f"{data:{align}{width}}" for data, width in zip(row, widths))} │')
+
     def display(self):
         columns = zip(*self.rows) if self.headers is None else zip(self.headers, *self.rows)
         widths = [max(len(data) for data in column) for column in columns]
@@ -96,8 +102,10 @@ class Table:
         for row in self.rows:
             self._display_rows(row, widths)
         self._display_line('└─┴┘', widths)
+
     def __enter__(self):
         return self
+
     def __exit__(self, exc_type, exc, tb):
         if exc_type is None:
             self.display()

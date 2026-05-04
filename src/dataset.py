@@ -40,8 +40,10 @@ class CBCTDataset(Dataset):
             self.filenames.extend(filenames)
 
         self.length = len(self.filenames)
+
     def __len__(self):
         return self.length
+
     def __getitem__(self, index):
         filename = self.filenames[index]
         image_path = os.path.join(self.dataset_dir, 'image', filename)
@@ -54,12 +56,14 @@ class CBCTDataset(Dataset):
         else:
             raise FileNotFoundError(f'Mask of "{filename}" not found.')
         return image, mask, filename
+
     def load_image(image_path):
         image = cv2.imread(image_path, cv2.IMREAD_GRAYSCALE)
         image = torch.from_numpy(image)
         image = image / 255
         image = image.unsqueeze(0)
         return image
+
     def load_mask(mask_path):
         mask = cv2.imread(mask_path, cv2.IMREAD_GRAYSCALE)
         mask = torch.from_numpy(mask)

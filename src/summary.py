@@ -5,6 +5,7 @@ from tbparse import SummaryReader
 class Summary:
     def __init__(self, scalars):
         self.scalars = scalars
+
     def __getitem__(self, query):
         if query == 'step' or query == 'value':
             return self.scalars[query]
@@ -20,10 +21,13 @@ class Summary:
         scalars = self.scalars[mask]
         scalars = scalars.drop(columns=drop_column)
         return Summary(scalars)
+
     def __repr__(self):
         return repr(self.scalars)
+
     def __getattr__(self, attribute):
         return getattr(self.scalars, attribute)
+
     def __len__(self):
         return len(self.scalars)
 

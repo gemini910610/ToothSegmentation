@@ -26,6 +26,7 @@ class Trainer:
         self.grad_scaler = amp.GradScaler(config.device)
         self.summary_writer = SummaryWriter(self.log_dir)
         self.columns = [*self.criterion.components, *self.metric_fn.columns]
+
     def _run_epoch(self, train=True):
         if train:
             self.model.train()
@@ -33,6 +34,7 @@ class Trainer:
         else:
             self.model.eval()
             return self._run_loader(self.val_loader, 'Val  ', train=False)
+
     def _run_loader(self, loader, desc, train=True):
         logs = defaultdict(float)
 
@@ -69,14 +71,17 @@ class Trainer:
         }
 
         return logs
+
     def _model_step(self, images, masks):
         with torch.autocast(self.device):
             predicts = self.model(images)
             loss_dict = self.criterion(predicts, masks)
         return predicts, loss_dict
+
     def _write_summary(self, train_data, val_data, epoch):
         for title in self.columns:
             self.summary_writer.add_scalars(title, {'Train': train_data[title], 'Val': val_data[title]}, epoch)
+
     def fit(self, epochs):
         width = len(str(epochs))
         best_metric = 0

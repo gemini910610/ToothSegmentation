@@ -15,6 +15,7 @@ class TopLayout(QHBoxLayout):
         for width in [self.patient_selector, self.label_selector]:
             self.addWidget(width)
         self.addStretch()
+
     def get_widgets(self):
         return self.patient_selector, self.label_selector
 
@@ -28,6 +29,7 @@ class BottomLayout(QHBoxLayout):
             ImageCell('135 (ML)', 0, 3)
         ], (384, 384), clickable=True)
         self.addWidget(self.image_table)
+
     def get_widgets(self):
         return self.image_table
 
@@ -45,8 +47,8 @@ class MainWindow(MainWindowUI):
 
         self.setWindowTitle(experiment_name)
 
-        self.patient_selector, self.label_selector = self.top_layout.get_widgets()
-        self.image_table = self.bottom_layout.get_widgets()
+        self.patient_selector, self.label_selector = self.layouts[0].get_widgets()
+        self.image_table = self.layouts[1].get_widgets()
 
         self.patient_selector.setup(self.patients, self.load_patient)
 
@@ -58,6 +60,7 @@ class MainWindow(MainWindowUI):
         shortcut_left.activated.connect(lambda: self._on_label_step(-1))
         shortcut_right = QShortcut(Qt.Key.Key_Right, self)
         shortcut_right.activated.connect(lambda: self._on_label_step(1))
+
     def load_patient(self, index):
         patient = self.patient_selector.currentText()
         labels = os.listdir(os.path.join(self.slice_folder, patient))
@@ -65,6 +68,7 @@ class MainWindow(MainWindowUI):
 
         self.label_selector.update_items(labels)
         self._on_label_changed(0)
+
     def _on_label_changed(self, index):
         patient = self.patient_selector.currentText()
         label = self.label_selector.current_label()
@@ -88,6 +92,7 @@ class MainWindow(MainWindowUI):
                 box.image.left_point = [point * size for point, size in zip(points[0], box.image.size)]
                 box.image.right_point = [point * size for point, size in zip(points[1], box.image.size)]
                 box.image.update()
+
     def _on_save(self):
         patient = self.patient_selector.currentText()
         label = self.label_selector.current_label()
@@ -103,6 +108,7 @@ class MainWindow(MainWindowUI):
                 left_point = [point / size for point, size in zip(left_point, box.image.size)]
                 right_point = [point / size for point, size in zip(right_point, box.image.size)]
                 handler.set_data(patient, label, str(degree), left_point, right_point)
+
     def _on_label_step(self, step):
         self._on_save()
 
@@ -124,12 +130,14 @@ class KeypointHandler(DataHandler):
         if degree not in self.data[patient][label]:
             return None
         return self.data[patient][label][degree]
+
     def set_data(self, patient, label, degree, left_point, right_point):
         if patient not in self.data:
             self.data[patient] = {}
         if label not in self.data[patient]:
             self.data[patient][label] = {}
         self.data[patient][label][degree] = [left_point, right_point]
+
     def remove_data(self, patient, label, degree):
         points = self.find(patient, label, degree)
         if points is None:
