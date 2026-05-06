@@ -5,6 +5,7 @@ clean_pycache.py
 configs/config.toml
 datasets.zip
 datasets/
+fdi/
 logs/
 output_slices/
 outputs/

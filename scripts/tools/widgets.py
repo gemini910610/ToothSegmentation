@@ -38,6 +38,7 @@ class Mode:
     BONE_FILLED = 'bone_filled'
     TOOTH_FILLED = 'tooth_filled'
     RELABELED = 'relabeled'
+    FDI = 'fdi'
 
     @staticmethod
     def items():
@@ -53,7 +54,8 @@ class Mode:
             Mode.REMOVED,
             Mode.BONE_FILLED,
             Mode.TOOTH_FILLED,
-            Mode.RELABELED
+            Mode.RELABELED,
+            Mode.FDI
         ]
 
     @staticmethod
@@ -71,7 +73,8 @@ class Mode:
             Mode.REMOVED: 'Removed',
             Mode.BONE_FILLED: 'Bone Filled',
             Mode.TOOTH_FILLED: 'Tooth Filled',
-            Mode.RELABELED: 'Relabeled'
+            Mode.RELABELED: 'Relabeled',
+            Mode.FDI: 'FDI'
         }[mode]
 
 class DataManager:
@@ -189,7 +192,7 @@ class VolumeLoaderThread(QThread):
                 return VolumeColorizer.color_volume(volume, display_bone=True), None
             case Mode.TOOTH_CONNECTED_COMPONENT | Mode.WATERSHED | Mode.CLEANED | Mode.REFINE | Mode.REMOVED | Mode.TOOTH_FILLED | Mode.RELABELED:
                 return VolumeColorizer.color_components(volume)
-            case Mode.BONE_CONNECTED_COMPONENT | Mode.BONE_FILLED | Mode.POST_PROCESSING:
+            case Mode.BONE_CONNECTED_COMPONENT | Mode.BONE_FILLED | Mode.POST_PROCESSING | Mode.FDI:
                 return VolumeColorizer.color_components(volume, display_bone=True)
             case _:
                 return None, None

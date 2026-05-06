@@ -1,3 +1,4 @@
+import copy
 import cv2
 import numpy
 
@@ -7,7 +8,29 @@ from scipy.interpolate import make_splprep
 from scripts.post_processing.relabel import split_teeth_jaw
 from scripts.tools.widgets import Label, VolumeColorizer
 
-def extract_curve(tooth_list):
+def synthetic_tooth(tooth_list, width):
+    if len(tooth_list) == 1:
+        fake_tooth = copy.deepcopy(tooth_list[0])
+        fake_tooth['center'][0] = width - fake_tooth['center'][0]
+        tooth_list = [tooth_list[0], fake_tooth]
+        tooth_list.sort(key=lambda tooth: tooth['center'][0])
+    left_x, left_y, left_z = tooth_list[0]['center']
+    right_x, right_y, right_z = tooth_list[1]['center']
+    center_x = (left_x + right_x) / 2
+    center_y = (left_y + right_y) / 2 / 2
+    center_z = (left_z + right_z) / 2
+    fake_tooth = copy.deepcopy(tooth_list[0])
+    fake_tooth['center'] = ((left_x + center_x) / 2, (left_y + center_y) / 2, (left_z + center_z) / 2)
+    tooth_list.insert(1, fake_tooth)
+    fake_tooth = copy.deepcopy(tooth_list[0])
+    fake_tooth['center'] = ((center_x + right_x) / 2, (center_y + right_y) / 2, (center_z + right_z) / 2)
+    tooth_list.insert(2, fake_tooth)
+    return tooth_list
+
+def extract_curve(tooth_list, width):
+    if len(tooth_list) < 3:
+        tooth_list = synthetic_tooth(tooth_list, width)
+
     points = numpy.array([tooth['center'][:2] for tooth in tooth_list])
     curve, _ = make_splprep(points.T)
 
@@ -37,7 +60,7 @@ def extract_curve(tooth_list):
     return curve_points, normals
 
 def sample_panoramic(image_volume, segmentation_volume, tooth_list):
-    curve_points, normals = extract_curve(tooth_list)
+    curve_points, normals = extract_curve(tooth_list, segmentation_volume.shape[0])
 
     min_z = min(tooth['slices'][2].start for tooth in tooth_list)
     max_z = max(tooth['slices'][2].stop for tooth in tooth_list)
@@ -117,8 +140,6 @@ def get_panoramic(image_volume, segmentation_volume):
 
 def draw_label(image_panoramic, segmentation_panoramic):
     image_panoramic = cv2.cvtColor(image_panoramic, cv2.COLOR_GRAY2RGB)
-    image_panoramic = cv2.resize(image_panoramic, (0, 0), fx=2, fy=2)
-    segmentation_panoramic = cv2.resize(segmentation_panoramic, (0, 0), fx=2, fy=2, interpolation=cv2.INTER_NEAREST)
 
     tooth_count = segmentation_panoramic.max()
     palette = VolumeColorizer.glasbey_palette(tooth_count)
@@ -133,11 +154,11 @@ def draw_label(image_panoramic, segmentation_panoramic):
 
         points = numpy.argwhere(area)
         center = points.mean(0)[::-1]
-        (width, height), baseline = cv2.getTextSize(str(label), cv2.FONT_HERSHEY_SIMPLEX, 0.5, 2)
+        (width, height), baseline = cv2.getTextSize(str(label), cv2.FONT_HERSHEY_SIMPLEX, 1, 2)
         x = int(center[0] - width / 2)
         y = int(center[1] + (height - baseline) / 2)
-        cv2.putText(image_panoramic, str(label), (x, y), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 0), 5, cv2.LINE_AA)
-        cv2.putText(image_panoramic, str(label), (x, y), cv2.FONT_HERSHEY_SIMPLEX, 0.5, color, 2, cv2.LINE_AA)
+        cv2.putText(image_panoramic, str(label), (x, y), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 0), 10, cv2.LINE_AA)
+        cv2.putText(image_panoramic, str(label), (x, y), cv2.FONT_HERSHEY_SIMPLEX, 1, color, 2, cv2.LINE_AA)
 
     image_panoramic = cv2.cvtColor(image_panoramic, cv2.COLOR_RGB2BGR)
     return image_panoramic

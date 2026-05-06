@@ -94,6 +94,12 @@ if __name__ == '__main__':
 
     config = load_config(os.path.join('logs', experiment_name, 'config.toml'))
     patient_fold_map = get_patient_fold_mapping(config)
+    if Mode.FDI in modes:
+        patient_fold_map = {
+            patient: fold
+            for patient, fold in patient_fold_map.items()
+            if os.path.exists(os.path.join('outputs', experiment_name, f'Fold_{fold}', patient, f'{Mode.FDI}.npy'))
+        }
 
     app = QApplication([])
 

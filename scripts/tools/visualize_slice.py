@@ -1,7 +1,8 @@
 import numpy
 
+from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QHBoxLayout, QComboBox, QButtonGroup, QRadioButton, QCheckBox
-from PySide6.QtGui import QShortcut, Qt
+from PySide6.QtGui import QShortcut
 
 from keypoint.predict import CEJFinder
 from scripts.post_processing.tooth_slice import align_crop_tooth, extract_single_tooth, find_normal_vectors, get_slices, normalize_slice, restore_coordinates, split_surface

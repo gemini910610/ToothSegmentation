@@ -248,6 +248,8 @@ Outputs:
 5. remove tooth
 6. fill holes
 7. relabel
+8. merge bone
+9. relabel FDI
 
 ```
 python -m scripts.post_processing <EXPERIMENT_NAME> [--tooth-threshold <TOOTH_THRESHOLD>]

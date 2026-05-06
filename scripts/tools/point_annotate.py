@@ -2,7 +2,8 @@ import cv2
 import numpy
 import os
 
-from PySide6.QtGui import QKeySequence, QShortcut, Qt
+from PySide6.QtCore import Qt
+from PySide6.QtGui import QKeySequence, QShortcut
 from PySide6.QtWidgets import QComboBox, QHBoxLayout
 
 from scripts.tools.widgets import DataHandler, ImageCell, ImageTable, JsonHandler, LabelSelector, MainWindowUI, PatientSelector
