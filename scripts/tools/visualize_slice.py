@@ -89,7 +89,7 @@ class MainWindow(MainWindowUI):
         self.normal_vectors = None
 
     def _handle_volumes(self, volumes):
-        self.volumes = [volumes['origin'][Mode.POST_PROCESSING], volumes['origin'][Mode.IMAGE]]
+        self.volumes = [volumes['origin'][Mode.FDI], volumes['origin'][Mode.IMAGE]]
 
         volume = self.volumes[0]
         volume = numpy.select([volume == 1, (volume > 1) & (volume < Label.CROPPED)], [Label.BONE, Label.TOOTH])
@@ -201,10 +201,15 @@ if __name__ == '__main__':
 
     config = load_config(os.path.join('logs', experiment_name, 'config.toml'))
     patient_fold_map = get_patient_fold_mapping(config)
+    patient_fold_map = {
+        patient: fold
+        for patient, fold in patient_fold_map.items()
+        if os.path.exists(os.path.join('outputs', experiment_name, f'Fold_{fold}', patient, f'{Mode.FDI}.npy'))
+    }
 
     app = QApplication([])
 
-    data_manager = DataManager(experiment_name, patient_fold_map, [Mode.POST_PROCESSING, Mode.IMAGE])
+    data_manager = DataManager(experiment_name, patient_fold_map, [Mode.FDI, Mode.IMAGE])
     window = MainWindow(data_manager)
 
     window.show()
