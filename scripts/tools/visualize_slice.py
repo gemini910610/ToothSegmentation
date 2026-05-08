@@ -40,10 +40,10 @@ class BottomLayout(QHBoxLayout):
             ImageCell('45 (MB)', 1, 0),
             ImageCell('90 (M)', 2, 0),
             ImageCell('135 (ML)', 3, 0),
-            ImageCell('180 (L)', 3, 1),
-            ImageCell('225 (DL)', 2, 1),
-            ImageCell('270 (D)', 1, 1),
-            ImageCell('315 (DB)', 0, 1),
+            ImageCell('180 (L)', 0, 1),
+            ImageCell('225 (DL)', 1, 1),
+            ImageCell('270 (D)', 2, 1),
+            ImageCell('315 (DB)', 3, 1),
         ])
         for widget in [self.volume_viewer, self.image_table]:
             self.addWidget(widget)

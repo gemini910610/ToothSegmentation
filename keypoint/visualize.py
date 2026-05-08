@@ -40,10 +40,10 @@ class BottomLayout(QHBoxLayout):
             ImageCell('45 (MB)', 0, 1),
             ImageCell('90 (M)', 0, 2),
             ImageCell('135 (ML)', 0, 3),
-            ImageCell('180 (L)', 1, 3),
-            ImageCell('225 (DL)', 1, 2),
-            ImageCell('270 (D)', 1, 1),
-            ImageCell('315 (DB)', 1, 0),
+            ImageCell('180 (L)', 1, 0),
+            ImageCell('225 (DL)', 1, 1),
+            ImageCell('270 (D)', 1, 2),
+            ImageCell('315 (DB)', 1, 3),
         ], size=(224, 224))
         self.addWidget(self.image_table)
 
