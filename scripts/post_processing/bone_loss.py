@@ -6,7 +6,39 @@ from scripts.post_processing.tooth_slice import align_crop_tooth, extract_single
 from scripts.tools.widgets import Label
 from src.console import track
 
-def compute_bone_loss(segmentation_volume, image_volume, cej_finder):
+def slice_bone_loss(segmentation_slice, point, label):
+    tooth_slice = segmentation_slice == Label.TOOTH
+    bone_slice = segmentation_slice == Label.BONE
+
+    tooth_erosion = ndimage.binary_erosion(tooth_slice)
+    tooth_surface = tooth_slice & ~tooth_erosion
+
+    bone_dilation = ndimage.binary_dilation(bone_slice)
+    bone_surface = tooth_slice & bone_dilation
+
+    _, left_y, _, right_y = point
+
+    height, width = segmentation_slice.shape
+    center = width // 2
+
+    heights = numpy.arange(height)[:, None]
+    if label // 10 in {1, 2}:
+        left_mask = heights < left_y
+        right_mask = heights < right_y
+    else:
+        left_mask = heights > left_y
+        right_mask = heights > right_y
+    left_surface = tooth_surface[:, :center] & left_mask
+    right_surface = tooth_surface[:, center:] & right_mask
+
+    cej_count = left_surface.sum() + right_surface.sum()
+    bone_count = bone_surface.sum()
+    bone_loss = 0 if cej_count == 0 else (cej_count - bone_count) / cej_count
+    bone_loss = round(bone_loss * 100)
+
+    return bone_loss
+
+def volume_bone_loss(segmentation_volume, image_volume, cej_finder):
     normal_vectors = find_normal_vectors(segmentation_volume)
 
     labels = numpy.unique(segmentation_volume)
@@ -85,7 +117,7 @@ if __name__ == '__main__':
         image_volume_path = os.path.join('outputs', experiment_name, f'Fold_{fold}', dataset, patient, f'{Mode.IMAGE}.npy')
         image_volume = numpy.load(image_volume_path)
 
-        bone_losses = compute_bone_loss(volume, image_volume, cej_finder)
+        bone_losses = volume_bone_loss(volume, image_volume, cej_finder)
 
         print(f'{dataset}/{patient}')
         Table(

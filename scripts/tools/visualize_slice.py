@@ -5,6 +5,7 @@ from PySide6.QtWidgets import QHBoxLayout, QComboBox, QButtonGroup, QRadioButton
 from PySide6.QtGui import QShortcut
 
 from keypoint.predict import CEJFinder
+from scripts.post_processing.bone_loss import slice_bone_loss
 from scripts.post_processing.tooth_slice import align_crop_tooth, extract_single_tooth, find_normal_vectors, get_slices, normalize_slice, restore_coordinates, split_surface
 from scripts.tools.widgets import AxisItem, Color, ImageCell, IconLabelSelector, ImageTable, Label, MainWindowUI, Mode, PatientSelector, VolumeColorizer, VolumeLoader, VolumeViewer
 
@@ -146,6 +147,12 @@ class MainWindow(MainWindowUI):
 
         self.slices = [segmentation_slices, image_slices, tooth_slices]
         self.points = self.cej_finder.find(origin_segmentation_slices, tooth_slices)
+
+        for box, segmentation_slice, point in zip(self.image_table.boxes, origin_segmentation_slices, self.points):
+            bone_loss = slice_bone_loss(segmentation_slice, point, label)
+            title = box.title()
+            index = title.find(')')
+            box.setTitle(f'{title[:index+1]} {bone_loss}%')
 
         points = restore_coordinates(self.points, aligned_segmentation.shape, transform_meta)
         points, upper_surface, lower_surface = split_surface(points, filtered_segmentation)

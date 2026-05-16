@@ -99,6 +99,15 @@ def oblique_slice(segmentation_volume, image_volume, theta, offset=90):
     image_slice = ndimage.map_coordinates(image_volume, coordinates, order=3)
     image_slice = image_slice.T[::-1]
 
+    tooth_slice = segmentation_slice == Label.TOOTH
+    tooth_slice = ndimage.binary_fill_holes(tooth_slice)
+
+    mask = segmentation_slice > 0
+    mask = ndimage.binary_fill_holes(mask)
+    mask = mask & ~tooth_slice
+
+    segmentation_slice = tooth_slice * Label.TOOTH + mask * Label.BONE
+
     return segmentation_slice, image_slice
 
 def get_slices(segmentation_volume, image_volume, count=8, reverse=False, offset=90):

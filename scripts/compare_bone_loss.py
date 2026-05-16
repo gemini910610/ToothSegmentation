@@ -6,7 +6,7 @@ if __name__ == '__main__':
     from collections import defaultdict
 
     from keypoint.predict import CEJFinder
-    from scripts.post_processing.bone_loss import compute_bone_loss
+    from scripts.post_processing.bone_loss import volume_bone_loss
     from scripts.post_processing.iterators import iterate_fold_patients
     from scripts.tools.widgets import Mode
     from src.config import load_config
@@ -33,7 +33,7 @@ if __name__ == '__main__':
         segmentation_volume = numpy.load(segmentation_volume_path)
         image_volume = numpy.load(image_volume_path)
 
-        segmentation_bone_losses = compute_bone_loss(segmentation_volume, image_volume, cej_finder)
+        segmentation_bone_losses = volume_bone_loss(segmentation_volume, image_volume, cej_finder)
 
         xray_folder = os.path.join('datasets', dataset.replace('bone_tooth_mask', 'xray'), patient)
         for folder in os.listdir(xray_folder):
