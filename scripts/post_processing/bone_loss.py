@@ -50,7 +50,7 @@ def volume_bone_loss(segmentation_volume, image_volume, cej_finder):
         filtered_volume, transform_meta = extract_single_tooth(segmentation_volume, normal_vector, tooth_label=label, bone_label=1)
         aligned_volume, aligned_image = align_crop_tooth(filtered_volume, image_volume, transform_meta)
 
-        slices = get_slices(aligned_volume, aligned_image, count=64, reverse=label // 10 in {2, 3})
+        slices = get_slices(aligned_volume, aligned_image, reverse=label // 10 in {2, 3})
 
         origin_segmentation_slices = []
         segmentation_slices = []
@@ -65,8 +65,8 @@ def volume_bone_loss(segmentation_volume, image_volume, cej_finder):
             tooth_slices.append(tooth_slice)
 
         points = cej_finder.find(origin_segmentation_slices, tooth_slices)
-        points = restore_coordinates(points, aligned_volume.shape, transform_meta)
-        points, upper_surface, lower_surface = split_surface(points, filtered_volume)
+        points = restore_coordinates(points, filtered_volume, aligned_volume.shape, transform_meta)
+        upper_surface, lower_surface = split_surface(points, filtered_volume)
         cej_surface = upper_surface if label // 10 in {1, 2} else lower_surface
 
         tooth_volume = filtered_volume == Label.TOOTH
@@ -112,18 +112,21 @@ if __name__ == '__main__':
     bone_losses = []
 
     for fold, dataset, patient in iterate_fold_patients(config):
-        volume_path = os.path.join('outputs', experiment_name, f'Fold_{fold}', dataset, patient, f'{Mode.POST_PROCESSING}.npy')
+        volume_path = os.path.join('outputs', experiment_name, f'Fold_{fold}', dataset, patient, f'{Mode.FDI}.npy')
+        if not os.path.exists(volume_path):
+            continue
         volume = numpy.load(volume_path)
         image_volume_path = os.path.join('outputs', experiment_name, f'Fold_{fold}', dataset, patient, f'{Mode.IMAGE}.npy')
         image_volume = numpy.load(image_volume_path)
 
         bone_losses = volume_bone_loss(volume, image_volume, cej_finder)
+        bone_losses = [
+            [label, bone_loss]
+            for label, bone_loss in bone_losses.items()
+        ]
 
         print(f'{dataset}/{patient}')
         Table(
             ['Label', 'Bone Loss (%)'],
-            *[
-                [label, bone_loss]
-                for label, bone_loss in bone_losses.items()
-            ]
+            *bone_losses
         ).display()

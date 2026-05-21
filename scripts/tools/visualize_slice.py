@@ -120,7 +120,7 @@ class MainWindow(MainWindowUI):
         normal_vector = self.normal_vectors[label]
         filtered_segmentation, transform_meta = extract_single_tooth(segmentation_volume, normal_vector, tooth_label=label, bone_label=1)
         aligned_segmentation, aligned_image = align_crop_tooth(filtered_segmentation, image_volume, transform_meta)
-        slices = get_slices(aligned_segmentation, aligned_image, count=64, reverse=label // 10 in {2, 3})
+        slices = get_slices(aligned_segmentation, aligned_image, reverse=label // 10 in {2, 3})
 
         self.volume_viewer.views[1].setTitle(f'Label {label}')
 
@@ -154,13 +154,13 @@ class MainWindow(MainWindowUI):
             index = title.find(')')
             box.setTitle(f'{title[:index+1]} {bone_loss}%')
 
-        points = restore_coordinates(self.points, aligned_segmentation.shape, transform_meta)
-        points, upper_surface, lower_surface = split_surface(points, filtered_segmentation)
+        points = restore_coordinates(self.points, filtered_segmentation, aligned_segmentation.shape, transform_meta)
+        upper_surface, lower_surface = split_surface(points, filtered_segmentation)
         surface = upper_surface if label // 10 in {1, 2} else lower_surface
 
         volume = VolumeColorizer.color_volume(filtered_segmentation, display_bone=True)
-        volume[*points.T] = (0, 0, 0, 255)
         volume[*surface.T] = (255, 0, 0, 255)
+        volume[*points.T] = (0, 0, 0, 255)
         self.volume_viewer.views[1].view.update_volume(volume, reset=reset)
 
         self.axis_item.update_axes(*transform_meta['axes'])
@@ -186,7 +186,7 @@ class MainWindow(MainWindowUI):
             return
 
         slices = self.slices[index]
-        indices = numpy.linspace(0, len(slices) - 1, 8, endpoint=False, dtype=numpy.int32)
+        indices = numpy.linspace(0, len(slices) - 1, 8, endpoint=True, dtype=numpy.int32)
         points = None if not self.point_toggle.isChecked() else [self.points[index] for index in indices]
         slices = [slices[index] for index in indices]
         self.image_table.update_images(slices, points)

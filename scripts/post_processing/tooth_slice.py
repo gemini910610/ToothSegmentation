@@ -1,9 +1,8 @@
 import numpy
 
-from collections import defaultdict, deque
 from scipy import ndimage
-from scipy.interpolate import CubicSpline
-from scipy.spatial import KDTree
+from scipy.interpolate import CubicSpline, RBFInterpolator
+from scipy.spatial import cKDTree
 
 from scripts.post_processing.relabel import split_teeth_jaw
 from scripts.tools.widgets import Label
@@ -167,7 +166,7 @@ def find_normal_vectors(segmentation_volume):
 
     return normal_vectors
 
-def restore_coordinates(points, aligned_shape, transform_meta, offset=90):
+def restore_coordinates(points, segmentation_volume, aligned_shape, transform_meta, offset=90):
     xs = points[:, 0]
     ys = points[:, 1]
 
@@ -195,27 +194,16 @@ def restore_coordinates(points, aligned_shape, transform_meta, offset=90):
     rotate_matrix = numpy.stack(axes, axis=1)
     points = uvw @ rotate_matrix.T + center
 
-    return points
+    tooth_volume = segmentation_volume == Label.TOOTH
+    tooth_erosion = ndimage.binary_erosion(tooth_volume)
+    tooth_surface = tooth_volume & ~tooth_erosion
+    surface_points = numpy.argwhere(tooth_surface)
 
-def find_path(coordinates, points):
-    tree = KDTree(coordinates)
+    tree = cKDTree(surface_points)
     _, indices = tree.query(points)
+    points = surface_points[indices]
 
-    pairs = tree.query_pairs(1.75) # sqrt(3) 26-connectivity
-    neighbors = defaultdict(list)
-    for i, j in pairs:
-        neighbors[i].append(j)
-        neighbors[j].append(i)
-
-    path_indices = []
-    length = len(indices)
-    for index in range(length):
-        path = bfs(neighbors, indices[index], indices[(index + 1) % length])
-        path_indices.extend(path[1:])
-
-    path_coordinates = coordinates[path_indices]
-
-    return path_coordinates
+    return points
 
 def split_surface(points, filtered_segmentation):
     tooth_area = filtered_segmentation == Label.TOOTH
@@ -223,66 +211,27 @@ def split_surface(points, filtered_segmentation):
     tooth_surface = tooth_area & ~erosion
     coordinates = numpy.argwhere(tooth_surface)
 
-    path_coordinates = find_path(coordinates, points)
+    xy = points[:, :2]
+    z = points[:, 2]
 
-    path_mask = numpy.zeros_like(filtered_segmentation, dtype=bool)
-    path_mask[*path_coordinates.T] = True
-    structure = ndimage.generate_binary_structure(3, 3)
-    path_mask = ndimage.binary_dilation(path_mask, structure)
+    center = xy.mean(0)
+    vectors = xy - center
+    distances = numpy.linalg.norm(vectors, axis=1, keepdims=True)
+    vectors = vectors / distances
 
-    surface_mask = numpy.zeros_like(filtered_segmentation, dtype=bool)
-    surface_mask[*coordinates.T] = True
-    surface_mask[path_mask] = False
+    split_surface = RBFInterpolator(xy, z)
 
-    labels = numpy.zeros_like(filtered_segmentation, dtype=numpy.uint8)
+    surface_xy = coordinates[:, :2]
+    surface_z = coordinates[:, 2]
+    split_z = split_surface(surface_xy)
 
-    upper_seed = coordinates[numpy.argmax(coordinates[:, 2])]
-    lower_seed = coordinates[numpy.argmin(coordinates[:, 2])]
+    upper_mask = surface_z > split_z
+    lower_mask = surface_z <= split_z
 
-    for label, seed in enumerate((upper_seed, lower_seed), 1):
-        seed_mask = numpy.zeros_like(surface_mask)
-        seed_mask[*seed.T] = True
-        seed_surface = ndimage.binary_propagation(seed_mask, structure, surface_mask)
-        labels[seed_surface] = label
+    upper_surface = coordinates[upper_mask]
+    lower_surface = coordinates[lower_mask]
 
-    unassigned_surface = tooth_surface & (labels == 0)
-    unassigned_surface[*path_coordinates.T] = False
-    unassigned_coordinates = numpy.argwhere(unassigned_surface)
-
-    assigned_mask = labels > 0
-    assigned_coordinates = numpy.argwhere(assigned_mask)
-    assigned_labels = labels[assigned_mask]
-
-    tree = KDTree(assigned_coordinates)
-    _, indices = tree.query(unassigned_coordinates)
-
-    labels[*unassigned_coordinates.T] = assigned_labels[indices]
-
-    upper_surface = numpy.argwhere(labels == 1)
-    lower_surface = numpy.argwhere(labels == 2)
-
-    return path_coordinates, upper_surface, lower_surface
-
-def bfs(neighbors, start_index, end_index):
-    if start_index == end_index:
-        return [start_index]
-
-    queue = deque([[start_index]])
-    visited = {start_index}
-
-    while queue:
-        path = queue.popleft()
-        node = path[-1]
-
-        for neighbor in neighbors[node]:
-            if neighbor == end_index:
-                return path + [neighbor]
-
-            if neighbor not in visited:
-                queue.append(path + [neighbor])
-                visited.add(neighbor)
-
-    return None
+    return upper_surface, lower_surface
 
 if __name__ == '__main__':
     import cv2
