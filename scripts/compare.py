@@ -54,6 +54,9 @@ def predict_patient(model, dataset, patient, output_dir, config, out_image=False
         ground_truth.append(masks)
 
         if out_image:
+            os.makedirs(os.path.join(output_dir, 'predict'), exist_ok=True)
+            os.makedirs(os.path.join(output_dir, 'compare'), exist_ok=True)
+
             images = images.squeeze(1).cpu()
 
             for filename, image, predict, mask in zip(filenames, images, predicts, masks):
@@ -93,26 +96,44 @@ if __name__ == '__main__':
     parser = ArgumentParser()
     parser.add_argument('exp', type=str)
     parser.add_argument('--out-image', action='store_true')
+    parser.add_argument('--best-fold', type=int)
     args = parser.parse_args()
 
     experiment_name = args.exp
     out_image = args.out_image
+    best_fold = args.best_fold
     ensure_experiment_exists(experiment_name)
 
     config = load_config(os.path.join('logs', experiment_name, 'config.toml'))
     config.split_file_path = os.path.join('logs', experiment_name, f'{config.split_filename}.json')
+    processed_patients = set()
 
     for fold in range(1, config.num_folds + 1):
         config.fold = fold
 
         model = load_model(config)
 
-        _, val_dataset_patients = get_fold(config.split_file_path, fold)
-        for dataset, patients in val_dataset_patients.items():
+        _, valid_dataset_patients = get_fold(config.split_file_path, fold)
+        for dataset, patients in valid_dataset_patients.items():
+            print(f'Fold {fold} {dataset}')
             for patient in patients:
-                output_dir = os.path.join('outputs', experiment_name, f'Fold_{fold}', dataset, patient)
-                if out_image:
-                    os.makedirs(os.path.join(output_dir, 'predict'), exist_ok=True)
-                    os.makedirs(os.path.join(output_dir, 'compare'), exist_ok=True)
-
+                if not os.path.exists(os.path.join('datasets', dataset.replace('bone_tooth_mask', 'xray'), patient)):
+                    continue
+                output_dir = os.path.join('outputs', experiment_name, dataset, patient)
                 predict_patient(model, dataset, patient, output_dir, config, out_image)
+                processed_patients.add(f'{dataset}/{patient}')
+
+    config.fold = best_fold
+    if best_fold is not None:
+        model = load_model(config)
+
+    for dataset in ['bone_tooth_mask', 'bone_tooth_mask_1209', 'bone_tooth_mask_0508']:
+        print(dataset)
+        for patient in os.listdir(os.path.join('datasets', dataset.replace('bone_tooth_mask', 'xray'))):
+            if f'{dataset}/{patient}' in processed_patients:
+                continue
+            if best_fold is None:
+                raise ValueError('Best model not specified. Please specify using --best-fold.')
+
+            output_dir = os.path.join('outputs', experiment_name, dataset, patient)
+            predict_patient(model, dataset, patient, output_dir, config, out_image)
