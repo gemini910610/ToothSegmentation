@@ -94,9 +94,8 @@ if __name__ == '__main__':
 
     from argparse import ArgumentParser
 
-    from scripts.post_processing.iterators import iterate_fold_patients
+    from scripts.post_processing.iterators import iterate_datasets
     from scripts.tools.widgets import Mode
-    from src.config import load_config
 
     parser = ArgumentParser()
     parser.add_argument('exp', type=str)
@@ -108,16 +107,14 @@ if __name__ == '__main__':
     target = args.target
     voxel_threshold = args.threshold
 
-    config = load_config(os.path.join('logs', experiment_name, 'config.toml'))
-    config.split_file_path = os.path.join('logs', experiment_name, f'{config.split_filename}.json')
-
-    for fold, dataset, patient in iterate_fold_patients(config):
-        predict_path = os.path.join('outputs', experiment_name, f'Fold_{fold}', dataset, patient, f'{Mode.PREDICT}.npy')
+    datasets = ['bone_tooth_mask', 'bone_tooth_mask_1209', 'bone_tooth_mask_0508']
+    for dataset, patient in iterate_datasets(experiment_name, datasets):
+        predict_path = os.path.join('outputs', experiment_name, dataset, patient, f'{Mode.PREDICT}.npy')
         volume = numpy.load(predict_path)
         volume = volume == target
         volume = filter_connected_component(volume, target, voxel_threshold)
         if target == Label.TOOTH:
             volume = remove_outlier(volume, voxel_threshold)
 
-        cc_path = os.path.join('outputs', experiment_name, f'Fold_{fold}', dataset, patient, f'{Mode.TOOTH_CONNECTED_COMPONENT if target == Label.TOOTH else Mode.BONE_CONNECTED_COMPONENT}.npy')
+        cc_path = os.path.join('outputs', experiment_name, dataset, patient, f'{Mode.TOOTH_CONNECTED_COMPONENT if target == Label.TOOTH else Mode.BONE_CONNECTED_COMPONENT}.npy')
         numpy.save(cc_path, volume)

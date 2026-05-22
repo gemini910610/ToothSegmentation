@@ -81,8 +81,8 @@ class MainWindow(MainWindowUI):
 if __name__ == '__main__':
     from argparse import ArgumentParser
 
-    from scripts.tools.widgets import DataManager, get_patient_fold_mapping
-    from src.config import load_config
+    from scripts.post_processing.iterators import iterate_datasets
+    from scripts.tools.widgets import DataManager
 
     parser = ArgumentParser()
     parser.add_argument('exp', type=str)
@@ -92,18 +92,12 @@ if __name__ == '__main__':
     experiment_name = args.exp
     modes = args.modes
 
-    config = load_config(os.path.join('logs', experiment_name, 'config.toml'))
-    patient_fold_map = get_patient_fold_mapping(config)
-    if Mode.FDI in modes:
-        patient_fold_map = {
-            patient: fold
-            for patient, fold in patient_fold_map.items()
-            if os.path.exists(os.path.join('outputs', experiment_name, f'Fold_{fold}', patient, f'{Mode.FDI}.npy'))
-        }
+    datasets = ['bone_tooth_mask', 'bone_tooth_mask_1209', 'bone_tooth_mask_0508']
+    patients = [f'{dataset}/{patient}' for dataset, patient in iterate_datasets(experiment_name, datasets)]
 
     app = QApplication([])
 
-    data_manager = DataManager(experiment_name, patient_fold_map, modes)
+    data_manager = DataManager(experiment_name, patients, modes)
     window = MainWindow(data_manager)
 
     window.show()

@@ -10,6 +10,7 @@ from PySide6.QtCore import QThread, Qt, Signal
 from PySide6.QtGui import QColor, QIcon, QPainter, QPen, QPixmap, QVector3D
 from PySide6.QtWidgets import QApplication, QComboBox, QGridLayout, QGroupBox, QHBoxLayout, QLabel, QMainWindow, QSlider, QVBoxLayout, QWidget
 from scipy import ndimage
+from src.dataset import get_fold
 
 class Label:
     BACKGROUND = 0
@@ -78,16 +79,14 @@ class Mode:
         }[mode]
 
 class DataManager:
-    def __init__(self, experiment_name, patient_mapping, modes, base_output_dir='outputs'):
+    def __init__(self, experiment_name, patients, modes, base_output_dir='outputs'):
         self.experiment_name = experiment_name
-        self.patient_mapping = patient_mapping
-        self.patients = list(self.patient_mapping.keys())
+        self.patients = patients
         self.modes = modes
         self.base_output_dir = base_output_dir
 
     def load_data(self, patient):
-        fold = self.patient_mapping[patient]
-        base_dir = os.path.join(self.base_output_dir, self.experiment_name, f'Fold_{fold}', patient)
+        base_dir = os.path.join(self.base_output_dir, self.experiment_name, patient)
 
         volumes = [
             numpy.load(os.path.join(base_dir, f'{mode}.npy'))
@@ -96,8 +95,7 @@ class DataManager:
         return volumes
 
     def save_data(self, patient, volume, filename):
-        fold = self.patient_mapping[patient]
-        file_path = os.path.join(self.base_output_dir, self.experiment_name, f'Fold_{fold}', patient, filename)
+        file_path = os.path.join(self.base_output_dir, self.experiment_name, patient, filename)
         numpy.save(file_path, volume)
 
 class VolumeColorizer:
@@ -335,12 +333,12 @@ class VolumeViewer(QWidget):
 
         app.exec()
 
-def get_patient_fold_mapping(config, base_output_dir='outputs'):
+def get_patient_fold_mapping(config):
     patient_fold_map = {
         f'{dataset}/{patient}': fold
         for fold in range(1, config.num_folds + 1)
-        for dataset in config.datasets
-        for patient in os.listdir(os.path.join(base_output_dir, config.experiment, f'Fold_{fold}', dataset))
+        for dataset, patients in get_fold(config.split_file_path, fold)[1].items()
+        for patient in patients
     }
     return {
         patient: fold

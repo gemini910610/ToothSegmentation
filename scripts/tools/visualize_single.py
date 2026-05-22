@@ -161,6 +161,7 @@ if __name__ == '__main__':
     experiment_name = args.exp
 
     config = load_config(os.path.join('logs', experiment_name, 'config.toml'))
+    config.split_file_path = os.path.join('logs', experiment_name, f'{config.split_filename}.json')
     patient_fold_map = get_patient_fold_mapping(config)
 
     app = QApplication([])

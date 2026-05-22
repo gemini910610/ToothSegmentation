@@ -61,9 +61,8 @@ if __name__ == '__main__':
 
     from argparse import ArgumentParser
 
-    from scripts.post_processing.iterators import iterate_fold_patients
+    from scripts.post_processing.iterators import iterate_datasets
     from scripts.tools.widgets import Mode
-    from src.config import load_config
 
     parser = ArgumentParser()
     parser.add_argument('exp', type=str)
@@ -73,13 +72,11 @@ if __name__ == '__main__':
     experiment_name = args.exp
     voxel_threshold = args.threshold
 
-    config = load_config(os.path.join('logs', experiment_name, 'config.toml'))
-    config.split_file_path = os.path.join('logs', experiment_name, f'{config.split_filename}.json')
-
-    for fold, dataset, patient in iterate_fold_patients(config):
-        cc_path = os.path.join('outputs', experiment_name, f'Fold_{fold}', dataset, patient, f'{Mode.TOOTH_CONNECTED_COMPONENT}.npy')
+    datasets = ['bone_tooth_mask', 'bone_tooth_mask_1209', 'bone_tooth_mask_0508']
+    for dataset, patient in iterate_datasets(experiment_name, datasets):
+        cc_path = os.path.join('outputs', experiment_name, dataset, patient, f'{Mode.TOOTH_CONNECTED_COMPONENT}.npy')
         volume = numpy.load(cc_path)
         volume = split_component(volume)
 
-        watershed_path = os.path.join('outputs', experiment_name, f'Fold_{fold}', dataset, patient, f'{Mode.WATERSHED}.npy')
+        watershed_path = os.path.join('outputs', experiment_name, dataset, patient, f'{Mode.WATERSHED}.npy')
         numpy.save(watershed_path, volume)
