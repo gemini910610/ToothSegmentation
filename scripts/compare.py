@@ -27,7 +27,7 @@ def save_compare(image, predict, mask, output_dir, filename):
     draw = Draw(image)
     for i, text in enumerate([filename, 'predict', 'mask']):
         draw.text((width * i, 0), text, 'white', font)
-    
+
     image.save(os.path.join(output_dir, filename))
 
 def predict_patient(model, dataset, patient, output_dir, config, out_image=False):

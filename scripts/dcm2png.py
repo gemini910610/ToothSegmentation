@@ -68,20 +68,26 @@ def save_volume(volume, output_dir):
         image_path = os.path.join(output_dir, f'{index}.png')
         cv2.imwrite(image_path, image, [cv2.IMWRITE_PNG_COMPRESSION, 0])
 
+def get_info(origin_volume, volume):
+    _, origin_image_size, dcm_count = origin_volume.GetSize()
+    _, pixel_spacing, slice_thickness = origin_volume.GetSpacing()
+    _, image_size, image_count = volume.GetSize()
+    return dcm_count, image_count, slice_thickness, pixel_spacing, origin_image_size, image_size
+
 if __name__ == '__main__':
     from argparse import ArgumentParser
 
     from src.console import Table, track
 
     parser = ArgumentParser()
-    parser.add_argument('dicom', type=str)
+    parser.add_argument('dcm', type=str)
     parser.add_argument('output', type=str)
     parser.add_argument('--min', type=int, default=-1000)
     parser.add_argument('--max', type=int, default=4500)
     parser.add_argument('--spacing', type=float, default=0.25)
     args = parser.parse_args()
 
-    dicom_root = args.dicom
+    dcm_root = args.dcm
     output_dir = args.output
     min_value = args.min
     max_value = args.max
@@ -90,14 +96,15 @@ if __name__ == '__main__':
     if os.path.exists(output_dir):
         raise FileExistsError(f'folder "{output_dir}" already exists')
 
-    with Table(['Data ID', 'Source Path']) as table:
-        patients = collect_patients(dicom_root, lambda x: 'IOS' in str(x))
+    with Table(['Data ID', 'Source Path', 'DCM Count', 'Image Count', 'Slice Thickness', 'Pixel Spacing', 'Origin Image Size', 'Image Size']) as table:
+        patients = collect_patients(dcm_root, lambda x: 'IOS' in str(x))
         for index, patient in enumerate(track(patients), 1):
             data = re.search(r'data_(\d+)', str(patient))
             if data is not None:
                 index = data.group(1)
-            volume = load_volume(patient)
-            volume = preprocess_volume(volume, min_value, max_value)
+            origin_volume = load_volume(patient)
+            volume = preprocess_volume(origin_volume, min_value, max_value)
             volume = resample_volume(volume, new_spacing)
+            info = get_info(origin_volume, volume)
             save_volume(volume, f'{output_dir}/data_{index}')
-            table.add_row([f'data_{index}', patient.relative_to(dicom_root)])
+            table.add_row([f'data_{index}', patient.relative_to(dcm_root), *info])

@@ -86,7 +86,7 @@ def get_loader(config, return_mask=True):
 
         train_datasets.append(train_dataset)
         val_datasets.append(val_dataset)
-    
+
     train_dataset = ConcatDataset(train_datasets)
     val_dataset = ConcatDataset(val_datasets)
 
