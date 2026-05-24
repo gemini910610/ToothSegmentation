@@ -33,7 +33,8 @@ class Mode:
     TOOTH_CONNECTED_COMPONENT = 'tooth_cc'
     CLEANED = 'cleaned'
     WATERSHED = 'watershed'
-    REFINE = 'refine'
+    REFINE_SPLIT = 'refine_split'
+    REFINE_MERGE = 'refine_merge'
     POST_PROCESSING = 'pp'
     REMOVED = 'removed'
     BONE_FILLED = 'bone_filled'
@@ -50,7 +51,8 @@ class Mode:
             Mode.TOOTH_CONNECTED_COMPONENT,
             Mode.CLEANED,
             Mode.WATERSHED,
-            Mode.REFINE,
+            Mode.REFINE_SPLIT,
+            Mode.REFINE_MERGE,
             Mode.POST_PROCESSING,
             Mode.REMOVED,
             Mode.BONE_FILLED,
@@ -69,7 +71,8 @@ class Mode:
             Mode.TOOTH_CONNECTED_COMPONENT: 'Connected Component (Tooth)',
             Mode.CLEANED: 'Cleaned',
             Mode.WATERSHED: 'Watershed',
-            Mode.REFINE: 'Refine',
+            Mode.REFINE_SPLIT: 'Refine Split',
+            Mode.REFINE_MERGE: 'Refine Merge',
             Mode.POST_PROCESSING: 'Post Processing',
             Mode.REMOVED: 'Removed',
             Mode.BONE_FILLED: 'Bone Filled',
@@ -188,7 +191,7 @@ class VolumeLoaderThread(QThread):
         match mode:
             case Mode.GROUND_TRUTH | Mode.PREDICT:
                 return VolumeColorizer.color_volume(volume, display_bone=True), None
-            case Mode.TOOTH_CONNECTED_COMPONENT | Mode.WATERSHED | Mode.CLEANED | Mode.REFINE | Mode.REMOVED | Mode.TOOTH_FILLED | Mode.RELABELED:
+            case Mode.TOOTH_CONNECTED_COMPONENT | Mode.WATERSHED | Mode.CLEANED | Mode.REFINE_SPLIT | Mode.REFINE_MERGE | Mode.REMOVED | Mode.TOOTH_FILLED | Mode.RELABELED:
                 return VolumeColorizer.color_components(volume)
             case Mode.BONE_CONNECTED_COMPONENT | Mode.BONE_FILLED | Mode.POST_PROCESSING | Mode.FDI:
                 return VolumeColorizer.color_components(volume, display_bone=True)

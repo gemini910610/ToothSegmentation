@@ -1,23 +1,31 @@
 import numpy
+import os
 
 from PySide6.QtWidgets import QComboBox, QHBoxLayout, QPushButton, QSpinBox
 
 from scripts.post_processing.watershed import split_k_component
-from scripts.tools.widgets import IconLabelSelector, MainWindowUI, Mode, PatientSelector, VolumeColorizer, VolumeLoader, VolumeViewer
+from scripts.tools.widgets import DataHandler, IconLabelSelector, JsonHandler, MainWindowUI, Mode, PatientSelector, VolumeColorizer, VolumeLoader, VolumeViewer
+
+class SplitDataHandler(DataHandler):
+    def set_data(self, patient, label, cluster):
+        if patient not in self.data:
+            self.data[patient] = {}
+        self.data[patient][label] = cluster
 
 class TopLayout(QHBoxLayout):
     def __init__(self):
         super().__init__()
         self.patient_selector = PatientSelector(sizeAdjustPolicy=QComboBox.SizeAdjustPolicy.AdjustToContents)
         self.label_selector = IconLabelSelector(sizeAdjustPolicy=QComboBox.SizeAdjustPolicy.AdjustToContents)
-        self.cluster_input = QSpinBox(suffix=' Cluster', minimum=1, maximum=6)
+        self.cluster_input = QSpinBox(suffix=' Cluster', minimum=1)
         self.execute_button = QPushButton('Execute')
-        for widget in [self.patient_selector, self.label_selector, self.cluster_input, self.execute_button]:
+        self.save_button = QPushButton('Save')
+        for widget in [self.patient_selector, self.label_selector, self.cluster_input, self.execute_button, self.save_button]:
             self.addWidget(widget)
         self.addStretch()
 
     def get_widgets(self):
-        return self.patient_selector, self.label_selector, self.cluster_input, self.execute_button
+        return self.patient_selector, self.label_selector, self.cluster_input, self.execute_button, self.save_button
 
 class BottomLayout(QHBoxLayout):
     def __init__(self):
@@ -35,17 +43,18 @@ class MainWindow(MainWindowUI):
 
         self.setWindowTitle(data_manager.experiment_name)
 
-        self.patient_selector, self.label_selector, self.cluster_input, self.execute_button = self.layouts[0].get_widgets()
+        self.patient_selector, self.label_selector, self.cluster_input, self.execute_button, self.save_button = self.layouts[0].get_widgets()
         self.volume_viewer = self.layouts[1].get_widgets()
 
         self.patient_selector.setup(data_manager.patients, self.loader.load_patient)
 
         self.volume_viewer.set_titles(Mode.get_title(Mode.TOOTH_CONNECTED_COMPONENT), Mode.get_title(Mode.WATERSHED), 'Instance')
 
-        self.loader.setup(self.patient_selector, self.label_selector, self.cluster_input, self.execute_button)
+        self.loader.setup(self.patient_selector, self.label_selector, self.cluster_input, self.execute_button, self.save_button)
 
         self.label_selector.currentIndexChanged.connect(self._on_label_changed)
         self.execute_button.clicked.connect(self._split_component)
+        self.save_button.clicked.connect(self._on_save)
 
         self.volume = None
 
@@ -90,14 +99,24 @@ class MainWindow(MainWindowUI):
         volume, _ = VolumeColorizer.color_components(volume)
         self.volume_viewer.views[2].view.update_volume(volume, reset=False)
 
-if __name__ == '__main__':
-    import os
+    def _on_save(self):
+        if self.volume is None:
+            return
 
+        patient = self.patient_selector.currentText()
+        label = self.label_selector.current_label()
+        cluster = self.cluster_input.value()
+
+        path = os.path.join('split', f'{self.loader.data_manager.experiment_name}.json')
+        with JsonHandler(path, SplitDataHandler) as handler:
+            handler.set_data(patient, str(label), cluster)
+
+if __name__ == '__main__':
     from argparse import ArgumentParser
     from PySide6.QtWidgets import QApplication
 
-    from scripts.tools.widgets import DataManager, get_patient_fold_mapping
-    from src.config import load_config
+    from scripts.post_processing.iterators import iterate_datasets
+    from scripts.tools.widgets import DataManager
 
     parser = ArgumentParser()
     parser.add_argument('exp', type=str)
@@ -105,12 +124,12 @@ if __name__ == '__main__':
 
     experiment_name = args.exp
 
-    config = load_config(os.path.join('logs', experiment_name, 'config.toml'))
-    patient_fold_map = get_patient_fold_mapping(config)
+    datasets = ['bone_tooth_mask', 'bone_tooth_mask_1209', 'bone_tooth_mask_0508']
+    patients = [f'{dataset}/{patient}' for dataset, patient in iterate_datasets(experiment_name, datasets)]
 
     app = QApplication([])
 
-    data_manager = DataManager(experiment_name, patient_fold_map, [Mode.TOOTH_CONNECTED_COMPONENT, Mode.WATERSHED])
+    data_manager = DataManager(experiment_name, patients, [Mode.TOOTH_CONNECTED_COMPONENT, Mode.WATERSHED])
     window = MainWindow(data_manager)
 
     window.show()

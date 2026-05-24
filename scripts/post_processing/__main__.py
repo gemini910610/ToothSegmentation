@@ -7,7 +7,7 @@ from argparse import ArgumentParser
 from scripts.post_processing.connected_component import filter_connected_component, remove_outlier
 from scripts.post_processing.fill_holes import fill_holes
 from scripts.post_processing.iterators import iterate_fold_patients
-from scripts.post_processing.refine_component import refine_component
+from scripts.post_processing.refine_split import refine_split
 from scripts.post_processing.relabel import relabel_volume
 from scripts.post_processing.remove_cropped import remove_cropped
 from scripts.post_processing.remove_tooth import remove_tooth
@@ -44,7 +44,7 @@ for fold, dataset, patient in iterate_fold_patients(config):
     tooth_cc_volume = remove_outlier(tooth_cc_volume, voxel_threshold=threshold)
     tooth_watershed_volume = split_component(tooth_cc_volume)
     data = f'{dataset}/{patient}'
-    tooth_volume = tooth_watershed_volume if data not in tasks else refine_component(tooth_cc_volume, tooth_watershed_volume, tasks[data])
+    tooth_volume = tooth_watershed_volume if data not in tasks else refine_split(tooth_cc_volume, tooth_watershed_volume, tasks[data])
     tooth_volume = remove_cropped(tooth_volume, voxel_threshold=threshold)
     tooth_volume = tooth_volume if data not in labels else remove_tooth(tooth_volume, labels[data])
     tooth_volume, bone_volume = fill_holes(tooth_volume, bone_volume)
