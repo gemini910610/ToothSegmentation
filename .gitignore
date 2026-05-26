@@ -7,6 +7,7 @@ datasets.zip
 datasets/
 fdi/
 logs/
+merge/
 output_slices/
 outputs/
 pano_predict/
@@ -14,5 +15,6 @@ pyproject.toml
 refine/
 remove/
 slices/
+split/
 splits/
 uv.lock
