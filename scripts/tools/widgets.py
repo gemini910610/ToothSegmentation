@@ -20,6 +20,7 @@ class Label:
     UNERUPTED = 70
     RESIDUAL = 90
     FAKE = 110
+    MISSING_FDI = 130
 
 class Color:
     TOOTH = (235, 223, 180, 255)

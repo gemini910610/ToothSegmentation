@@ -42,7 +42,7 @@ def volume_bone_loss(segmentation_volume, image_volume, cej_finder):
     normal_vectors = find_normal_vectors(segmentation_volume)
 
     labels = numpy.unique(segmentation_volume)
-    labels = labels[(labels > 1) & (labels < Label.CROPPED)] # exclude background, bone and removed teeth
+    labels = labels[(labels > 1) & (labels < Label.CROPPED)] # exclude background, bone, removed teeth and missing FDI teeth
 
     bone_losses = {}
     for label in track(labels):
@@ -93,9 +93,8 @@ if __name__ == '__main__':
     from argparse import ArgumentParser
 
     from keypoint.predict import CEJFinder
-    from scripts.post_processing.iterators import iterate_fold_patients
+    from scripts.post_processing.iterators import iterate_datasets
     from scripts.tools.widgets import Mode
-    from src.config import load_config
     from src.console import Table
 
     parser = ArgumentParser()
@@ -104,19 +103,15 @@ if __name__ == '__main__':
 
     experiment_name = args.exp
 
-    config = load_config(os.path.join('logs', experiment_name, 'config.toml'))
-    config.split_file_path = os.path.join('logs', experiment_name, f'{config.split_filename}.json')
-
     cej_finder = CEJFinder('logs/keypoint_baseline/best.pth')
 
     bone_losses = []
 
-    for fold, dataset, patient in iterate_fold_patients(config):
-        volume_path = os.path.join('outputs', experiment_name, f'Fold_{fold}', dataset, patient, f'{Mode.FDI}.npy')
-        if not os.path.exists(volume_path):
-            continue
+    datasets = ['bone_tooth_mask', 'bone_tooth_mask_1209', 'bone_tooth_mask_0508']
+    for dataset, patient in iterate_datasets(experiment_name, datasets):
+        volume_path = os.path.join('outputs', experiment_name, dataset, patient, f'{Mode.FDI}.npy')
         volume = numpy.load(volume_path)
-        image_volume_path = os.path.join('outputs', experiment_name, f'Fold_{fold}', dataset, patient, f'{Mode.IMAGE}.npy')
+        image_volume_path = os.path.join('outputs', experiment_name, dataset, patient, f'{Mode.IMAGE}.npy')
         image_volume = numpy.load(image_volume_path)
 
         bone_losses = volume_bone_loss(volume, image_volume, cej_finder)

@@ -133,7 +133,7 @@ def normalize_slice(segmentation_slice, image_slice, tooth_slice):
 
 def find_normal_vectors(segmentation_volume):
     tooth_volume = segmentation_volume.copy()
-    tooth_volume[(segmentation_volume < 2) | (segmentation_volume >= Label.UNERUPTED)] = 0
+    tooth_volume[(segmentation_volume < 2) | ((segmentation_volume >= Label.UNERUPTED) & (segmentation_volume < Label.MISSING_FDI))] = 0
     bone_volume = segmentation_volume == 1
 
     upper_tooth, lower_tooth = split_teeth_jaw(tooth_volume, bone_volume)
@@ -239,9 +239,8 @@ if __name__ == '__main__':
 
     from argparse import ArgumentParser
 
-    from scripts.post_processing.iterators import iterate_fold_patients
+    from scripts.post_processing.iterators import iterate_datasets
     from scripts.tools.widgets import Mode
-    from src.config import load_config
 
     parser = ArgumentParser()
     parser.add_argument('exp', type=str)
@@ -254,13 +253,11 @@ if __name__ == '__main__':
     if os.path.exists(output_dir):
         raise FileExistsError(f'folder "{output_dir}" already exists')
 
-    config = load_config(os.path.join('logs', experiment_name, 'config.toml'))
-    config.split_file_path = os.path.join('logs', experiment_name, f'{config.split_filename}.json')
-
-    for fold, dataset, patient in iterate_fold_patients(config):
-        volume_path = os.path.join('outputs', experiment_name, f'Fold_{fold}', dataset, patient, f'{Mode.POST_PROCESSING}.npy')
+    datasets = ['bone_tooth_mask', 'bone_tooth_mask_1209', 'bone_tooth_mask_0508']
+    for dataset, patient in iterate_datasets(experiment_name, datasets):
+        volume_path = os.path.join('outputs', experiment_name, dataset, patient, f'{Mode.POST_PROCESSING}.npy')
         volume = numpy.load(volume_path)
-        image_volume_path = os.path.join('outputs', experiment_name, f'Fold_{fold}', dataset, patient, f'{Mode.IMAGE}.npy')
+        image_volume_path = os.path.join('outputs', experiment_name, dataset, patient, f'{Mode.IMAGE}.npy')
         image_volume = numpy.load(image_volume_path)
 
         normal_vectors = find_normal_vectors(volume)

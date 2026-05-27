@@ -93,7 +93,7 @@ class MainWindow(MainWindowUI):
         self.volumes = [volumes['origin'][Mode.FDI], volumes['origin'][Mode.IMAGE]]
 
         volume = self.volumes[0]
-        volume = numpy.select([volume == 1, (volume > 1) & (volume < Label.CROPPED)], [Label.BONE, Label.TOOTH])
+        volume = numpy.select([volume == 1, ((volume > 1) & (volume < Label.CROPPED)) | (volume >= Label.MISSING_FDI)], [Label.BONE, Label.TOOTH])
         self.display_volume = VolumeColorizer.color_volume(volume, display_bone=True)
 
         self.normal_vectors = find_normal_vectors(self.volumes[0])
@@ -102,7 +102,7 @@ class MainWindow(MainWindowUI):
         self.volume_viewer.views[0].setTitle(patient)
 
         labels = numpy.unique(self.volumes[0])
-        labels = labels[(labels > 1) & (labels < Label.CROPPED)] # exclude background, bone and removed teeth
+        labels = labels[(labels > 1) & (labels < Label.CROPPED)] # exclude background, bone, removed teeth and missing FDI teeth
 
         tooth_count = self.volumes[0].max() - 1
         self.colors = VolumeColorizer.glasbey_palette(tooth_count)
@@ -192,13 +192,11 @@ class MainWindow(MainWindowUI):
         self.image_table.update_images(slices, points)
 
 if __name__ == '__main__':
-    import os
-
     from argparse import ArgumentParser
     from PySide6.QtWidgets import QApplication
 
-    from scripts.tools.widgets import DataManager, get_patient_fold_mapping
-    from src.config import load_config
+    from scripts.post_processing.iterators import iterate_datasets
+    from scripts.tools.widgets import DataManager
 
     parser = ArgumentParser()
     parser.add_argument('exp', type=str)
@@ -206,18 +204,12 @@ if __name__ == '__main__':
 
     experiment_name = args.exp
 
-    config = load_config(os.path.join('logs', experiment_name, 'config.toml'))
-    config.split_file_path = os.path.join('logs', experiment_name, f'{config.split_filename}.json')
-    patient_fold_map = get_patient_fold_mapping(config)
-    patient_fold_map = {
-        patient: fold
-        for patient, fold in patient_fold_map.items()
-        if os.path.exists(os.path.join('outputs', experiment_name, f'Fold_{fold}', patient, f'{Mode.FDI}.npy'))
-    }
+    datasets = ['bone_tooth_mask', 'bone_tooth_mask_1209', 'bone_tooth_mask_0508']
+    patients = [f'{dataset}/{patient}' for dataset, patient in iterate_datasets(experiment_name, datasets)]
 
     app = QApplication([])
 
-    data_manager = DataManager(experiment_name, patient_fold_map, [Mode.FDI, Mode.IMAGE])
+    data_manager = DataManager(experiment_name, patients, [Mode.FDI, Mode.IMAGE])
     window = MainWindow(data_manager)
 
     window.show()

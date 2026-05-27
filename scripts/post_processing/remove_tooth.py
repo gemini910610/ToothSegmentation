@@ -22,9 +22,8 @@ if __name__ == '__main__':
 
     from argparse import ArgumentParser
 
-    from scripts.post_processing.iterators import iterate_fold_patients
+    from scripts.post_processing.iterators import iterate_datasets
     from scripts.tools.widgets import Mode
-    from src.config import load_config
 
     parser = ArgumentParser()
     parser.add_argument('exp', type=str)
@@ -32,18 +31,16 @@ if __name__ == '__main__':
 
     experiment_name = args.exp
 
-    config = load_config(os.path.join('logs', experiment_name, 'config.toml'))
-    config.split_file_path = os.path.join('logs', experiment_name, f'{config.split_filename}.json')
-
     with open(os.path.join('remove', f'{experiment_name}.json')) as file:
         labels = json.load(file)
 
-    for fold, dataset, patient in iterate_fold_patients(config):
-        volume_path = os.path.join('outputs', experiment_name, f'Fold_{fold}', dataset, patient, f'{Mode.CLEANED}.npy')
+    datasets = ['bone_tooth_mask', 'bone_tooth_mask_1209', 'bone_tooth_mask_0508']
+    for dataset, patient in iterate_datasets(experiment_name, datasets):
+        volume_path = os.path.join('outputs', experiment_name, dataset, patient, f'{Mode.CLEANED}.npy')
         volume = numpy.load(volume_path)
         data = f'{dataset}/{patient}'
         if data in labels:
             volume = remove_tooth(volume, labels[data])
 
-        removed_path = os.path.join('outputs', experiment_name, f'Fold_{fold}', dataset, patient, f'{Mode.REMOVED}.npy')
+        removed_path = os.path.join('outputs', experiment_name, dataset, patient, f'{Mode.REMOVED}.npy')
         numpy.save(removed_path, volume)

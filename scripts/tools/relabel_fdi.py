@@ -345,7 +345,7 @@ class MainWindow(MainWindowUI):
         self.left_image, self.right_image = self.layouts[1].get_widgets()
         self.grid, self.save_button = self.layouts[2].get_widgets()
 
-        self.patient_selector.setup([f'{dataset}/{patient}' for _, dataset, patient in patients], self.on_patient_changed)
+        self.patient_selector.setup([f'{dataset}/{patient}' for dataset, patient in patients], self.on_patient_changed)
 
         self.right_image.fdi_updated.connect(self.on_fdi_update)
         self.save_button.clicked.connect(self.on_save)
@@ -359,13 +359,13 @@ class MainWindow(MainWindowUI):
         self.adjustSize()
 
     def on_patient_changed(self, index):
-        fold, dataset, patient = self.patients[index]
+        dataset, patient = self.patients[index]
         keypoint_panoramic, tooth_data = load_panoramic(dataset, patient)
         keypoint_panoramic = draw_panoramic(keypoint_panoramic, tooth_data)
 
-        segmentation_volume_path = os.path.join('outputs', self.experiment_name, f'Fold_{fold}', dataset, patient, f'{Mode.POST_PROCESSING}.npy')
+        segmentation_volume_path = os.path.join('outputs', self.experiment_name, dataset, patient, f'{Mode.POST_PROCESSING}.npy')
         segmentation_volume = numpy.load(segmentation_volume_path)
-        image_volume_path = os.path.join('outputs', self.experiment_name, f'Fold_{fold}', dataset, patient, f'{Mode.IMAGE}.npy')
+        image_volume_path = os.path.join('outputs', self.experiment_name, dataset, patient, f'{Mode.IMAGE}.npy')
         image_volume = numpy.load(image_volume_path)
 
         jaw_labels, image_panoramic, segmentation_panoramic_mask = get_panoramic(image_volume, segmentation_volume)
@@ -445,7 +445,7 @@ class MainWindow(MainWindowUI):
             return
 
         index = self.patient_selector.currentIndex()
-        _, dataset, patient = self.patients[index]
+        dataset, patient = self.patients[index]
         with JsonHandler(os.path.join('fdi', f'{self.experiment_name}.json'), FDIHandler) as handler:
             handler.set_data(f'{dataset}/{patient}', data)
 
@@ -453,8 +453,7 @@ if __name__ == '__main__':
     import os
 
     from argparse import ArgumentParser
-    from scripts.post_processing.iterators import iterate_fold_patients
-    from src.config import load_config
+    from scripts.post_processing.iterators import iterate_datasets
 
     parser = ArgumentParser()
     parser.add_argument('exp', type=str)
@@ -462,15 +461,8 @@ if __name__ == '__main__':
 
     experiment_name = args.exp
 
-    config = load_config(os.path.join('logs', experiment_name, 'config.toml'))
-    config.split_file_path = os.path.join('logs', experiment_name, f'{config.split_filename}.json')
-
-    patients = [
-        (fold, dataset, patient)
-        for fold, dataset, patient in iterate_fold_patients(config)
-        if os.path.exists(os.path.join('datasets', dataset.replace('bone_tooth_mask', 'xray'), patient))
-    ]
-    patients.sort(key=lambda x: (x[1], int(x[2][5:])))
+    datasets = ['bone_tooth_mask', 'bone_tooth_mask_1209', 'bone_tooth_mask_0508']
+    patients = list(iterate_datasets(experiment_name, datasets))
 
     app = QApplication([])
 

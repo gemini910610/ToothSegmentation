@@ -34,9 +34,8 @@ if __name__ == '__main__':
 
     from argparse import ArgumentParser
 
-    from scripts.post_processing.iterators import iterate_fold_patients
+    from scripts.post_processing.iterators import iterate_datasets
     from scripts.tools.widgets import Mode
-    from src.config import load_config
 
     parser = ArgumentParser()
     parser.add_argument('exp', type=str)
@@ -44,11 +43,9 @@ if __name__ == '__main__':
 
     experiment_name = args.exp
 
-    config = load_config(os.path.join('logs', experiment_name, 'config.toml'))
-    config.split_file_path = os.path.join('logs', experiment_name, f'{config.split_filename}.json')
-
-    for fold, dataset, patient in iterate_fold_patients(config):
-        output_dir = os.path.join('outputs', experiment_name, f'Fold_{fold}', dataset, patient)
+    datasets = ['bone_tooth_mask', 'bone_tooth_mask_1209', 'bone_tooth_mask_0508']
+    for dataset, patient in iterate_datasets(experiment_name, datasets):
+        output_dir = os.path.join('outputs', experiment_name, dataset, patient)
         tooth_volume_path = os.path.join(output_dir, f'{Mode.REMOVED}.npy')
         bone_volume_path = os.path.join(output_dir, f'{Mode.BONE_CONNECTED_COMPONENT}.npy')
         tooth_volume = numpy.load(tooth_volume_path)

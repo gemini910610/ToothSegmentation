@@ -168,9 +168,8 @@ if __name__ == '__main__':
 
     from argparse import ArgumentParser
 
-    from scripts.post_processing.iterators import iterate_fold_patients
+    from scripts.post_processing.iterators import iterate_datasets
     from scripts.tools.widgets import Mode
-    from src.config import load_config
 
     parser = ArgumentParser()
     parser.add_argument('exp', type=str)
@@ -178,13 +177,11 @@ if __name__ == '__main__':
 
     experiment_name = args.exp
 
-    config = load_config(os.path.join('logs', experiment_name, 'config.toml'))
-    config.split_file_path = os.path.join('logs', experiment_name, f'{config.split_filename}.json')
-
-    for fold, dataset, patient in iterate_fold_patients(config):
-        volume_path = os.path.join('outputs', experiment_name, f'Fold_{fold}', dataset, patient, f'{Mode.POST_PROCESSING}.npy')
+    datasets = ['bone_tooth_mask', 'bone_tooth_mask_1209', 'bone_tooth_mask_0508']
+    for dataset, patient in iterate_datasets(experiment_name, datasets):
+        volume_path = os.path.join('outputs', experiment_name, dataset, patient, f'{Mode.POST_PROCESSING}.npy')
         volume = numpy.load(volume_path)
-        image_volume_path = os.path.join('outputs', experiment_name, f'Fold_{fold}', dataset, patient, f'{Mode.IMAGE}.npy')
+        image_volume_path = os.path.join('outputs', experiment_name, dataset, patient, f'{Mode.IMAGE}.npy')
         image_volume = numpy.load(image_volume_path)
 
         jaw_labels, image_panoramic, segmentation_panoramic = get_panoramic(image_volume, volume)

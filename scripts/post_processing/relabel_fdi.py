@@ -1,12 +1,20 @@
 import numpy
 
+from scripts.tools.widgets import Label
+
 def relabel_fdi(volume, fdi_mapping):
     tooth_count = volume.max()
     lookup_table = numpy.arange(tooth_count + 1, dtype=numpy.uint8)
-    for label, fdi in fdi_mapping.items():
-        label = int(label)
-        fdi = int(fdi)
-        lookup_table[label] = fdi
+    lookup_table[1] = 1
+    missing_label = Label.MISSING_FDI
+    labels = numpy.unique(volume)
+    labels = labels[(labels > 1) & (labels < Label.CROPPED)]
+    for label in labels:
+        if str(label) not in fdi_mapping:
+            lookup_table[label] = missing_label
+            missing_label += 1
+        else:
+            lookup_table[label] = int(fdi_mapping[str(label)])
 
     volume = lookup_table[volume]
     return volume
@@ -17,9 +25,8 @@ if __name__ == '__main__':
 
     from argparse import ArgumentParser
 
-    from scripts.post_processing.iterators import iterate_fold_patients
+    from scripts.post_processing.iterators import iterate_datasets
     from scripts.tools.widgets import Mode
-    from src.config import load_config
 
     parser = ArgumentParser()
     parser.add_argument('exp', type=str)
@@ -30,18 +37,16 @@ if __name__ == '__main__':
     with open(os.path.join('fdi', f'{experiment_name}.json')) as file:
         fdi_mapping = json.load(file)
 
-    config = load_config(os.path.join('logs', experiment_name, 'config.toml'))
-    config.split_file_path = os.path.join('logs', experiment_name, f'{config.split_filename}.json')
-
-    for fold, dataset, patient in iterate_fold_patients(config):
+    datasets = ['bone_tooth_mask', 'bone_tooth_mask_1209', 'bone_tooth_mask_0508']
+    for dataset, patient in iterate_datasets(experiment_name, datasets):
         if f'{dataset}/{patient}' not in fdi_mapping:
             continue
 
-        output_dir = os.path.join('outputs', experiment_name, f'Fold_{fold}', dataset, patient)
+        output_dir = os.path.join('outputs', experiment_name, dataset, patient)
         volume_path = os.path.join(output_dir, f'{Mode.POST_PROCESSING}.npy')
         volume = numpy.load(volume_path)
 
         volume = relabel_fdi(volume, fdi_mapping[f'{dataset}/{patient}'])
 
-        fdi_path = os.path.join('outputs', experiment_name, f'Fold_{fold}', dataset, patient, f'{Mode.FDI}.npy')
+        fdi_path = os.path.join('outputs', experiment_name, dataset, patient, f'{Mode.FDI}.npy')
         numpy.save(fdi_path, volume)

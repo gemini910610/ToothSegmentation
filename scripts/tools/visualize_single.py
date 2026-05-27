@@ -151,8 +151,8 @@ if __name__ == '__main__':
     from argparse import ArgumentParser
     from PySide6.QtWidgets import QApplication
 
-    from scripts.tools.widgets import DataManager, get_patient_fold_mapping
-    from src.config import load_config
+    from scripts.post_processing.iterators import iterate_datasets
+    from scripts.tools.widgets import DataManager
 
     parser = ArgumentParser()
     parser.add_argument('exp', type=str)
@@ -160,13 +160,12 @@ if __name__ == '__main__':
 
     experiment_name = args.exp
 
-    config = load_config(os.path.join('logs', experiment_name, 'config.toml'))
-    config.split_file_path = os.path.join('logs', experiment_name, f'{config.split_filename}.json')
-    patient_fold_map = get_patient_fold_mapping(config)
+    datasets = ['bone_tooth_mask', 'bone_tooth_mask_1209', 'bone_tooth_mask_0508']
+    patients = [f'{dataset}/{patient}' for dataset, patient in iterate_datasets(experiment_name, datasets)]
 
     app = QApplication([])
 
-    data_manager = DataManager(experiment_name, patient_fold_map, [Mode.CLEANED, Mode.BONE_CONNECTED_COMPONENT])
+    data_manager = DataManager(experiment_name, patients, [Mode.CLEANED, Mode.BONE_CONNECTED_COMPONENT])
     window = MainWindow(data_manager)
 
     window.show()

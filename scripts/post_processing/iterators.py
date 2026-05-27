@@ -13,5 +13,5 @@ def iterate_fold_patients(config):
 def iterate_datasets(experiment_name, datasets):
     for dataset in datasets:
         dataset_path = os.path.join('outputs', experiment_name, dataset)
-        for patient in track(sorted(os.listdir(dataset_path), key=lambda x: int(x[5:]))):
+        for patient in track(sorted(os.listdir(dataset_path), key=lambda x: int(x[5:])), desc=dataset):
             yield dataset, patient

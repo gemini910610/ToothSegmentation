@@ -7,9 +7,8 @@ if __name__ == '__main__':
 
     from keypoint.predict import CEJFinder
     from scripts.post_processing.bone_loss import volume_bone_loss
-    from scripts.post_processing.iterators import iterate_fold_patients
+    from scripts.post_processing.iterators import iterate_datasets
     from scripts.tools.widgets import Mode
-    from src.config import load_config
     from src.console import Table
 
     parser = ArgumentParser()
@@ -18,13 +17,11 @@ if __name__ == '__main__':
 
     experiment_name = args.exp
 
-    config = load_config(os.path.join('logs', experiment_name, 'config.toml'))
-    config.split_file_path = os.path.join('logs', experiment_name, f'{config.split_filename}.json')
-
     cej_finder = CEJFinder('logs/keypoint_baseline/best.pth')
 
-    for fold, dataset, patient in iterate_fold_patients(config):
-        patient_folder = os.path.join('outputs', experiment_name, f'Fold_{fold}', dataset, patient)
+    datasets = ['bone_tooth_mask', 'bone_tooth_mask_1209', 'bone_tooth_mask_0508']
+    for dataset, patient in iterate_datasets(experiment_name, datasets):
+        patient_folder = os.path.join('outputs', experiment_name, dataset, patient)
         segmentation_volume_path = os.path.join(patient_folder, f'{Mode.FDI}.npy')
         image_volume_path = os.path.join(patient_folder, f'{Mode.IMAGE}.npy')
         if not os.path.exists(segmentation_volume_path):
