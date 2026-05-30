@@ -372,7 +372,7 @@ class ClickableImage(QLabel):
             self.right_point = None
         else:
             width, height = self.size
-            origin_height, origin_width = origin_image.shape
+            origin_height, origin_width = origin_image.shape[:2]
 
             left_x, left_y, right_x, right_y = points
             left_x = left_x * width / origin_width

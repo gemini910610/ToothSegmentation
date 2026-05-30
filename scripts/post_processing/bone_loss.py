@@ -38,6 +38,58 @@ def slice_bone_loss(segmentation_slice, point, label):
 
     return bone_loss
 
+def split_area(coordinates, left_point, right_point, is_upper):
+    xy = coordinates[:, [1, 0]]
+    vector = right_point - left_point
+    side = numpy.cross(xy - left_point, vector)
+
+    if is_upper:
+        mask = side > 0
+    else:
+        mask = side < 0
+
+    return mask
+
+def slice_area_bone_loss(segmentation_slice, point, label):
+    tooth_slice = segmentation_slice == Label.TOOTH
+    bone_slice = segmentation_slice == Label.BONE
+
+    bone_dilation = ndimage.binary_dilation(bone_slice)
+    bone_surface = tooth_slice & bone_dilation
+
+    y, x = numpy.nonzero(bone_surface)
+
+    if label // 10 in {1, 2}:
+        index_left = numpy.argmin(x - y)
+        index_right = numpy.argmax(x + y)
+    else:
+        index_left = numpy.argmin(x + y)
+        index_right = numpy.argmax(x - y)
+
+    left_bone = numpy.array([x[index_left], y[index_left]])
+    right_bone = numpy.array([x[index_right], y[index_right]])
+
+    left_cej_x, left_cej_y, right_cej_x, right_cej_y = point
+    left_cej = numpy.array([left_cej_x, left_cej_y])
+    right_cej = numpy.array([right_cej_x, right_cej_y])
+
+    coordinates = numpy.argwhere(tooth_slice)
+
+    cej_mask = split_area(coordinates, left_cej, right_cej, label // 10 in {1, 2})
+    cej_area = cej_mask.sum()
+
+    bone_mask = split_area(coordinates, left_bone, right_bone, label // 10 in {1, 2})
+    bone_area = bone_mask.sum()
+
+    bone_loss = 0 if cej_area == 0 else (cej_area - bone_area) / cej_area
+    bone_loss = round(bone_loss * 100)
+
+    area_mask = numpy.zeros_like(tooth_slice, dtype=numpy.uint8)
+    area_mask[*coordinates[cej_mask].T] = 1
+    area_mask[*coordinates[bone_mask].T] = 2
+
+    return bone_loss, area_mask
+
 def volume_bone_loss(segmentation_volume, image_volume, cej_finder):
     normal_vectors = find_normal_vectors(segmentation_volume)
 
@@ -86,42 +138,3 @@ def volume_bone_loss(segmentation_volume, image_volume, cej_finder):
         bone_losses[label] = bone_loss
 
     return bone_losses
-
-if __name__ == '__main__':
-    import os
-
-    from argparse import ArgumentParser
-
-    from keypoint.predict import CEJFinder
-    from scripts.post_processing.iterators import iterate_datasets
-    from scripts.tools.widgets import Mode
-    from src.console import Table
-
-    parser = ArgumentParser()
-    parser.add_argument('exp', type=str)
-    args = parser.parse_args()
-
-    experiment_name = args.exp
-
-    cej_finder = CEJFinder('logs/keypoint_baseline/best.pth')
-
-    bone_losses = []
-
-    datasets = ['bone_tooth_mask', 'bone_tooth_mask_1209', 'bone_tooth_mask_0508']
-    for dataset, patient in iterate_datasets(experiment_name, datasets):
-        volume_path = os.path.join('outputs', experiment_name, dataset, patient, f'{Mode.FDI}.npy')
-        volume = numpy.load(volume_path)
-        image_volume_path = os.path.join('outputs', experiment_name, dataset, patient, f'{Mode.IMAGE}.npy')
-        image_volume = numpy.load(image_volume_path)
-
-        bone_losses = volume_bone_loss(volume, image_volume, cej_finder)
-        bone_losses = [
-            [label, bone_loss]
-            for label, bone_loss in bone_losses.items()
-        ]
-
-        print(f'{dataset}/{patient}')
-        Table(
-            ['Label', 'Bone Loss (%)'],
-            *bone_losses
-        ).display()

@@ -1,3 +1,4 @@
+import cv2
 import numpy
 
 from PySide6.QtCore import Qt
@@ -5,7 +6,7 @@ from PySide6.QtWidgets import QHBoxLayout, QComboBox, QButtonGroup, QRadioButton
 from PySide6.QtGui import QShortcut
 
 from keypoint.predict import CEJFinder
-from scripts.post_processing.bone_loss import slice_bone_loss
+from scripts.post_processing.bone_loss import slice_area_bone_loss, slice_bone_loss
 from scripts.post_processing.tooth_slice import align_crop_tooth, extract_single_tooth, find_normal_vectors, get_slices, normalize_slice, restore_coordinates, split_surface
 from scripts.tools.widgets import AxisItem, Color, ImageCell, IconLabelSelector, ImageTable, Label, MainWindowUI, Mode, PatientSelector, VolumeColorizer, VolumeLoader, VolumeViewer
 
@@ -88,6 +89,7 @@ class MainWindow(MainWindowUI):
         self.slices = None
         self.points = None
         self.normal_vectors = None
+        self.area_masks = None
 
     def _handle_volumes(self, volumes):
         self.volumes = [volumes['origin'][Mode.FDI], volumes['origin'][Mode.IMAGE]]
@@ -148,11 +150,14 @@ class MainWindow(MainWindowUI):
         self.slices = [segmentation_slices, image_slices, tooth_slices]
         self.points = self.cej_finder.find(origin_segmentation_slices, tooth_slices)
 
+        self.area_masks = []
         for box, segmentation_slice, point in zip(self.image_table.boxes, origin_segmentation_slices, self.points):
             bone_loss = slice_bone_loss(segmentation_slice, point, label)
+            area_bone_loss, area_mask = slice_area_bone_loss(segmentation_slice, point, label)
             title = box.title()
             index = title.find(')')
-            box.setTitle(f'{title[:index+1]} {bone_loss}%')
+            box.setTitle(f'{title[:index+1]} {bone_loss}%/{area_bone_loss}%')
+            self.area_masks.append(area_mask)
 
         points = restore_coordinates(self.points, filtered_segmentation, aligned_segmentation.shape, transform_meta)
         upper_surface, lower_surface = split_surface(points, filtered_segmentation)
@@ -182,13 +187,17 @@ class MainWindow(MainWindowUI):
         self.label_selector.setCurrentIndex(index)
 
     def _on_slice_changed(self, index):
-        if self.slices is None:
+        if self.slices is None or self.area_masks is None:
             return
 
         slices = self.slices[index]
         indices = numpy.linspace(0, len(slices) - 1, 8, endpoint=True, dtype=numpy.int32)
         points = None if not self.point_toggle.isChecked() else [self.points[index] for index in indices]
-        slices = [slices[index] for index in indices]
+        slices = [cv2.cvtColor(slices[index], cv2.COLOR_GRAY2RGB) for index in indices]
+        colors = numpy.array([(0, 0, 0), (95, 195, 255), (255, 170, 85)], dtype=numpy.uint8)
+        for display_slice, area_mask in zip(slices, self.area_masks):
+            mask = area_mask > 0
+            display_slice[mask] = colors[area_mask[mask]]
         self.image_table.update_images(slices, points)
 
 if __name__ == '__main__':
