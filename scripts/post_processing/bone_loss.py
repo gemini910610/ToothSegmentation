@@ -2,9 +2,8 @@ import numpy
 
 from scipy import ndimage
 
-from scripts.post_processing.tooth_slice import align_crop_tooth, extract_single_tooth, find_normal_vectors, get_slices, normalize_slice, restore_coordinates, split_surface
+from scripts.post_processing.tooth_slice import restore_coordinates, split_surface
 from scripts.tools.widgets import Label
-from src.console import track
 
 def slice_bone_loss(segmentation_slice, point, label):
     tooth_slice = segmentation_slice == Label.TOOTH
@@ -57,17 +56,34 @@ def slice_area_bone_loss(segmentation_slice, point, label):
     bone_dilation = ndimage.binary_dilation(bone_slice)
     bone_surface = tooth_slice & bone_dilation
 
+    area_mask = numpy.zeros_like(tooth_slice, dtype=numpy.uint8)
+
     y, x = numpy.nonzero(bone_surface)
 
-    if label // 10 in {1, 2}:
-        index_left = numpy.argmin(x - y)
-        index_right = numpy.argmax(x + y)
-    else:
-        index_left = numpy.argmin(x + y)
-        index_right = numpy.argmax(x - y)
+    if len(x) == 0:
+        return 100, area_mask
 
-    left_bone = numpy.array([x[index_left], y[index_left]])
-    right_bone = numpy.array([x[index_right], y[index_right]])
+    center = (x.min() + x.max()) / 2
+    left_mask = x < center
+    right_mask = x > center
+
+    left_x = x[left_mask]
+    left_y = y[left_mask]
+    right_x = x[right_mask]
+    right_y = y[right_mask]
+
+    if len(left_x) == 0 or len(right_x) == 0:
+        return 100, area_mask
+
+    if label // 10 in {1, 2}:
+        index_left = numpy.argmin(left_x - left_y)
+        index_right = numpy.argmax(right_x + right_y)
+    else:
+        index_left = numpy.argmin(left_x + left_y)
+        index_right = numpy.argmax(right_x - right_y)
+
+    left_bone = numpy.array([left_x[index_left], left_y[index_left]])
+    right_bone = numpy.array([right_x[index_right], right_y[index_right]])
 
     left_cej_x, left_cej_y, right_cej_x, right_cej_y = point
     left_cej = numpy.array([left_cej_x, left_cej_y])
@@ -84,57 +100,26 @@ def slice_area_bone_loss(segmentation_slice, point, label):
     bone_loss = 0 if cej_area == 0 else (cej_area - bone_area) / cej_area
     bone_loss = round(bone_loss * 100)
 
-    area_mask = numpy.zeros_like(tooth_slice, dtype=numpy.uint8)
     area_mask[*coordinates[cej_mask].T] = 1
     area_mask[*coordinates[bone_mask].T] = 2
 
     return bone_loss, area_mask
 
-def volume_bone_loss(segmentation_volume, image_volume, cej_finder):
-    normal_vectors = find_normal_vectors(segmentation_volume)
+def volume_bone_loss(filtered_volume, aligned_volume, points, label, transform_meta):
+    points = restore_coordinates(points, filtered_volume, aligned_volume.shape, transform_meta)
+    upper_surface, lower_surface = split_surface(points, filtered_volume)
+    cej_surface = upper_surface if label // 10 in {1, 2} else lower_surface
 
-    labels = numpy.unique(segmentation_volume)
-    labels = labels[(labels > 1) & (labels < Label.CROPPED)] # exclude background, bone, removed teeth and missing FDI teeth
+    tooth_volume = filtered_volume == Label.TOOTH
+    bone_volume = filtered_volume == Label.BONE
 
-    bone_losses = {}
-    for label in track(labels):
-        normal_vector = normal_vectors[label]
-        filtered_volume, transform_meta = extract_single_tooth(segmentation_volume, normal_vector, tooth_label=label, bone_label=1)
-        aligned_volume, aligned_image = align_crop_tooth(filtered_volume, image_volume, transform_meta)
+    bone_dilation = ndimage.binary_dilation(bone_volume)
+    bone_surface = tooth_volume & bone_dilation
 
-        slices = get_slices(aligned_volume, aligned_image, reverse=label // 10 in {2, 3})
+    cej_surface_count = len(cej_surface)
+    bone_surface_count = bone_surface.sum()
 
-        origin_segmentation_slices = []
-        segmentation_slices = []
-        image_slices = []
-        tooth_slices = []
-        for origin_segmentation_slice, image_slice, tooth_slice in slices:
-            segmentation_slice, image_slice, tooth_slice = normalize_slice(origin_segmentation_slice, image_slice, tooth_slice)
+    bone_loss = 0 if cej_surface_count == 0 else (cej_surface_count - bone_surface_count) / cej_surface_count
+    bone_loss = round(bone_loss * 100)
 
-            origin_segmentation_slices.append(origin_segmentation_slice)
-            segmentation_slices.append(segmentation_slice)
-            image_slices.append(image_slice)
-            tooth_slices.append(tooth_slice)
-
-        points = cej_finder.find(origin_segmentation_slices, tooth_slices)
-        points = restore_coordinates(points, filtered_volume, aligned_volume.shape, transform_meta)
-        upper_surface, lower_surface = split_surface(points, filtered_volume)
-        cej_surface = upper_surface if label // 10 in {1, 2} else lower_surface
-
-        tooth_volume = filtered_volume == Label.TOOTH
-        bone_volume = filtered_volume == Label.BONE
-        bone_dilation = ndimage.binary_dilation(bone_volume)
-        bone_surface = tooth_volume & bone_dilation
-
-        cej_surface_count = len(cej_surface)
-        bone_surface_count = bone_surface.sum()
-
-        if cej_surface_count == 0 or bone_surface_count == 0:
-            bone_loss = 0
-        else:
-            bone_loss = (cej_surface_count - bone_surface_count) / cej_surface_count
-            bone_loss = round(bone_loss * 100)
-
-        bone_losses[label] = bone_loss
-
-    return bone_losses
+    return bone_loss

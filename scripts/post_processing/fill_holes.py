@@ -23,7 +23,11 @@ def fill_holes(tooth_volume, bone_volume):
     x0, x1, y0, y1, z0, z1 = get_bounding_box(volume)
     mask = volume[x0:x1, y0:y1, z0:z1]
     filled = ndimage.binary_fill_holes(mask)
-    holes = filled & ~mask
+
+    tooth_mask = tooth_volume[x0:x1, y0:y1, z0:z1]
+    tooth_filled = ndimage.binary_fill_holes(tooth_mask)
+
+    holes = filled & ~mask & ~tooth_filled
     roi = bone_volume[x0:x1, y0:y1, z0:z1]
     roi[holes] = 1
 
