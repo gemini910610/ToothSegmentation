@@ -1,5 +1,3 @@
-import pandas
-
 def format_p_value(p_value):
     stars = ' ***' if p_value < 0.001 else ' **' if p_value < 0.01 else ' *' if p_value < 0.05 else ''
     p = f'{p_value:.6f}'
@@ -8,6 +6,9 @@ def format_p_value(p_value):
     return f'{p}{stars}'
 
 if __name__ == '__main__':
+    import json
+    import pandas
+
     from argparse import ArgumentParser
     from scipy import stats
 
@@ -23,19 +24,37 @@ if __name__ == '__main__':
     target = args.target
 
     excel = load_excel(f'bone_loss/{experiment_name}.xlsx')
+
+    with open(f'exclude/{experiment_name}.json') as file:
+        excludes = json.load(file)
+
+    indices = []
+    for dataset, patient, fdi in excludes['tooth']:
+        mask = (excel['Dataset'] == dataset) & (excel['Patient'] == patient) & (excel['FDI'] == fdi)
+        indices.extend(excel[mask].index)
+    excel.drop(indices, inplace=True)
+
+    for dataset, patient, fdi, slices in excludes['slice']:
+        mask = (excel['Dataset'] == dataset) & (excel['Patient'] == patient) & (excel['FDI'] == fdi)
+        row = excel[mask]
+        if not mask.any():
+            continue
+        bone_losses = [
+            row[f'Curve {degree}°'].values[0]
+            for degree in range(0, 360, 45)
+            if degree not in slices
+        ]
+        mean_curve = sum(bone_losses) / len(bone_losses)
+        max_curve = max(bone_losses)
+        excel.loc[mask, ['Mean Curve', 'Max Curve']] = [mean_curve, max_curve]
+
     excel = excel[['3D', '2D', 'Curve 0°', 'Area 0°', 'Mean Curve', 'Mean Area', 'Max Curve', 'Max Area']]
 
     error_values = {
-        f'{target} - X': [],
         f'| {target} - X |': []
     }
     for column in excel.columns.drop(target):
-        differences = excel[column] - excel[target]
-        mean = differences.mean()
-        std = differences.std()
-        error_values[f'{target} - X'].append(f'{mean:.4f} ± {std:.2f}')
-
-        differences = differences.abs()
+        differences = (excel[target] - excel[column]).abs()
         mean = differences.mean()
         std = differences.std()
         error_values[f'| {target} - X |'].append(f'{mean:.4f} ± {std:.2f}')
