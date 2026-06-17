@@ -48,3 +48,20 @@ def load_summary(log_dir):
     scalars[['fold', 'metric', 'mode']] = scalars[['fold', 'metric', 'mode']].astype('category')
 
     return Summary(scalars)
+
+def load_excel(filename):
+    excel = pandas.read_excel(filename, header=None, skiprows=2)
+    key_columns = ['Dataset', 'Patient', 'FDI']
+    columns = [
+        *key_columns, '3D', '2D',
+        *[
+            f'{title} {item}°' if isinstance(item, int) else f'{item} {title}'
+            for item in [*range(0, 360, 45), 'Mean', 'Max']
+            for title in ('Curve', 'Area')
+        ]
+    ]
+    if len(excel.columns) != len(columns):
+        raise ValueError(f'Expected {len(columns)} columns, got {len(excel.columns)} in "{filename}"')
+    excel.columns = columns
+    excel[key_columns] = excel[key_columns].ffill()
+    return excel

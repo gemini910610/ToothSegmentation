@@ -28,21 +28,17 @@ class ExcelWriter:
                 cell = self.sheet.cell(2, column, value)
                 cell.alignment = center
 
-        for column, value in enumerate(['3D', 'Curve 0°', 'Area 0°', 'Mean Curve', 'Mean Area', 'Max Curve', 'Max Area'], 26):
-            cell = self.sheet.cell(1, column, f'2D vs {value}')
-            cell.alignment = center_bottom
-            self.sheet.merge_cells(start_row=1, start_column=column, end_row=2, end_column=column)
-
-        self.sheet.freeze_panes = 'C3'
+        self.sheet.freeze_panes = 'D3'
 
     def write(self, dataset, patient, data):
+        center = Alignment(horizontal='center', vertical='center')
+
         start_row = self.sheet.max_row + 1
         for row, values in enumerate(data, start_row):
             for column, value in enumerate(values, 3):
-                self.sheet.cell(row, column, value)
+                cell = self.sheet.cell(row, column, value)
         end_row = self.sheet.max_row
 
-        center = Alignment(horizontal='center', vertical='center')
         for column, value in enumerate([dataset, patient], 1):
             cell = self.sheet.cell(start_row, column, value)
             cell.alignment = center
@@ -51,29 +47,19 @@ class ExcelWriter:
     def save(self):
         self.workbook.save(self.path)
 
-def get_symbol(bone_loss_1, bone_loss_2, rate=2):
-    if bone_loss_1 == 0 and bone_loss_2 == 0:
-        return None
-    if bone_loss_1 == 0 or bone_loss_2 == 0:
-        return '▲'
-    if max(bone_loss_1, bone_loss_2) / min(bone_loss_1, bone_loss_2) > rate:
-        return '▲'
-    return None
-
 if __name__ == '__main__':
     import numpy
     import os
 
     from argparse import ArgumentParser
     from collections import defaultdict
-    from matplotlib import pyplot
 
     from keypoint.predict import CEJFinder
     from scripts.post_processing.bone_loss import slice_area_bone_loss, slice_bone_loss, volume_bone_loss
     from scripts.post_processing.tooth_slice import align_crop_tooth, extract_single_tooth, find_normal_vectors, get_slices, normalize_slice
     from scripts.post_processing.iterators import iterate_datasets
     from scripts.tools.widgets import Label, Mode
-    from src.console import Table, track
+    from src.console import track
 
     parser = ArgumentParser()
     parser.add_argument('exp', type=str)
@@ -83,9 +69,7 @@ if __name__ == '__main__':
 
     cej_finder = CEJFinder('logs/keypoint_baseline/best.pth')
 
-    writer = ExcelWriter(os.path.join('bone_loss', experiment_name, 'bone_loss.xlsx'))
-
-    all_bone_losses = defaultdict(list)
+    writer = ExcelWriter(os.path.join('bone_loss', f'{experiment_name}.xlsx'))
 
     datasets = ['bone_tooth_mask', 'bone_tooth_mask_1209', 'bone_tooth_mask_0508']
     for dataset, patient in iterate_datasets(experiment_name, datasets):
@@ -159,51 +143,9 @@ if __name__ == '__main__':
                 sum(area_bone_losses[label]) / len(area_bone_losses[label]),
                 max(bone_losses[label]),
                 max(area_bone_losses[label]),
-                *[
-                    get_symbol(keypoint_bone_losses[label], loss)
-                    for loss in [
-                        segmentation_bone_losses[label],
-                        bone_losses[label][0],
-                        area_bone_losses[label][0],
-                        sum(bone_losses[label]) / len(bone_losses[label]),
-                        sum(area_bone_losses[label]) / len(area_bone_losses[label]),
-                        max(bone_losses[label]),
-                        max(area_bone_losses[label])
-                    ]
-                ]
             ]
             for label in labels
         ]
         writer.write(dataset, patient, data)
 
-        all_bone_losses['3D'].extend([segmentation_bone_losses[label] for label in labels])
-        all_bone_losses['2D'].extend([keypoint_bone_losses[label] for label in labels])
-        all_bone_losses['Curve 0°'].extend([bone_losses[label][0] for label in labels])
-        all_bone_losses['Area 0°'].extend([area_bone_losses[label][0] for label in labels])
-        all_bone_losses['Mean Curve'].extend([sum(bone_losses[label]) / len(bone_losses[label]) for label in labels])
-        all_bone_losses['Mean Area'].extend([sum(area_bone_losses[label]) / len(area_bone_losses[label]) for label in labels])
-        all_bone_losses['Max Curve'].extend([max(bone_losses[label]) for label in labels])
-        all_bone_losses['Max Area'].extend([max(area_bone_losses[label]) for label in labels])
-
     writer.save()
-
-    all_bone_losses = {
-        key: numpy.array(value)
-        for key, value in all_bone_losses.items()
-    }
-    errors = {
-        key: all_bone_losses[key] - all_bone_losses['2D']
-        for key in all_bone_losses
-        if key != '2D'
-    }
-
-    with Table() as table:
-        for key in errors:
-            table.add_row([f'{key} - 2D', f'{errors[key].mean():.6f} ± {errors[key].std():.6f}'])
-
-    for key in errors:
-        pyplot.hist(errors[key], bins=100)
-        pyplot.title(f'{key} - 2D')
-        pyplot.tight_layout()
-        pyplot.savefig(f'bone_loss/{experiment_name}/{key}-2D.png')
-        pyplot.close()

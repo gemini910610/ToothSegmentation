@@ -195,9 +195,11 @@ class MainWindow(MainWindowUI):
         points = None if not self.point_toggle.isChecked() else [self.points[index] for index in indices]
         slices = [cv2.cvtColor(slices[index], cv2.COLOR_GRAY2RGB) for index in indices]
         colors = numpy.array([(0, 0, 0), (95, 195, 255), (255, 170, 85)], dtype=numpy.uint8)
-        for display_slice, area_mask in zip(slices, self.area_masks):
-            mask = area_mask > 0
-            display_slice[mask] = colors[area_mask[mask]]
+
+        if index == 0:
+            for display_slice, area_mask in zip(slices, self.area_masks):
+                mask = area_mask > 0
+                display_slice[mask] = colors[area_mask[mask]]
         self.image_table.update_images(slices, points)
 
 if __name__ == '__main__':
