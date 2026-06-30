@@ -55,10 +55,10 @@ class BottomLayout(QHBoxLayout):
         return self.volume_viewer, self.image_table, self.axis_item
 
 class MainWindow(MainWindowUI):
-    def __init__(self, data_manager):
+    def __init__(self, data_manager, keypoint_experiment_name):
         super().__init__(TopLayout, BottomLayout)
         self.loader = VolumeLoader(data_manager, self._handle_volumes, colorize=False, keep_origin=True)
-        self.cej_finder = CEJFinder('logs/keypoint_baseline/best.pth')
+        self.cej_finder = CEJFinder(f'logs/{keypoint_experiment_name}/best.pth')
 
         self.setWindowTitle(data_manager.experiment_name)
 
@@ -210,18 +210,20 @@ if __name__ == '__main__':
     from scripts.tools.widgets import DataManager
 
     parser = ArgumentParser()
-    parser.add_argument('exp', type=str)
+    parser.add_argument('segmentation_exp', type=str)
+    parser.add_argument('keypoint_exp', type=str)
     args = parser.parse_args()
 
-    experiment_name = args.exp
+    segmentation_experiment_name = args.segmentation_exp
+    keypoint_experiment_name = args.keypoint_exp
 
     datasets = ['bone_tooth_mask', 'bone_tooth_mask_1209', 'bone_tooth_mask_0508']
-    patients = [f'{dataset}/{patient}' for dataset, patient in iterate_datasets(experiment_name, datasets)]
+    patients = [f'{dataset}/{patient}' for dataset, patient in iterate_datasets(segmentation_experiment_name, datasets)]
 
     app = QApplication([])
 
-    data_manager = DataManager(experiment_name, patients, [Mode.FDI, Mode.IMAGE])
-    window = MainWindow(data_manager)
+    data_manager = DataManager(segmentation_experiment_name, patients, [Mode.FDI, Mode.IMAGE])
+    window = MainWindow(data_manager, keypoint_experiment_name)
 
     window.show()
 

@@ -51,11 +51,11 @@ class BottomLayout(QHBoxLayout):
         return self.image_table
 
 class MainWindow(MainWindowUI):
-    def __init__(self):
+    def __init__(self, experiment_name):
         super().__init__(TopLayout, BottomLayout)
-        self.cej_finder = CEJFinder('logs/keypoint_baseline/best.pth')
+        self.cej_finder = CEJFinder(f'logs/{experiment_name}/best.pth')
 
-        self.setWindowTitle('keypoint_baseline')
+        self.setWindowTitle(experiment_name)
 
         self.patient_selector, self.label_selector, self.point_toggle, self.slice_selector = self.layouts[0].get_widgets()
         self.image_table = self.layouts[1].get_widgets()
@@ -155,11 +155,18 @@ class MainWindow(MainWindowUI):
         self.image_table.update_images(slices, points)
 
 if __name__ == '__main__':
+    from argparse import ArgumentParser
     from PySide6.QtWidgets import QApplication
+
+    parser = ArgumentParser()
+    parser.add_argument('exp', type=str)
+    args = parser.parse_args()
+
+    experiment_name = args.exp
 
     app = QApplication([])
 
-    window = MainWindow()
+    window = MainWindow(experiment_name)
 
     window.show()
 

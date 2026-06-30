@@ -11,7 +11,7 @@ class KeypointDataset(Dataset):
     def __init__(self, dataset_dir, patients):
         self.dataset_dir = dataset_dir
 
-        with open(os.path.join(dataset_dir, 'points.json')) as file:
+        with open(os.path.join(dataset_dir, 'points_refine.json')) as file:
             data = json.load(file)
 
         self.points = []
@@ -50,7 +50,7 @@ class KeypointDataset(Dataset):
         return image
 
 def get_loader(dataset_dir):
-    with open(f'{dataset_dir}/points.json') as file:
+    with open(f'{dataset_dir}/points_refine.json') as file:
         data = json.load(file)
 
     groups = []

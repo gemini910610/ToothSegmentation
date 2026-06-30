@@ -62,18 +62,20 @@ if __name__ == '__main__':
     from src.console import track
 
     parser = ArgumentParser()
-    parser.add_argument('exp', type=str)
+    parser.add_argument('segmentation_exp', type=str)
+    parser.add_argument('keypoint_exp', type=str)
     args = parser.parse_args()
 
-    experiment_name = args.exp
+    segmentation_experiment_name = args.segmentation_exp
+    keypoint_experiment_name = args.keypoint_exp
 
-    cej_finder = CEJFinder('logs/keypoint_baseline/best.pth')
+    cej_finder = CEJFinder(f'logs/{keypoint_experiment_name}/best.pth')
 
-    writer = ExcelWriter(os.path.join('bone_loss', f'{experiment_name}.xlsx'))
+    writer = ExcelWriter(os.path.join('bone_loss', f'{segmentation_experiment_name}.xlsx'))
 
     datasets = ['bone_tooth_mask', 'bone_tooth_mask_1209', 'bone_tooth_mask_0508']
-    for dataset, patient in iterate_datasets(experiment_name, datasets):
-        patient_folder = os.path.join('outputs', experiment_name, dataset, patient)
+    for dataset, patient in iterate_datasets(segmentation_experiment_name, datasets):
+        patient_folder = os.path.join('outputs', segmentation_experiment_name, dataset, patient)
         segmentation_volume_path = os.path.join(patient_folder, f'{Mode.FDI}.npy')
         segmentation_volume = numpy.load(segmentation_volume_path)
         image_volume_path = os.path.join(patient_folder, f'{Mode.IMAGE}.npy')

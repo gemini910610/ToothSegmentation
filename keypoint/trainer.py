@@ -11,8 +11,8 @@ from keypoint.models import KeypointModel
 from src.console import Table, track
 
 class Trainer:
-    def __init__(self):
-        self.log_dir = os.path.join('logs', 'keypoint_baseline')
+    def __init__(self, experiment_name):
+        self.log_dir = os.path.join('logs', experiment_name)
         self.train_loader, self.valid_loader = get_loader('datasets/slices')
         self.model = KeypointModel().cuda()
         self.optimizer = torch.optim.Adam(self.model.parameters(), lr=1e-4)

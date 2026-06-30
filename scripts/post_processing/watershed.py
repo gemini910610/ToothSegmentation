@@ -66,11 +66,9 @@ if __name__ == '__main__':
 
     parser = ArgumentParser()
     parser.add_argument('exp', type=str)
-    parser.add_argument('--threshold', type=int, default=7500)
     args = parser.parse_args()
 
     experiment_name = args.exp
-    voxel_threshold = args.threshold
 
     datasets = ['bone_tooth_mask', 'bone_tooth_mask_1209', 'bone_tooth_mask_0508']
     for dataset, patient in iterate_datasets(experiment_name, datasets):
