@@ -2,7 +2,6 @@ import numpy
 
 from scipy import ndimage
 from scipy.interpolate import CubicSpline, RBFInterpolator
-from scipy.spatial import cKDTree
 
 from scripts.post_processing.relabel import split_teeth_jaw
 from scripts.tools.widgets import Label
@@ -194,36 +193,28 @@ def restore_coordinates(points, segmentation_volume, aligned_shape, transform_me
     rotate_matrix = numpy.stack(axes, axis=1)
     points = uvw @ rotate_matrix.T + center
 
-    tooth_volume = segmentation_volume == Label.TOOTH
-    tooth_erosion = ndimage.binary_erosion(tooth_volume)
-    tooth_surface = tooth_volume & ~tooth_erosion
-    surface_points = numpy.argwhere(tooth_surface)
-
-    tree = cKDTree(surface_points)
-    _, indices = tree.query(points)
-    points = surface_points[indices]
-
     return points
 
-def split_surface(points, filtered_segmentation):
+def split_surface(points, filtered_segmentation, transform_meta):
     tooth_area = filtered_segmentation == Label.TOOTH
     erosion = ndimage.binary_erosion(tooth_area)
     tooth_surface = tooth_area & ~erosion
     coordinates = numpy.argwhere(tooth_surface)
 
-    xy = points[:, :2]
-    z = points[:, 2]
+    center = transform_meta['center']
+    axes = transform_meta['axes']
+    rotate_matrix = numpy.stack(axes, axis=1)
+    aligned_points = (points - center) @ rotate_matrix
+    aligned_coordinates = (coordinates - center) @ rotate_matrix
 
-    center = xy.mean(0)
-    vectors = xy - center
-    distances = numpy.linalg.norm(vectors, axis=1, keepdims=True)
-    vectors = vectors / distances
+    xy = aligned_points[:, :2]
+    z = aligned_points[:, 2]
 
-    split_surface = RBFInterpolator(xy, z)
+    split_plane = RBFInterpolator(xy, z)
 
-    surface_xy = coordinates[:, :2]
-    surface_z = coordinates[:, 2]
-    split_z = split_surface(surface_xy)
+    surface_xy = aligned_coordinates[:, :2]
+    surface_z = aligned_coordinates[:, 2]
+    split_z = split_plane(surface_xy)
 
     upper_mask = surface_z > split_z
     lower_mask = surface_z <= split_z
@@ -232,6 +223,33 @@ def split_surface(points, filtered_segmentation):
     lower_surface = coordinates[lower_mask]
 
     return upper_surface, lower_surface
+
+def split_volume(points, filtered_segmentation, transform_meta):
+    tooth_area = filtered_segmentation == Label.TOOTH
+    coordinates = numpy.argwhere(tooth_area)
+
+    center = transform_meta['center']
+    axes = transform_meta['axes']
+    rotate_matrix = numpy.stack(axes, axis=1)
+    aligned_points = (points - center) @ rotate_matrix
+    aligned_coordinates = (coordinates - center) @ rotate_matrix
+
+    xy = aligned_points[:, :2]
+    z = aligned_points[:, 2]
+
+    split_plane = RBFInterpolator(xy, z)
+
+    volume_xy = aligned_coordinates[:, :2]
+    volume_z = aligned_coordinates[:, 2]
+    split_z = split_plane(volume_xy)
+
+    upper_mask = volume_z > split_z
+    lower_mask = volume_z <= split_z
+
+    upper_volume = coordinates[upper_mask]
+    lower_volume = coordinates[lower_mask]
+
+    return upper_volume, lower_volume
 
 if __name__ == '__main__':
     import cv2

@@ -1,14 +1,15 @@
 import cv2
 import numpy
+import os
 
 from PySide6.QtCore import Qt
-from PySide6.QtWidgets import QHBoxLayout, QComboBox, QButtonGroup, QRadioButton, QCheckBox
 from PySide6.QtGui import QShortcut
+from PySide6.QtWidgets import QButtonGroup, QCheckBox, QComboBox, QHBoxLayout, QRadioButton
 
 from keypoint.predict import CEJFinder
-from scripts.post_processing.bone_loss import slice_area_bone_loss, slice_bone_loss
-from scripts.post_processing.tooth_slice import align_crop_tooth, extract_single_tooth, find_normal_vectors, get_slices, normalize_slice, restore_coordinates, split_surface
-from scripts.tools.widgets import AxisItem, Color, ImageCell, IconLabelSelector, ImageTable, Label, MainWindowUI, Mode, PatientSelector, VolumeColorizer, VolumeLoader, VolumeViewer
+from scripts.post_processing.bone_loss import slice_bone_loss, slice_area_bone_loss
+from scripts.post_processing.tooth_slice import align_crop_tooth, extract_single_tooth, find_normal_vectors, get_slices, normalize_slice, restore_coordinates, split_volume
+from scripts.tools.widgets import IconLabelSelector, ImageCell, ImageTable, Label, MainWindowUI, Mode, PatientSelector, VolumeViewer
 
 class TopLayout(QHBoxLayout):
     def __init__(self):
@@ -49,91 +50,89 @@ class BottomLayout(QHBoxLayout):
         ])
         for widget in [self.volume_viewer, self.image_table]:
             self.addWidget(widget)
-        self.axis_item = AxisItem(self.volume_viewer.views[1].view)
 
     def get_widgets(self):
-        return self.volume_viewer, self.image_table, self.axis_item
+        return self.volume_viewer, self.image_table
 
 class MainWindow(MainWindowUI):
     def __init__(self, data_manager, keypoint_experiment_name):
         super().__init__(TopLayout, BottomLayout)
-        self.loader = VolumeLoader(data_manager, self._handle_volumes, colorize=False, keep_origin=True)
-        self.cej_finder = CEJFinder(f'logs/{keypoint_experiment_name}/best.pth')
+        self.data_manager = data_manager
+
+        keypoint_model_path = os.path.join('logs', keypoint_experiment_name, 'best.pth')
+        self.cej_finder = CEJFinder(keypoint_model_path)
 
         self.setWindowTitle(data_manager.experiment_name)
 
         self.patient_selector, self.label_selector, self.point_toggle, self.slice_selector = self.layouts[0].get_widgets()
-        self.volume_viewer, self.image_table, self.axis_item = self.layouts[1].get_widgets()
+        self.volume_viewer, self.image_table = self.layouts[1].get_widgets()
 
-        self.patient_selector.setup(data_manager.patients, self.loader.load_patient)
+        self.patient_selector.setup(data_manager.patients, self._on_patient_changed)
         self.point_toggle.setChecked(True)
         self.slice_selector.buttons()[0].setChecked(True)
-
-        self.loader.setup(self.patient_selector, self.label_selector, self.point_toggle, *self.slice_selector.buttons())
 
         self.label_selector.currentIndexChanged.connect(self._on_label_changed)
         self.point_toggle.stateChanged.connect(lambda x: self._on_slice_changed(self.slice_selector.checkedId()))
         self.slice_selector.idClicked.connect(self._on_slice_changed)
-        for view in self.volume_viewer.views:
-            view.view.viewChanged.connect(self.axis_item.sync_camera)
 
         shortcut_left = QShortcut(Qt.Key.Key_Left, self)
         shortcut_left.activated.connect(lambda: self._on_label_step(-1))
         shortcut_right = QShortcut(Qt.Key.Key_Right, self)
         shortcut_right.activated.connect(lambda: self._on_label_step(1))
 
-        self.volumes = None
+        self.fdi_volume = None
+        self.image_volume = None
         self.display_volume = None
+        self.normal_vectors = None
         self.previous_label_mask = None
-        self.colors = None
         self.slices = None
         self.points = None
-        self.normal_vectors = None
         self.area_masks = None
 
-    def _handle_volumes(self, volumes):
-        self.volumes = [volumes['origin'][Mode.FDI], volumes['origin'][Mode.IMAGE]]
+    def _on_patient_changed(self, index):
+        volumes = self.data_manager.load_data(index)
+        self.fdi_volume = volumes[Mode.FDI]
+        self.image_volume = volumes[Mode.IMAGE]
 
-        volume = self.volumes[0]
-        volume = numpy.select([volume == 1, ((volume > 1) & (volume < Label.CROPPED)) | (volume >= Label.MISSING_FDI)], [Label.BONE, Label.TOOTH])
-        self.display_volume = VolumeColorizer.color_volume(volume, display_bone=True)
+        self.display_volume = numpy.select([
+            self.fdi_volume == 1,
+            (self.fdi_volume > 1) & (self.fdi_volume < Label.CROPPED),
+            (self.fdi_volume >= Label.MISSING_FDI)
+        ], [Label.BONE, Label.TOOTH, Label.TOOTH])
 
-        self.normal_vectors = find_normal_vectors(self.volumes[0])
+        self.normal_vectors = find_normal_vectors(self.fdi_volume)
 
         patient = self.patient_selector.currentText()
-        self.volume_viewer.views[0].setTitle(patient)
+        self.volume_viewer.boxes[0].setTitle(patient)
 
-        labels = numpy.unique(self.volumes[0])
+        labels = numpy.unique(self.fdi_volume)
         labels = labels[(labels > 1) & (labels < Label.CROPPED)] # exclude background, bone, removed teeth and missing FDI teeth
 
-        tooth_count = self.volumes[0].max() - 1
-        self.colors = VolumeColorizer.glasbey_palette(tooth_count)
+        self.label_selector.update_items(labels, self.fdi_volume.max(), -2)
 
-        self.label_selector.update_items(labels, tooth_count, -2)
         self.previous_label_mask = None
+
         self._on_label_changed(0, reset=True)
 
     def _on_label_changed(self, index, reset=False):
-        if self.volumes is None or self.display_volume is None or self.normal_vectors is None:
+        if self.fdi_volume is None or self.image_volume is None or self.display_volume is None or self.normal_vectors is None:
             return
 
         label = self.label_selector.current_label()
-        segmentation_volume, image_volume = self.volumes
         normal_vector = self.normal_vectors[label]
-        filtered_segmentation, transform_meta = extract_single_tooth(segmentation_volume, normal_vector, tooth_label=label, bone_label=1)
-        aligned_segmentation, aligned_image = align_crop_tooth(filtered_segmentation, image_volume, transform_meta)
+
+        filtered_segmentation, transform_meta = extract_single_tooth(self.fdi_volume, normal_vector, tooth_label=label, bone_label=1)
+        aligned_segmentation, aligned_image = align_crop_tooth(filtered_segmentation, self.image_volume, transform_meta)
         slices = get_slices(aligned_segmentation, aligned_image, reverse=label // 10 in {2, 3})
 
-        self.volume_viewer.views[1].setTitle(f'Label {label}')
+        self.volume_viewer.boxes[1].setTitle(f'Label {label}')
 
-        mask = self.volumes[0] == label
-        color = self.colors[label - 2]
+        mask = self.fdi_volume == label
         if self.previous_label_mask is not None:
-            self.display_volume[self.previous_label_mask] = Color.TOOTH
-        self.display_volume[mask] = color
+            self.display_volume[self.previous_label_mask] = Label.TOOTH
+        self.display_volume[mask] = 4
         self.previous_label_mask = mask
-
-        self.volume_viewer.views[0].view.update_volume(self.display_volume, reset=reset)
+        self.volume_viewer.boxes[0].view.update_volume(self.display_volume, Mode.PREDICT, reset)
 
         origin_segmentation_slices = []
         segmentation_slices = []
@@ -160,23 +159,16 @@ class MainWindow(MainWindowUI):
             self.area_masks.append(area_mask)
 
         points = restore_coordinates(self.points, filtered_segmentation, aligned_segmentation.shape, transform_meta)
-        upper_surface, lower_surface = split_surface(points, filtered_segmentation)
-        surface = upper_surface if label // 10 in {1, 2} else lower_surface
+        upper_volume, lower_volume = split_volume(points, filtered_segmentation, transform_meta)
+        root_volume = upper_volume if label // 10 in {1, 2} else lower_volume
 
-        volume = VolumeColorizer.color_volume(filtered_segmentation, display_bone=True)
-        volume[*surface.T] = (255, 0, 0, 255)
-        volume[*points.T] = (0, 0, 0, 255)
-        self.volume_viewer.views[1].view.update_volume(volume, reset=reset)
-
-        self.axis_item.update_axes(*transform_meta['axes'])
-        self.axis_item.sync_camera(self.volume_viewer.views[1].view.opts)
+        filtered_segmentation[*root_volume.T] = 3
+        self.volume_viewer.boxes[1].view.update_volume(filtered_segmentation, Mode.PREDICT, reset=False)
+        # self.volume_viewer.boxes[1].view.update_points(points)
 
         self._on_slice_changed(self.slice_selector.checkedId())
 
     def _on_label_step(self, step):
-        if self.volumes is None:
-            return
-
         count = self.label_selector.count()
         index = self.label_selector.currentIndex()
         if index + step < 0 or index + step >= count:
@@ -191,16 +183,21 @@ class MainWindow(MainWindowUI):
             return
 
         slices = self.slices[index]
-        indices = numpy.linspace(0, len(slices) - 1, 8, endpoint=True, dtype=numpy.int32)
-        points = None if not self.point_toggle.isChecked() else [self.points[index] for index in indices]
-        slices = [cv2.cvtColor(slices[index], cv2.COLOR_GRAY2RGB) for index in indices]
-        colors = numpy.array([(0, 0, 0), (95, 195, 255), (255, 170, 85)], dtype=numpy.uint8)
+        points = None if not self.point_toggle.isChecked() else self.points
+        slices = [cv2.cvtColor(slice_image, cv2.COLOR_GRAY2RGB) for slice_image in slices]
 
         if index == 0:
+            colors = numpy.array([(0, 0, 0), (95, 195, 255), (255, 170, 85)], dtype=numpy.uint8)
             for display_slice, area_mask in zip(slices, self.area_masks):
                 mask = area_mask > 0
                 display_slice[mask] = colors[area_mask[mask]]
+
         self.image_table.update_images(slices, points)
+
+    def closeEvent(self, event):
+        super().closeEvent(event)
+        for box in self.volume_viewer.boxes:
+            box.view.close()
 
 if __name__ == '__main__':
     from argparse import ArgumentParser

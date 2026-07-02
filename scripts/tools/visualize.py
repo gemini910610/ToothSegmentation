@@ -1,19 +1,16 @@
-from PySide6.QtCore import Qt
-from PySide6.QtGui import QShortcut
 from PySide6.QtWidgets import QApplication, QHBoxLayout
 
-from scripts.tools.widgets import Color, MainWindowUI, Mode, PatientSelector, Slider, VolumeLoader, VolumeViewer
+from scripts.tools.widgets import MainWindowUI, Mode, PatientSelector, VolumeViewer
 
 class TopLayout(QHBoxLayout):
     def __init__(self):
         super().__init__()
         self.patient_selector = PatientSelector()
         self.addWidget(self.patient_selector)
-        self.slice_slider = Slider()
-        self.addWidget(self.slice_slider)
+        self.addStretch()
 
     def get_widgets(self):
-        return self.patient_selector, self.slice_slider
+        return self.patient_selector
 
 class BottomLayout(QHBoxLayout):
     def __init__(self, count, size=(640, 640)):
@@ -27,57 +24,35 @@ class BottomLayout(QHBoxLayout):
 class MainWindow(MainWindowUI):
     def __init__(self, data_manager):
         super().__init__(TopLayout, (BottomLayout, {'count': len(data_manager.modes), 'size': (640, 640) if len(data_manager.modes) <= 2 else (512, 512)}))
-        self.loader = VolumeLoader(data_manager, self._handle_volumes)
+        self.data_manager = data_manager
 
         self.setWindowTitle(data_manager.experiment_name)
 
-        self.patient_selector, self.slice_slider = self.layouts[0].get_widgets()
+        self.patient_selector = self.layouts[0].get_widgets()
         self.volume_viewer = self.layouts[1].get_widgets()
 
-        self.patient_selector.setup(data_manager.patients, self.loader.load_patient)
+        self.patient_selector.setup(data_manager.patients, self._on_patient_changed)
 
         self.volume_viewer.set_titles(*[
             Mode.get_title(mode)
             for mode in data_manager.modes
         ])
 
-        self.loader.setup(self.patient_selector, self.slice_slider)
+    def _on_patient_changed(self, index):
+        volumes = self.data_manager.load_data(index)
 
-        self.slice_slider.valueChanged.connect(self._on_slice_changed)
+        for mode, box in zip(self.data_manager.modes, self.volume_viewer.boxes):
+            volume = volumes[mode]
+            box.view.update_volume(volume, mode)
 
-        shortcut_enter = QShortcut(Qt.Key.Key_Return, self)
-        shortcut_enter.activated.connect(lambda: self._on_slice_changed(self.slice_slider.get_value()))
-
-        self.volumes = None
-
-    def _handle_volumes(self, volumes):
-        self.volumes = volumes
-
-        self._on_slice_changed(1, reset=True)
-
-        self.slice_slider.set_maximum(volumes[self.loader.data_manager.modes[0]][0].shape[2])
-        self.slice_slider.set_value(1)
-
-    def _on_slice_changed(self, value, reset=False):
-        if self.volumes is None:
-            return
-
-        z = value - 1
-
-        for mode, view in zip(self.loader.data_manager.modes, self.volume_viewer.views):
-            volume, _ = self.volumes[mode]
-            volume = volume.copy()
-
-            z_slice = volume[:, :, z]
-            tooth_area = ~(z_slice == Color.BONE).all(-1) & ~(z_slice == (0, 0, 0, 0)).all(-1)
-            bone_area = (z_slice == Color.BONE).all(-1)
-            z_slice[tooth_area] = (0, 0, 0, 255)
-            z_slice[bone_area] = (255, 0, 0, 75)
-
-            view.view.update_volume(volume, reset=reset)
+    def closeEvent(self, event):
+        super().closeEvent(event)
+        for box in self.volume_viewer.boxes:
+            box.view.close()
 
 if __name__ == '__main__':
     from argparse import ArgumentParser
+    from PySide6.QtWidgets import QApplication
 
     from scripts.post_processing.iterators import iterate_datasets
     from scripts.tools.widgets import DataManager
@@ -91,7 +66,10 @@ if __name__ == '__main__':
     modes = args.modes
 
     datasets = ['bone_tooth_mask', 'bone_tooth_mask_1209', 'bone_tooth_mask_0508']
-    patients = [f'{dataset}/{patient}' for dataset, patient in iterate_datasets(experiment_name, datasets)]
+    patients = [
+        f'{dataset}/{patient}'
+        for dataset, patient in iterate_datasets(experiment_name, datasets)
+    ]
 
     app = QApplication([])
 

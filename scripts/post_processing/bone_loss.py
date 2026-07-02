@@ -107,7 +107,7 @@ def slice_area_bone_loss(segmentation_slice, point, label):
 
 def volume_bone_loss(filtered_volume, aligned_volume, points, label, transform_meta):
     points = restore_coordinates(points, filtered_volume, aligned_volume.shape, transform_meta)
-    upper_surface, lower_surface = split_surface(points, filtered_volume)
+    upper_surface, lower_surface = split_surface(points, filtered_volume, transform_meta)
     cej_surface = upper_surface if label // 10 in {1, 2} else lower_surface
 
     tooth_volume = filtered_volume == Label.TOOTH

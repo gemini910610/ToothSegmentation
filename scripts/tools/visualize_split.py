@@ -4,7 +4,7 @@ import os
 from PySide6.QtWidgets import QComboBox, QHBoxLayout, QPushButton, QSpinBox
 
 from scripts.post_processing.watershed import split_k_component
-from scripts.tools.widgets import DataHandler, IconLabelSelector, JsonHandler, MainWindowUI, Mode, PatientSelector, VolumeColorizer, VolumeLoader, VolumeViewer
+from scripts.tools.widgets import DataHandler, IconLabelSelector, JsonHandler, MainWindowUI, Mode, PatientSelector, VolumeViewer
 
 class SplitDataHandler(DataHandler):
     def set_data(self, patient, label, cluster):
@@ -17,7 +17,7 @@ class TopLayout(QHBoxLayout):
         super().__init__()
         self.patient_selector = PatientSelector(sizeAdjustPolicy=QComboBox.SizeAdjustPolicy.AdjustToContents)
         self.label_selector = IconLabelSelector(sizeAdjustPolicy=QComboBox.SizeAdjustPolicy.AdjustToContents)
-        self.cluster_input = QSpinBox(suffix=' Cluster', minimum=1)
+        self.cluster_input = QSpinBox(suffix=' Cluster', minimum=2)
         self.execute_button = QPushButton('Execute')
         self.save_button = QPushButton('Save')
         for widget in [self.patient_selector, self.label_selector, self.cluster_input, self.execute_button, self.save_button]:
@@ -39,77 +39,78 @@ class BottomLayout(QHBoxLayout):
 class MainWindow(MainWindowUI):
     def __init__(self, data_manager):
         super().__init__(TopLayout, BottomLayout)
-        self.loader = VolumeLoader(data_manager, self._handle_volumes, keep_origin=True)
+        self.data_manager = data_manager
 
         self.setWindowTitle(data_manager.experiment_name)
 
         self.patient_selector, self.label_selector, self.cluster_input, self.execute_button, self.save_button = self.layouts[0].get_widgets()
         self.volume_viewer = self.layouts[1].get_widgets()
 
-        self.patient_selector.setup(data_manager.patients, self.loader.load_patient)
+        self.patient_selector.setup(data_manager.patients, self._on_patient_changed)
 
         self.volume_viewer.set_titles(Mode.get_title(Mode.TOOTH_CONNECTED_COMPONENT), Mode.get_title(Mode.WATERSHED), 'Instance')
-
-        self.loader.setup(self.patient_selector, self.label_selector, self.cluster_input, self.execute_button, self.save_button)
 
         self.label_selector.currentIndexChanged.connect(self._on_label_changed)
         self.execute_button.clicked.connect(self._split_component)
         self.save_button.clicked.connect(self._on_save)
 
         self.volume = None
+        self.label_volume = None
 
-    def _handle_volumes(self, volumes):
-        left_volume, tooth_count = volumes[Mode.TOOTH_CONNECTED_COMPONENT]
-        right_volume, _ = volumes[Mode.WATERSHED]
-        self.volume = volumes['origin'][Mode.TOOTH_CONNECTED_COMPONENT]
+    def _on_patient_changed(self, index):
+        volumes = self.data_manager.load_data(index)
+        cc_volume = volumes[Mode.TOOTH_CONNECTED_COMPONENT]
+        watershed_volume = volumes[Mode.WATERSHED]
+        self.volume = cc_volume
 
-        self.volume_viewer.views[0].view.update_volume(left_volume)
-        self.volume_viewer.views[1].view.update_volume(right_volume)
+        self.volume_viewer.boxes[0].view.update_volume(cc_volume, Mode.TOOTH_CONNECTED_COMPONENT)
+        self.volume_viewer.boxes[1].view.update_volume(watershed_volume, Mode.WATERSHED)
 
-        labels = numpy.unique(self.volume)
+        labels = numpy.unique(cc_volume)
         labels = labels[labels > 0]
 
-        self.label_selector.update_items(labels, tooth_count, -1)
-        self._on_label_changed(0, reset=True)
+        self.label_selector.update_items(labels, labels.max(), -1)
+        self._on_label_changed(0)
 
-    def _on_label_changed(self, index, reset=False):
+    def _on_label_changed(self, index):
         if self.volume is None:
             return
 
         label = self.label_selector.current_label()
 
-        volume = self.volume == label
-        volume = volume * label
+        self.label_volume = self.volume == label
+        volume = self.label_volume * label
         volume = volume.astype(numpy.int32, copy=False)
-        volume, _ = VolumeColorizer.color_components(volume)
-        self.volume_viewer.views[2].view.update_volume(volume, reset)
+        self.volume_viewer.boxes[2].view.update_volume(volume, Mode.TOOTH_CONNECTED_COMPONENT, reset=False)
 
         self.cluster_input.setValue(self.cluster_input.minimum())
 
     def _split_component(self):
-        if self.volume is None:
+        if self.label_volume is None:
             return
 
-        label = self.label_selector.current_label()
         cluster = self.cluster_input.value()
 
-        volume = self.volume == label
-        volume = split_k_component(volume, h=1, k=cluster, crop=True)
+        volume = split_k_component(self.label_volume, h=1, k=cluster, crop=True)
         volume = volume.astype(numpy.int32, copy=False)
-        volume, _ = VolumeColorizer.color_components(volume)
-        self.volume_viewer.views[2].view.update_volume(volume, reset=False)
+        self.volume_viewer.boxes[2].view.update_volume(volume, Mode.TOOTH_CONNECTED_COMPONENT, reset=False)
 
     def _on_save(self):
-        if self.volume is None:
-            return
-
         patient = self.patient_selector.currentText()
         label = self.label_selector.current_label()
         cluster = self.cluster_input.value()
 
+        if patient == '' or label is None:
+            return
+
         path = os.path.join('split', f'{self.loader.data_manager.experiment_name}.json')
         with JsonHandler(path, SplitDataHandler) as handler:
             handler.set_data(patient, str(label), cluster)
+
+    def closeEvent(self, event):
+        super().closeEvent(event)
+        for box in self.volume_viewer.boxes:
+            box.view.close()
 
 if __name__ == '__main__':
     from argparse import ArgumentParser

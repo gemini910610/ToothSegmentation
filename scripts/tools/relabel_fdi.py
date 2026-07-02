@@ -7,7 +7,7 @@ from PySide6.QtGui import QDrag, QImage, QPixmap
 from PySide6.QtWidgets import QApplication, QGridLayout, QHBoxLayout, QLabel, QLineEdit, QMessageBox, QPushButton, QSpacerItem
 
 from scripts.post_processing.panoramic import draw_label, get_panoramic
-from scripts.tools.widgets import DataHandler, JsonHandler, MainWindowUI, Mode, PatientSelector, VolumeColorizer
+from scripts.tools.widgets import DataHandler, glasbey_palette, JsonHandler, MainWindowUI, Mode, PatientSelector
 
 class FDIHandler(DataHandler):
     def set_data(self, patient, data):
@@ -109,7 +109,7 @@ def load_panoramic(dataset, patient):
 
 def draw_panoramic(image, tooth_data):
     image = cv2.cvtColor(image, cv2.COLOR_GRAY2RGB)
-    palette = VolumeColorizer.glasbey_palette(48)
+    palette = glasbey_palette(48)
     for tooth in tooth_data:
         center_x, center_y = tooth['center']
         (width, height), baseline = cv2.getTextSize(tooth['FDI'][0], cv2.FONT_HERSHEY_SIMPLEX, 1, 2)

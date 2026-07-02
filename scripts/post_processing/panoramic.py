@@ -6,7 +6,7 @@ from scipy import ndimage
 from scipy.interpolate import make_splprep
 
 from scripts.post_processing.relabel import split_teeth_jaw
-from scripts.tools.widgets import Label, VolumeColorizer
+from scripts.tools.widgets import glasbey_palette, Label
 
 def synthetic_tooth(tooth_list, width):
     if len(tooth_list) == 1:
@@ -142,7 +142,7 @@ def draw_label(image_panoramic, segmentation_panoramic):
     image_panoramic = cv2.cvtColor(image_panoramic, cv2.COLOR_GRAY2RGB)
 
     tooth_count = segmentation_panoramic.max()
-    palette = VolumeColorizer.glasbey_palette(tooth_count)
+    palette = glasbey_palette(tooth_count)
 
     labels = numpy.unique(segmentation_panoramic)
     labels = labels[labels > 0]

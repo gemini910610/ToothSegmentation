@@ -2,9 +2,8 @@ import numpy
 import os
 
 from PySide6.QtWidgets import QButtonGroup, QComboBox, QHBoxLayout, QPushButton, QRadioButton
-from scipy import ndimage
 
-from scripts.tools.widgets import Color, DataHandler, IconLabelSelector, JsonHandler, Label, MainWindowUI, Mode, PatientSelector, VolumeColorizer, VolumeLoader, VolumeViewer
+from scripts.tools.widgets import DataHandler, IconLabelSelector, JsonHandler, Label, MainWindowUI, Mode, PatientSelector, VolumeViewer
 
 class RemoveDataHandler(DataHandler):
     def find(self, patient, label):
@@ -82,43 +81,40 @@ class BottomLayout(QHBoxLayout):
 class MainWindow(MainWindowUI):
     def __init__(self, data_manager):
         super().__init__(TopLayout, BottomLayout)
-        self.loader = VolumeLoader(data_manager, self._handle_volumes, keep_origin=True)
+        self.data_manager = data_manager
 
         self.setWindowTitle(data_manager.experiment_name)
 
         self.patient_selector, self.label_selector, self.remove_selector, self.save_button = self.layouts[0].get_widgets()
         self.volume_viewer = self.layouts[1].get_widgets()
 
-        self.patient_selector.setup(data_manager.patients, self.loader.load_patient)
+        self.patient_selector.setup(data_manager.patients, self._on_patient_changed)
         self.remove_selector.buttons()[0].setChecked(True)
 
         self.volume_viewer.set_titles(Mode.get_title(Mode.CLEANED), 'Instance')
-
-        self.loader.setup(self.patient_selector, self.label_selector, *self.remove_selector.buttons(), self.save_button)
 
         self.label_selector.currentIndexChanged.connect(self._on_label_changed)
         self.save_button.clicked.connect(self._on_save)
 
         self.volume = None
 
-    def _handle_volumes(self, volumes):
-        self.volume = volumes['origin'][Mode.CLEANED]
-        volume, tooth_count = volumes[Mode.CLEANED]
-        bone_volume = volumes['origin'][Mode.BONE_CONNECTED_COMPONENT]
+    def _on_patient_changed(self, index):
+        volumes = self.data_manager.load_data(index)
+        volume = volumes[Mode.CLEANED]
+        bone_volume = volumes[Mode.BONE_CONNECTED_COMPONENT]
+        self.volume = volume.copy()
 
-        erosion = ndimage.binary_erosion(bone_volume > 0)
-        bone_surface = (bone_volume > 0) & (~erosion)
-        volume[bone_surface] = Color.BONE
+        volume[bone_volume > 0] = 1
 
-        self.volume_viewer.views[0].view.update_volume(volume)
+        self.volume_viewer.boxes[0].view.update_volume(volume, Mode.POST_PROCESSING)
 
         labels = numpy.unique(self.volume)
         labels = labels[(labels > 0) & (labels < Label.CROPPED)]
 
-        self.label_selector.update_items(labels, tooth_count, -1)
-        self._on_label_changed(0, reset=True)
+        self.label_selector.update_items(labels, self.volume.max(), -1)
+        self._on_label_changed(0)
 
-    def _on_label_changed(self, index, reset=False):
+    def _on_label_changed(self, index):
         if self.volume is None:
             return
 
@@ -126,9 +122,7 @@ class MainWindow(MainWindowUI):
 
         volume = self.volume == label
         volume = volume * label
-        volume = volume.astype(numpy.int32, copy=False)
-        volume, _ = VolumeColorizer.color_components(volume)
-        self.volume_viewer.views[1].view.update_volume(volume, reset)
+        self.volume_viewer.boxes[1].view.update_volume(volume, Mode.CLEANED, reset=False)
 
         self.remove_selector.buttons()[0].setChecked(True)
 
@@ -139,13 +133,18 @@ class MainWindow(MainWindowUI):
         patient = self.patient_selector.currentText()
         label = int(self.label_selector.current_label())
 
-        path = os.path.join('remove', f'{self.loader.data_manager.experiment_name}.json')
+        path = os.path.join('remove', f'{self.data_manager.experiment_name}.json')
         with JsonHandler(path, RemoveDataHandler) as handler:
             if self.remove_selector.checkedId() == 0: # Normal Tooth
                 handler.remove_data(patient, label)
             else: # Unerupted Tooth, Residual Root, Fake Tooth
                 remove_type = self.remove_selector.checkedButton().text()
                 handler.set_data(patient, remove_type, label)
+
+    def closeEvent(self, event):
+        super().closeEvent(event)
+        for box in self.volume_viewer.boxes:
+            box.view.close()
 
 if __name__ == '__main__':
     from argparse import ArgumentParser
