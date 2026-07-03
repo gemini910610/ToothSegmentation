@@ -3,6 +3,7 @@ import json
 import numpy
 import os
 
+from datetime import datetime
 from PIL import Image
 from PIL.ImageQt import ImageQt
 from PySide6.QtCore import Qt
@@ -191,6 +192,14 @@ class SyncView(QtInteractor):
         mesh = data.glyph(orient=False, scale=False, geom=sphere)
         self.add_mesh(mesh, color='black', name='cej points')
 
+    def mousePressEvent(self, event):
+        if event.modifiers() & Qt.KeyboardModifier.AltModifier and event.button() == Qt.MouseButton.LeftButton:
+            os.makedirs('screenshots', exist_ok=True)
+            timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+            self.screenshot(f'screenshots/{timestamp}.png')
+
+        super().mousePressEvent(event)
+
     def contextMenuEvent(self, event):
         self.view_xz()
         self.reset_camera()
@@ -275,6 +284,7 @@ class ClickableImage(QLabel):
 
     def mousePressEvent(self, event):
         if not self.clickable or self.image is None:
+            event.ignore()
             return
 
         x = int(event.position().x())
@@ -292,6 +302,8 @@ class ClickableImage(QLabel):
             self.right_point = None
 
         self.update()
+
+        super().mousePressEvent(event)
 
     def mouseMoveEvent(self, event):
         if not self.clickable or self.image is None or self.dragging is None:
@@ -375,8 +387,14 @@ class ImageTable(QWidget):
         for cell, image, point in zip(self.cells, slices, points):
             self.layout.itemAtPosition(cell.row, cell.column).widget().update_image(image, point)
 
-    def _on_clicked(self, x, y, index):
-        print(x, y, index)
+    def mousePressEvent(self, event):
+        if event.modifiers() & Qt.KeyboardModifier.AltModifier and event.button() == Qt.MouseButton.LeftButton:
+            os.makedirs('screenshots', exist_ok=True)
+            timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+            pixmap = self.grab()
+            pixmap.save(f'screenshots/{timestamp}.png')
+
+        super().mousePressEvent(event)
 
 class LabelSelector(QComboBox):
     def update_items(self, *args):

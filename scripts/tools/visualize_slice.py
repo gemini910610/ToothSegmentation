@@ -119,9 +119,12 @@ class MainWindow(MainWindowUI):
 
         if self.default_label is not None and self.default_label in labels:
             index = labels.tolist().index(self.default_label)
+            self.label_selector.blockSignals(True)
             self.label_selector.setCurrentIndex(index)
+            self.label_selector.blockSignals(False)
+            self._on_label_changed(index, reset=True)
         else:
-            self._on_label_changed(0)
+            self._on_label_changed(0, reset=True)
         self.default_label = None
 
     def _on_label_changed(self, index, reset=False):
