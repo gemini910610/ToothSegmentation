@@ -9,7 +9,7 @@ from PySide6.QtWidgets import QButtonGroup, QCheckBox, QComboBox, QHBoxLayout, Q
 from keypoint.predict import CEJFinder
 from scripts.post_processing.bone_loss import slice_bone_loss, slice_area_bone_loss
 from scripts.post_processing.tooth_slice import align_crop_tooth, extract_single_tooth, find_normal_vectors, get_slices, normalize_slice, restore_coordinates, split_volume
-from scripts.tools.widgets import IconLabelSelector, ImageCell, ImageTable, Label, MainWindowUI, Mode, PatientSelector, VolumeViewer
+from scripts.tools.widgets import glasbey_palette, IconLabelSelector, ImageCell, ImageTable, Label, MainWindowUI, Mode, PatientSelector, SyncView, VolumeViewer
 
 class TopLayout(QHBoxLayout):
     def __init__(self):
@@ -145,7 +145,15 @@ class MainWindow(MainWindowUI):
             self.display_volume[self.previous_label_mask] = Label.TOOTH
         self.display_volume[mask] = 4
         self.previous_label_mask = mask
-        self.volume_viewer.boxes[0].view.update_volume(self.display_volume, Mode.PREDICT, reset)
+
+        palette = glasbey_palette(48)
+        render_settings = SyncView.get_settings()
+        render_settings[4] = {
+            'name': 'selected',
+            'color': palette[label-2],
+            'opacity': 1
+        }
+        self.volume_viewer.boxes[0].view.update_volume(self.display_volume, reset=reset, render_settings=render_settings)
 
         origin_segmentation_slices = []
         segmentation_slices = []
@@ -176,7 +184,13 @@ class MainWindow(MainWindowUI):
         root_volume = upper_volume if label // 10 in {1, 2} else lower_volume
 
         filtered_segmentation[*root_volume.T] = 3
-        self.volume_viewer.boxes[1].view.update_volume(filtered_segmentation, Mode.PREDICT, reset=False)
+        render_settings = SyncView.get_settings()
+        render_settings[3] = {
+            'name': 'surface',
+            'color': (255, 0, 0),
+            'opacity': 1
+        }
+        self.volume_viewer.boxes[1].view.update_volume(filtered_segmentation, reset=False, render_settings=render_settings)
         # self.volume_viewer.boxes[1].view.update_points(points)
 
         self._on_slice_changed(self.slice_selector.checkedId())

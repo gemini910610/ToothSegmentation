@@ -112,7 +112,8 @@ class SyncView(QtInteractor):
         super().__init__()
         self.setFixedSize(*size)
 
-    def get_settings(self, mode, num_colors=None):
+    @staticmethod
+    def get_settings(mode=Mode.PREDICT, num_colors=None):
         bone_setting = {
             'name': 'bone',
             'color': tuple(color / 255 for color in Color.BONE),
@@ -125,16 +126,6 @@ class SyncView(QtInteractor):
                     Label.TOOTH: {
                         'name': 'tooth',
                         'color': tuple(color / 255 for color in Color.TOOTH),
-                        'opacity': 1
-                    },
-                    3: {
-                        'name': 'surface',
-                        'color': (255, 0, 0),
-                        'opacity': 1
-                    },
-                    4: {
-                        'name': 'selected',
-                        'color': (255, 165, 0),
                         'opacity': 1
                     }
                 }
@@ -162,9 +153,10 @@ class SyncView(QtInteractor):
                     }
                 }
 
-    def update_volume(self, volume, mode, reset=True):
+    def update_volume(self, volume, mode=Mode.PREDICT, reset=True, render_settings=None):
         self.clear_actors()
-        render_settings = self.get_settings(mode, volume.max())
+        if render_settings is None:
+            render_settings = SyncView.get_settings(mode, volume.max())
 
         objects = ndimage.find_objects(volume)
         for label, slices in enumerate(objects, 1):
