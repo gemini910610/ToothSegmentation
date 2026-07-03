@@ -79,9 +79,10 @@ class BottomLayout(QHBoxLayout):
         return self.volume_viewer
 
 class MainWindow(MainWindowUI):
-    def __init__(self, data_manager):
+    def __init__(self, data_manager, default_patient=None, default_label=None):
         super().__init__(TopLayout, BottomLayout)
         self.data_manager = data_manager
+        self.default_label = default_label
 
         self.setWindowTitle(data_manager.experiment_name)
 
@@ -98,6 +99,10 @@ class MainWindow(MainWindowUI):
 
         self.volume = None
 
+        if default_patient is not None:
+            index = self.data_manager.patients.index(default_patient)
+            self.patient_selector.setCurrentIndex(index)
+
     def _on_patient_changed(self, index):
         volumes = self.data_manager.load_data(index)
         volume = volumes[Mode.CLEANED]
@@ -112,7 +117,13 @@ class MainWindow(MainWindowUI):
         labels = labels[(labels > 0) & (labels < Label.CROPPED)]
 
         self.label_selector.update_items(labels, self.volume.max(), -1)
-        self._on_label_changed(0)
+
+        if self.default_label is not None and self.default_label in labels:
+            index = labels.tolist().index(self.default_label)
+            self.label_selector.setCurrentIndex(index)
+        else:
+            self._on_label_changed(0)
+        self.default_label = None
 
     def _on_label_changed(self, index):
         if self.volume is None:
@@ -155,17 +166,24 @@ if __name__ == '__main__':
 
     parser = ArgumentParser()
     parser.add_argument('exp', type=str)
+    parser.add_argument('--patient', type=str)
+    parser.add_argument('--label', type=int)
     args = parser.parse_args()
 
     experiment_name = args.exp
+    default_patient = args.patient
+    default_label = args.label
 
     datasets = ['bone_tooth_mask', 'bone_tooth_mask_1209', 'bone_tooth_mask_0508']
     patients = [f'{dataset}/{patient}' for dataset, patient in iterate_datasets(experiment_name, datasets)]
 
+    if default_patient is not None and default_patient not in patients:
+        raise ValueError(f'Patient {default_patient} not found')
+
     app = QApplication([])
 
     data_manager = DataManager(experiment_name, patients, [Mode.CLEANED, Mode.BONE_CONNECTED_COMPONENT])
-    window = MainWindow(data_manager)
+    window = MainWindow(data_manager, default_patient, default_label)
 
     window.show()
 

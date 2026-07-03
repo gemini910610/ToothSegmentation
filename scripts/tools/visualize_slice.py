@@ -55,9 +55,10 @@ class BottomLayout(QHBoxLayout):
         return self.volume_viewer, self.image_table
 
 class MainWindow(MainWindowUI):
-    def __init__(self, data_manager, keypoint_experiment_name):
+    def __init__(self, data_manager, keypoint_experiment_name, default_patient=None, default_label=None):
         super().__init__(TopLayout, BottomLayout)
         self.data_manager = data_manager
+        self.default_label = default_label if default_patient is not None else None
 
         keypoint_model_path = os.path.join('logs', keypoint_experiment_name, 'best.pth')
         self.cej_finder = CEJFinder(keypoint_model_path)
@@ -89,6 +90,10 @@ class MainWindow(MainWindowUI):
         self.points = None
         self.area_masks = None
 
+        if default_patient is not None:
+            index = self.data_manager.patients.index(default_patient)
+            self.patient_selector.setCurrentIndex(index)
+
     def _on_patient_changed(self, index):
         volumes = self.data_manager.load_data(index)
         self.fdi_volume = volumes[Mode.FDI]
@@ -112,7 +117,12 @@ class MainWindow(MainWindowUI):
 
         self.previous_label_mask = None
 
-        self._on_label_changed(0, reset=True)
+        if self.default_label is not None and self.default_label in labels:
+            index = labels.tolist().index(self.default_label)
+            self.label_selector.setCurrentIndex(index)
+        else:
+            self._on_label_changed(0)
+        self.default_label = None
 
     def _on_label_changed(self, index, reset=False):
         if self.fdi_volume is None or self.image_volume is None or self.display_volume is None or self.normal_vectors is None:
@@ -209,18 +219,25 @@ if __name__ == '__main__':
     parser = ArgumentParser()
     parser.add_argument('segmentation_exp', type=str)
     parser.add_argument('keypoint_exp', type=str)
+    parser.add_argument('--patient', type=str)
+    parser.add_argument('--label', type=int)
     args = parser.parse_args()
 
     segmentation_experiment_name = args.segmentation_exp
     keypoint_experiment_name = args.keypoint_exp
+    default_patient = args.patient
+    default_label = args.label
 
     datasets = ['bone_tooth_mask', 'bone_tooth_mask_1209', 'bone_tooth_mask_0508']
     patients = [f'{dataset}/{patient}' for dataset, patient in iterate_datasets(segmentation_experiment_name, datasets)]
 
+    if default_patient is not None and default_patient not in patients:
+        raise ValueError(f'Patient {default_patient} not found')
+
     app = QApplication([])
 
     data_manager = DataManager(segmentation_experiment_name, patients, [Mode.FDI, Mode.IMAGE])
-    window = MainWindow(data_manager, keypoint_experiment_name)
+    window = MainWindow(data_manager, keypoint_experiment_name, default_patient, default_label)
 
     window.show()
 

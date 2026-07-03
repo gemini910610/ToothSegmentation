@@ -334,7 +334,7 @@ class BottomLayout(QHBoxLayout):
         return self.grid, self.save_button
 
 class MainWindow(MainWindowUI):
-    def __init__(self, experiment_name, patients):
+    def __init__(self, experiment_name, patients, default_patient=None):
         super().__init__(TopLayout, CentralLayout, BottomLayout)
         self.experiment_name = experiment_name
         self.patients = patients
@@ -351,6 +351,10 @@ class MainWindow(MainWindowUI):
         self.save_button.clicked.connect(self.on_save)
 
         self.label_editors = None
+
+        if default_patient is not None:
+            index = self.patients.index(default_patient)
+            self.patient_selector.setCurrentIndex(index)
 
     def showEvent(self, event):
         width = QApplication.primaryScreen().availableGeometry().width()
@@ -457,16 +461,22 @@ if __name__ == '__main__':
 
     parser = ArgumentParser()
     parser.add_argument('exp', type=str)
+    parser.add_argument('--patient', type=str)
     args = parser.parse_args()
 
     experiment_name = args.exp
+    default_patient = args.patient
 
     datasets = ['bone_tooth_mask', 'bone_tooth_mask_1209', 'bone_tooth_mask_0508']
     patients = list(iterate_datasets(experiment_name, datasets))
 
+    default_patient = tuple(default_patient.split('/'))
+    if default_patient is not None and default_patient not in patients:
+        raise ValueError(f'Patient {"/".join(default_patient)} not found')
+
     app = QApplication([])
 
-    window = MainWindow(experiment_name, patients)
+    window = MainWindow(experiment_name, patients, default_patient)
 
     window.show()
 

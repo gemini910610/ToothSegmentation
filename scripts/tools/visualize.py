@@ -22,7 +22,7 @@ class BottomLayout(QHBoxLayout):
         return self.volume_viewer
 
 class MainWindow(MainWindowUI):
-    def __init__(self, data_manager):
+    def __init__(self, data_manager, default_patient=None):
         super().__init__(TopLayout, (BottomLayout, {'count': len(data_manager.modes), 'size': (640, 640) if len(data_manager.modes) <= 2 else (512, 512)}))
         self.data_manager = data_manager
 
@@ -37,6 +37,10 @@ class MainWindow(MainWindowUI):
             Mode.get_title(mode)
             for mode in data_manager.modes
         ])
+
+        if default_patient is not None:
+            index = self.data_manager.patients.index(default_patient)
+            self.patient_selector.setCurrentIndex(index)
 
     def _on_patient_changed(self, index):
         volumes = self.data_manager.load_data(index)
@@ -60,10 +64,12 @@ if __name__ == '__main__':
     parser = ArgumentParser()
     parser.add_argument('exp', type=str)
     parser.add_argument('modes', nargs='+', choices=Mode.items())
+    parser.add_argument('--patient', type=str)
     args = parser.parse_args()
 
     experiment_name = args.exp
     modes = args.modes
+    default_patient = args.patient
 
     datasets = ['bone_tooth_mask', 'bone_tooth_mask_1209', 'bone_tooth_mask_0508']
     patients = [
@@ -71,10 +77,13 @@ if __name__ == '__main__':
         for dataset, patient in iterate_datasets(experiment_name, datasets)
     ]
 
+    if default_patient is not None and default_patient not in patients:
+        raise ValueError(f'Patient {default_patient} not found')
+
     app = QApplication([])
 
     data_manager = DataManager(experiment_name, patients, modes)
-    window = MainWindow(data_manager)
+    window = MainWindow(data_manager, default_patient)
 
     window.show()
 

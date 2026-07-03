@@ -100,7 +100,7 @@ class BottomLayout(QHBoxLayout):
         return self.volume_viewer, self.label_table
 
 class MainWindow(MainWindowUI):
-    def __init__(self, data_manager):
+    def __init__(self, data_manager, default_patient=None):
         super().__init__(TopLayout, BottomLayout)
         self.data_manager = data_manager
 
@@ -118,6 +118,10 @@ class MainWindow(MainWindowUI):
         self.save_button.clicked.connect(self._on_save)
 
         self.volume = None
+
+        if default_patient is not None:
+            index = self.data_manager.patients.index(default_patient)
+            self.patient_selector.setCurrentIndex(index)
 
     def _on_patient_changed(self, index):
         self.volume = self.data_manager.load_data(index)[Mode.REFINE_SPLIT]
@@ -181,17 +185,22 @@ if __name__ == '__main__':
 
     parser = ArgumentParser()
     parser.add_argument('exp', type=str)
+    parser.add_argument('--patient', type=str)
     args = parser.parse_args()
 
     experiment_name = args.exp
+    default_patient = args.patient
 
     datasets = ['bone_tooth_mask', 'bone_tooth_mask_1209', 'bone_tooth_mask_0508']
     patients = [f'{dataset}/{patient}' for dataset, patient in iterate_datasets(experiment_name, datasets)]
 
+    if default_patient is not None and default_patient not in patients:
+        raise ValueError(f'Patient {default_patient} not found')
+
     app = QApplication([])
 
     data_manager = DataManager(experiment_name, patients, [Mode.REFINE_SPLIT])
-    window = MainWindow(data_manager)
+    window = MainWindow(data_manager, default_patient)
 
     window.show()
 
