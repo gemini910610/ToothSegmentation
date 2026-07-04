@@ -7,6 +7,7 @@ from scripts.post_processing.connected_component import get_bounding_box
 def fill_holes(tooth_volume, bone_volume):
     tooth_volume = tooth_volume.copy()
     bone_volume = bone_volume.copy()
+    bone_volume = (bone_volume > 0).astype(numpy.uint8)
 
     objects = ndimage.find_objects(tooth_volume)
 

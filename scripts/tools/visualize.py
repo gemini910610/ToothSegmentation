@@ -45,9 +45,11 @@ class MainWindow(MainWindowUI):
     def _on_patient_changed(self, index):
         volumes = self.data_manager.load_data(index)
 
+        reset = True
         for mode, box in zip(self.data_manager.modes, self.volume_viewer.boxes):
             volume = volumes[mode]
-            box.view.update_volume(volume, mode)
+            box.view.update_volume(volume, mode, reset=reset)
+            reset = False
 
     def closeEvent(self, event):
         super().closeEvent(event)

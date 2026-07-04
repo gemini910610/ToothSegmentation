@@ -12,7 +12,7 @@ def get_bounding_box(mask):
 
     return xs[0], xs[-1] + 1, ys[0], ys[-1] + 1, zs[0], zs[-1] + 1
 
-def remove_outlier(volume, voxel_threshold=0):
+def remove_outlier(volume):
     volume = volume.copy()
     component_count = volume.max()
 
@@ -20,6 +20,7 @@ def remove_outlier(volume, voxel_threshold=0):
 
     valid_labels = []
     z_centroids = []
+    z_lengths = []
 
     for label, slices in enumerate(objects, 1):
         if slices is None:
@@ -37,20 +38,20 @@ def remove_outlier(volume, voxel_threshold=0):
 
         valid_labels.append(label)
         z_centroids.append(z_centroid)
+        z_lengths.append(z1 - z0)
 
     valid_labels = numpy.array(valid_labels, dtype=numpy.uint8)
     z_centroids = numpy.array(z_centroids, dtype=numpy.float32)
 
     median = numpy.median(z_centroids)
     distance_z = numpy.abs(z_centroids - median)
-    outlier_labels = valid_labels[distance_z > 150]
+    median_length = numpy.median(z_lengths)
+    outlier_labels = valid_labels[distance_z > 1.5 * median_length]
 
     lookup_table = numpy.zeros(component_count + 1, dtype=bool)
     lookup_table[outlier_labels] = True
 
     volume[lookup_table[volume]] = 0
-
-    volume = cc3d.dust(volume, voxel_threshold, connectivity=6)
 
     return volume
 
@@ -74,7 +75,7 @@ def filter_connected_component(volume, target, voxel_threshold=0):
         volume = relabel(components)
     else:
         volume = cc3d.largest_k(components, k=3, precomputed_ccl=True)
-        volume = (volume > 0).astype(numpy.uint8)
+        volume = relabel(volume)
     origin_volume = numpy.zeros(origin_shape, dtype=numpy.uint8)
     origin_volume[x0:x1, y0:y1, z0:z1] = volume
     return origin_volume
@@ -114,7 +115,7 @@ if __name__ == '__main__':
         volume = volume == target
         volume = filter_connected_component(volume, target, voxel_threshold)
         if target == Label.TOOTH:
-            volume = remove_outlier(volume, voxel_threshold)
+            volume = remove_outlier(volume)
 
         cc_path = os.path.join('outputs', experiment_name, dataset, patient, f'{Mode.TOOTH_CONNECTED_COMPONENT if target == Label.TOOTH else Mode.BONE_CONNECTED_COMPONENT}.npy')
         numpy.save(cc_path, volume)

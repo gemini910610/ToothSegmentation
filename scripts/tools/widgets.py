@@ -101,6 +101,8 @@ class DataManager:
         return volumes
 
 def glasbey_palette(num_colors):
+    palette = colorcet.glasbey
+    palette = palette * (int(num_colors) // len(palette) + 1)
     colors = colorcet.glasbey_light[:num_colors]
     return [
         (int(color[1:3], 16), int(color[3:5], 16), int(color[5:], 16), 1)
@@ -111,6 +113,19 @@ class SyncView(QtInteractor):
     def __init__(self, size=(640, 640)):
         super().__init__()
         self.setFixedSize(*size)
+
+        self.voxel_counts = []
+        self.is_picking = False
+        def callback(actor):
+            if not self.is_picking:
+                return
+
+            for label, act in self.actors.items():
+                if actor is act:
+                    print(f'{label}: {actor._voxel_count}')
+            actor.VisibilityOff()
+            self.voxel_counts.append(actor._voxel_count)
+        self.enable_mesh_picking(callback=callback, show=False, show_message=False, use_actor=True)
 
     @staticmethod
     def get_settings(mode=Mode.PREDICT, num_colors=None):
@@ -129,7 +144,7 @@ class SyncView(QtInteractor):
                         'opacity': 1
                     }
                 }
-            case Mode.TOOTH_CONNECTED_COMPONENT | Mode.WATERSHED | Mode.CLEANED | Mode.REFINE_SPLIT | Mode.REFINE_MERGE | Mode.REMOVED | Mode.TOOTH_FILLED | Mode.RELABELED:
+            case Mode.TOOTH_CONNECTED_COMPONENT | Mode.BONE_CONNECTED_COMPONENT | Mode.WATERSHED | Mode.CLEANED | Mode.REFINE_SPLIT | Mode.REFINE_MERGE | Mode.REMOVED | Mode.TOOTH_FILLED | Mode.RELABELED:
                 palette = glasbey_palette(num_colors)
                 return {
                     label: {
@@ -139,7 +154,7 @@ class SyncView(QtInteractor):
                     }
                     for label, color in enumerate(palette, 1)
                 }
-            case Mode.BONE_CONNECTED_COMPONENT | Mode.BONE_FILLED | Mode.POST_PROCESSING | Mode.FDI:
+            case Mode.BONE_FILLED | Mode.POST_PROCESSING | Mode.FDI:
                 palette = glasbey_palette(num_colors)
                 return {
                     1: bone_setting,
@@ -172,7 +187,8 @@ class SyncView(QtInteractor):
             data.point_data['values'] = roi.flatten(order='F')
             mesh = data.contour([0.5])
             setting = render_settings[label]
-            self.add_mesh(mesh, smooth_shading=True, **setting)
+            actor = self.add_mesh(mesh, smooth_shading=True, **setting)
+            actor._voxel_count = int(roi.sum())
 
         if reset:
             self.view_xz()
@@ -192,10 +208,27 @@ class SyncView(QtInteractor):
 
         super().mousePressEvent(event)
 
+    def keyPressEvent(self, event):
+        if event.key() == Qt.Key.Key_P:
+            self.is_picking = True
+
+        super().keyPressEvent(event)
+
+    def keyReleaseEvent(self, event):
+        if event.key() == Qt.Key.Key_P:
+            self.is_picking = False
+
+        super().keyReleaseEvent(event)
+
     def contextMenuEvent(self, event):
         self.view_xz()
         self.reset_camera()
         self.render()
+
+        if len(self.voxel_counts) > 0:
+            self.voxel_counts.sort()
+            print(self.voxel_counts[:10])
+            self.voxel_counts = []
 
 class SyncViewBox(QGroupBox):
     def __init__(self, size=(640, 640)):
