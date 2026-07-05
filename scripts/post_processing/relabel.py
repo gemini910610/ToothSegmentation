@@ -1,7 +1,7 @@
 import numpy
 
 from scipy import ndimage
-from scipy.interpolate import CubicSpline
+from scipy.interpolate import make_splprep
 
 from scripts.tools.widgets import Label
 
@@ -67,8 +67,9 @@ def sort_angle(tooth_list, center=None):
     if center is None:
         center = points.mean(0)
 
-    vectors = center - points
+    vectors = points - center
     angles = numpy.arctan2(*vectors.T)
+    angles = (angles + numpy.pi * 2) % (numpy.pi * 2)
     order = numpy.argsort(angles)
     return [tooth_list[index] for index in order]
 
@@ -79,8 +80,7 @@ def estimate_missing_points(points):
     differences = points[1:] - points[:-1]
     distances = numpy.linalg.norm(differences, axis=1)
 
-    t = numpy.concatenate([[0], numpy.cumsum(distances)])
-    curve = CubicSpline(t, points, bc_type='natural', axis=0)
+    curve, u = make_splprep([*points.T])
 
     missing_points = []
     threshold = numpy.median(distances)
@@ -89,17 +89,17 @@ def estimate_missing_points(points):
         if k < 1:
             continue
 
-        t_new = numpy.linspace(t[i], t[i+1], k + 2)[1:-1]
-        xy_new = curve(t_new)
+        u_new = numpy.linspace(u[i], u[i+1], k + 2)[1:-1]
+        x_new, y_new = curve(u_new)
 
-        for point in xy_new:
+        for point in zip(x_new, y_new):
             missing_points.append(numpy.array(point))
 
     return missing_points
 
 def split_left_right(points, default):
     if len(points) < 3:
-        return default
+        return default, []
 
     missing_points = estimate_missing_points(points)
     if len(missing_points) > 0:
@@ -113,7 +113,7 @@ def split_left_right(points, default):
 
     points = points[:k]
     center = numpy.median(points[:, 0])
-    return center
+    return center, missing_points
 
 def relabel_volume(tooth_volume, bone_volume):
     tooth_volume = tooth_volume.copy()
@@ -127,7 +127,7 @@ def relabel_volume(tooth_volume, bone_volume):
 
     for is_lower, tooth_list in enumerate((upper_tooth, lower_tooth)):
         points = numpy.array([tooth['center'][:2] for tooth in tooth_list])
-        center = split_left_right(points, tooth_volume.shape[0] / 2)
+        center, missing_points = split_left_right(points, tooth_volume.shape[0] / 2)
 
         for tooth in tooth_list:
             x = tooth['center'][0]
@@ -140,6 +140,20 @@ def relabel_volume(tooth_volume, bone_volume):
             )
             quadrants[quadrant].append(tooth)
 
+        for point in missing_points:
+            x = point[0]
+            is_left = x < center
+            quadrant = (
+                1 if not is_lower and is_left else
+                2 if not is_lower and not is_left else
+                3 if is_lower and not is_left else
+                4
+            )
+            quadrants[quadrant].append({
+                'label': None,
+                'center': point
+            })
+
     volume = numpy.zeros_like(tooth_volume, dtype=numpy.uint8)
     center = (volume.shape[0] / 2, volume.shape[1] / 2)
     for quadrant, tooth_list in quadrants.items():
@@ -150,6 +164,8 @@ def relabel_volume(tooth_volume, bone_volume):
         if quadrant in {2, 3}:
             tooth_list = tooth_list[::-1]
         for index, tooth in enumerate(tooth_list, 1):
+            if tooth['label'] is None:
+                continue
             volume[tooth['slices']][tooth['roi']] = quadrant * 10 + index
 
     volume[removed_mask] = removed_tooth

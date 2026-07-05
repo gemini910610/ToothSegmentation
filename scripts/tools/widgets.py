@@ -194,11 +194,16 @@ class SyncView(QtInteractor):
             self.view_xz()
             self.reset_camera()
 
-    def update_points(self, points):
+    def update_points(self, points, radius=1, render_settings=None):
+        if render_settings is None:
+            render_settings = {
+                'color': (0, 0, 0),
+                'opacity': 1
+            }
         data = PolyData(points)
-        sphere = Sphere(radius=1)
+        sphere = Sphere(radius=radius)
         mesh = data.glyph(orient=False, scale=False, geom=sphere)
-        self.add_mesh(mesh, color='black', name='cej points')
+        self.add_mesh(mesh, **render_settings)
 
     def mousePressEvent(self, event):
         if event.modifiers() & Qt.KeyboardModifier.AltModifier and event.button() == Qt.MouseButton.LeftButton:
