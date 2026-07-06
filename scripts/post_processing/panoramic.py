@@ -13,7 +13,7 @@ def synthetic_tooth(tooth_list, width):
         fake_tooth = copy.deepcopy(tooth_list[0])
         fake_tooth['center'][0] = width - fake_tooth['center'][0]
         tooth_list = [tooth_list[0], fake_tooth]
-        tooth_list.sort(key=lambda tooth: tooth['center'][0])
+        tooth_list.sort(key=lambda tooth: tooth['center'][0], reverse=True)
     left_x, left_y, left_z = tooth_list[0]['center']
     right_x, right_y, right_z = tooth_list[1]['center']
     center_x = (left_x + right_x) / 2
@@ -57,10 +57,15 @@ def extract_curve(tooth_list, width):
     normals = numpy.stack([-tangents[:, 1], tangents[:, 0]], axis=1)
     normals = normals / numpy.linalg.norm(normals, axis=1, keepdims=True)
 
-    return curve_points, normals
+    d1 = curve(uniform_u, 1).T
+    d2 = curve(uniform_u, 2).T
+    kappa = numpy.abs(d1[:, 0] * d2[:, 1] - d1[:, 1] * d2[:, 0]) / numpy.linalg.norm(d1, axis=1) ** 3
+    radius = 1 / kappa
+
+    return curve_points, normals, radius
 
 def sample_panoramic(image_volume, segmentation_volume, tooth_list):
-    curve_points, normals = extract_curve(tooth_list, segmentation_volume.shape[0])
+    curve_points, normals, radius = extract_curve(tooth_list, segmentation_volume.shape[0])
 
     min_z = min(tooth['slices'][2].start for tooth in tooth_list)
     max_z = max(tooth['slices'][2].stop for tooth in tooth_list)
@@ -71,6 +76,7 @@ def sample_panoramic(image_volume, segmentation_volume, tooth_list):
     widths = numpy.array([tooth['slices'][0].stop - tooth['slices'][0].start for tooth in tooth_list])
     heights = numpy.array([tooth['slices'][1].stop - tooth['slices'][1].start for tooth in tooth_list])
     horizontal = numpy.concatenate([widths, heights]).max()
+    horizontal = min(horizontal, int(2 * radius.min() * 0.9))
 
     image_panoramic = []
     segmentation_panoramic = []

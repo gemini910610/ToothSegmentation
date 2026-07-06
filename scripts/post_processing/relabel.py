@@ -80,7 +80,7 @@ def estimate_missing_points(points):
     differences = points[1:] - points[:-1]
     distances = numpy.linalg.norm(differences, axis=1)
 
-    curve, u = make_splprep([*points.T])
+    curve, u = make_splprep(points.T)
 
     missing_points = []
     threshold = numpy.median(distances)
