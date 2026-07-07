@@ -1,7 +1,7 @@
 import numpy
 
 from scipy import ndimage
-from scipy.interpolate import CubicSpline, RBFInterpolator
+from scipy.interpolate import make_splprep, RBFInterpolator
 
 from scripts.post_processing.relabel import split_teeth_jaw
 from scripts.tools.widgets import Label
@@ -147,13 +147,9 @@ def find_normal_vectors(segmentation_volume):
         center = points.mean(0)
         vectors = points - center
 
-        differences = points[1:] - points[:-1]
-        distances = numpy.linalg.norm(differences, axis=1)
+        curve, u = make_splprep(points.T)
 
-        t = numpy.concatenate([[0], numpy.cumsum(distances)])
-        curve = CubicSpline(t, points, bc_type='natural', axis=0)
-
-        tangents = curve(t, 1)
+        tangents = curve(u, 1).T
         normals = numpy.zeros_like(tangents)
         normals[:, 0] = tangents[:, 1]
         normals[:, 1] = -tangents[:, 0]
