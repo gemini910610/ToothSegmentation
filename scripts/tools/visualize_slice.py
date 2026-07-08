@@ -7,8 +7,8 @@ from PySide6.QtGui import QShortcut
 from PySide6.QtWidgets import QButtonGroup, QCheckBox, QComboBox, QHBoxLayout, QRadioButton
 
 from keypoint.predict import CEJFinder
-from scripts.post_processing.bone_loss import slice_bone_loss, slice_area_bone_loss
-from scripts.post_processing.tooth_slice import align_crop_tooth, extract_single_tooth, find_normal_vectors, get_slices, normalize_slice, restore_coordinates, split_volume
+from scripts.post_processing.bone_loss import restore_coordinates, slice_bone_loss, slice_area_bone_loss, split_volume
+from scripts.post_processing.tooth_slice import align_crop_tooth, extract_single_tooth, find_normal_vectors, get_slices, normalize_slice
 from scripts.tools.widgets import glasbey_palette, IconLabelSelector, ImageCell, ImageTable, Label, MainWindowUI, Mode, PatientSelector, SyncView, VolumeViewer
 
 class TopLayout(QHBoxLayout):
@@ -179,7 +179,7 @@ class MainWindow(MainWindowUI):
             box.setTitle(f'{title[:index+1]} {bone_loss}%/{area_bone_loss}%')
             self.area_masks.append(area_mask)
 
-        points = restore_coordinates(self.points, filtered_segmentation, aligned_segmentation.shape, transform_meta)
+        points = restore_coordinates(self.points, aligned_segmentation.shape, transform_meta)
         upper_volume, lower_volume = split_volume(points, filtered_segmentation, transform_meta)
         root_volume = upper_volume if label // 10 in {1, 2} else lower_volume
 
