@@ -60,6 +60,8 @@ def load_excel(filename):
             for title in ('Curve', 'Area')
         ]
     ]
+    if len(excel.columns) - len(columns) == 1:
+        columns.append('extra')
     if len(excel.columns) != len(columns):
         raise ValueError(f'Expected {len(columns)} columns, got {len(excel.columns)} in "{filename}"')
     excel.columns = columns

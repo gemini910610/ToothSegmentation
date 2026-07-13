@@ -370,7 +370,7 @@ class ClickableImage(QLabel):
 
         if self.right_point is not None:
             x, y = self.right_point
-            painter.setPen(QPen(Qt.GlobalColor.green, 3))
+            painter.setPen(QPen(Qt.GlobalColor.red, 3))
             painter.drawEllipse(x - 2, y - 2, 4, 4)
 
         painter.end()

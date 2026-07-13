@@ -49,35 +49,53 @@ if __name__ == '__main__':
     parser = ArgumentParser()
     parser.add_argument('exp', type=str)
     parser.add_argument('target', type=str)
+    parser.add_argument('--exclude', type=str, choices=['slice', 'tooth'])
+    parser.add_argument('--single-only', action='store_true')
     args = parser.parse_args()
 
     experiment_name = args.exp
     target = args.target
+    exclude = args.exclude
+    single_only = args.single_only
 
     excel = load_excel(f'bone_loss/{experiment_name}.xlsx')
+    if 'extra' in excel.columns:
+        excel = excel.drop(excel[~excel['extra'].isna()].index)
+        excel = excel.drop(columns='extra')
 
     with open(f'exclude/{experiment_name}.json') as file:
         excludes = json.load(file)
 
     indices = []
-    for dataset, patient, fdi in excludes['tooth']:
-        mask = (excel['Dataset'] == dataset) & (excel['Patient'] == patient) & (excel['FDI'] == fdi)
-        indices.extend(excel[mask].index)
+    if exclude is not None:
+        for dataset, patient, fdi, slices in excludes:
+            mask = (excel['Dataset'] == dataset) & (excel['Patient'] == patient) & (excel['FDI'] == fdi)
+            row = excel[mask]
+            if exclude == 'tooth':
+                indices.extend(row.index)
+                continue
+            if not mask.any():
+                continue
+            bone_losses = [
+                row[f'Curve {degree}°'].values[0]
+                for degree in range(0, 360, 45)
+                if degree not in slices
+            ]
+            mean_curve = sum(bone_losses) / len(bone_losses)
+            max_curve = max(bone_losses)
+            excel.loc[mask, ['Mean Curve', 'Max Curve']] = [mean_curve, max_curve]
+            bone_losses = [
+                row[f'Area {degree}°'].values[0]
+                for degree in range(0, 360, 45)
+                if degree not in slices
+            ]
+            mean_area = sum(bone_losses) / len(bone_losses)
+            max_area = max(bone_losses)
+            excel.loc[mask, ['Mean Area', 'Max Area']] = [mean_area, max_area]
     excel.drop(indices, inplace=True)
 
-    for dataset, patient, fdi, slices in excludes['slice']:
-        mask = (excel['Dataset'] == dataset) & (excel['Patient'] == patient) & (excel['FDI'] == fdi)
-        row = excel[mask]
-        if not mask.any():
-            continue
-        bone_losses = [
-            row[f'Curve {degree}°'].values[0]
-            for degree in range(0, 360, 45)
-            if degree not in slices
-        ]
-        mean_curve = sum(bone_losses) / len(bone_losses)
-        max_curve = max(bone_losses)
-        excel.loc[mask, ['Mean Curve', 'Max Curve']] = [mean_curve, max_curve]
+    if single_only:
+        excel = excel[~excel['FDI'].isin([14, 16, 17, 18, 24, 26, 27, 28, 36, 37, 38, 46, 47, 48])]
 
     excel = excel[['3D', '2D', 'Curve 0°', 'Area 0°', 'Mean Curve', 'Mean Area', 'Max Curve', 'Max Area']]
 

@@ -9,7 +9,7 @@ from PySide6.QtWidgets import QButtonGroup, QCheckBox, QComboBox, QHBoxLayout, Q
 from keypoint.predict import CEJFinder
 from scripts.post_processing.bone_loss import restore_coordinates, slice_bone_loss, slice_area_bone_loss, split_volume
 from scripts.post_processing.tooth_slice import align_crop_tooth, extract_single_tooth, find_normal_vectors, get_slices, normalize_slice
-from scripts.tools.widgets import glasbey_palette, IconLabelSelector, ImageCell, ImageTable, Label, MainWindowUI, Mode, PatientSelector, SyncView, VolumeViewer
+from scripts.tools.widgets import Color, glasbey_palette, IconLabelSelector, ImageCell, ImageTable, Label, MainWindowUI, Mode, PatientSelector, SyncView, VolumeViewer
 
 class TopLayout(QHBoxLayout):
     def __init__(self):
@@ -214,7 +214,7 @@ class MainWindow(MainWindowUI):
         slices = [cv2.cvtColor(slice_image, cv2.COLOR_GRAY2RGB) for slice_image in slices]
 
         if index == 0:
-            colors = numpy.array([(0, 0, 0), (95, 195, 255), (255, 170, 85)], dtype=numpy.uint8)
+            colors = numpy.array([(0, 0, 0), (70, 220, 70), Color.BONE], dtype=numpy.uint8)
             for display_slice, area_mask in zip(slices, self.area_masks):
                 mask = area_mask > 0
                 display_slice[mask] = colors[area_mask[mask]]
