@@ -75,6 +75,7 @@ class MainWindow(MainWindowUI):
         self.label_selector.currentIndexChanged.connect(self._on_label_changed)
         self.point_toggle.stateChanged.connect(lambda x: self._on_slice_changed(self.slice_selector.checkedId()))
         self.slice_selector.idClicked.connect(self._on_slice_changed)
+        self.volume_viewer.boxes[0].view.picked.connect(self._on_picked)
 
         shortcut_left = QShortcut(Qt.Key.Key_Left, self)
         shortcut_left.activated.connect(lambda: self._on_label_step(-1))
@@ -83,9 +84,8 @@ class MainWindow(MainWindowUI):
 
         self.fdi_volume = None
         self.image_volume = None
-        self.display_volume = None
         self.normal_vectors = None
-        self.previous_label_mask = None
+        self.previous_label = None
         self.slices = None
         self.points = None
         self.area_masks = None
@@ -94,16 +94,33 @@ class MainWindow(MainWindowUI):
             index = self.data_manager.patients.index(default_patient)
             self.patient_selector.setCurrentIndex(index)
 
+    def _on_picked(self, actor):
+        label = actor._label
+        index = self.label_selector.findData(label)
+        self.label_selector.setCurrentIndex(index)
+
     def _on_patient_changed(self, index):
         volumes = self.data_manager.load_data(index)
         self.fdi_volume = volumes[Mode.FDI]
         self.image_volume = volumes[Mode.IMAGE]
 
-        self.display_volume = numpy.select([
-            self.fdi_volume == 1,
-            (self.fdi_volume > 1) & (self.fdi_volume < Label.CROPPED),
-            (self.fdi_volume >= Label.MISSING_FDI)
-        ], [Label.BONE, Label.TOOTH, Label.TOOTH])
+        settings = {
+            1: {
+                'name': 'bone',
+                'color': Color.BONE,
+                'opacity': 0.5
+            },
+            **{
+                label: {
+                    'name': str(label),
+                    'color': Color.TOOTH,
+                    'opacity': 1 if label < Label.CROPPED else 0
+                }
+                for label in numpy.unique(self.fdi_volume)
+                if label > 1
+            }
+        }
+        self.volume_viewer.boxes[0].view.update_volume(self.fdi_volume, render_settings=settings)
 
         self.normal_vectors = find_normal_vectors(self.fdi_volume)
 
@@ -115,7 +132,7 @@ class MainWindow(MainWindowUI):
 
         self.label_selector.update_items(labels, self.fdi_volume.max(), -2)
 
-        self.previous_label_mask = None
+        self.previous_label = None
 
         if self.default_label is not None and self.default_label in labels:
             index = labels.tolist().index(self.default_label)
@@ -128,7 +145,7 @@ class MainWindow(MainWindowUI):
         self.default_label = None
 
     def _on_label_changed(self, index, reset=False):
-        if self.fdi_volume is None or self.image_volume is None or self.display_volume is None or self.normal_vectors is None:
+        if self.fdi_volume is None or self.image_volume is None or self.normal_vectors is None:
             return
 
         label = self.label_selector.current_label()
@@ -140,20 +157,11 @@ class MainWindow(MainWindowUI):
 
         self.volume_viewer.boxes[1].setTitle(f'Label {label}')
 
-        mask = self.fdi_volume == label
-        if self.previous_label_mask is not None:
-            self.display_volume[self.previous_label_mask] = Label.TOOTH
-        self.display_volume[mask] = 4
-        self.previous_label_mask = mask
-
+        if self.previous_label is not None:
+            self.volume_viewer.boxes[0].view.actors[str(self.previous_label)].prop.color = tuple(c / 255 for c in Color.TOOTH)
         palette = glasbey_palette(48)
-        render_settings = SyncView.get_settings()
-        render_settings[4] = {
-            'name': 'selected',
-            'color': palette[label-2],
-            'opacity': 1
-        }
-        self.volume_viewer.boxes[0].view.update_volume(self.display_volume, reset=reset, render_settings=render_settings)
+        self.volume_viewer.boxes[0].view.actors[str(label)].prop.color = tuple(c / 255 for c in palette[label-2])
+        self.previous_label = label
 
         origin_segmentation_slices = []
         segmentation_slices = []

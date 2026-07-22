@@ -49,9 +49,14 @@ class TopLayout(QHBoxLayout):
         return self.patient_selector, self.preview_button, self.clear_button, self.save_button
 
 class IconCheckboxTable(QGridLayout):
+    def __init__(self):
+        super().__init__()
+        self.checkboxes = {}
+
     def _clear(self):
         while self.count() > 0:
             self.takeAt(0).widget().deleteLater()
+        self.checkboxes.clear()
 
     def update_items(self, labels, index_offset):
         self._clear()
@@ -74,6 +79,7 @@ class IconCheckboxTable(QGridLayout):
             row = i // 2
             column = i % 2
             self.addWidget(checkbox, row, column)
+            self.checkboxes[int(label)] = checkbox
 
     def get_selected_label(self):
         return [
@@ -116,12 +122,18 @@ class MainWindow(MainWindowUI):
         self.preview_button.clicked.connect(self._on_preview)
         self.clear_button.clicked.connect(self._on_clear)
         self.save_button.clicked.connect(self._on_save)
+        self.volume_viewer.boxes[0].view.picked.connect(self._on_picking)
 
         self.volume = None
 
         if default_patient is not None:
             index = self.data_manager.patients.index(default_patient)
             self.patient_selector.setCurrentIndex(index)
+
+    def _on_picking(self, actor):
+        label = actor._label
+        checkbox = self.label_table.checkboxes[label]
+        checkbox.setChecked(True)
 
     def _on_patient_changed(self, index):
         self.volume = self.data_manager.load_data(index)[Mode.REFINE_SPLIT]

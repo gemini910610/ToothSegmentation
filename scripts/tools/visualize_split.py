@@ -54,6 +54,7 @@ class MainWindow(MainWindowUI):
         self.label_selector.currentIndexChanged.connect(self._on_label_changed)
         self.execute_button.clicked.connect(self._split_component)
         self.save_button.clicked.connect(self._on_save)
+        self.volume_viewer.boxes[0].view.picked.connect(self._on_picking)
 
         self.volume = None
         self.label_volume = None
@@ -61,6 +62,11 @@ class MainWindow(MainWindowUI):
         if default_patient is not None:
             index = self.data_manager.patients.index(default_patient)
             self.patient_selector.setCurrentIndex(index)
+
+    def _on_picking(self, actor):
+        label = actor._label
+        index = self.label_selector.findData(label)
+        self.label_selector.setCurrentIndex(index)
 
     def _on_patient_changed(self, index):
         volumes = self.data_manager.load_data(index)

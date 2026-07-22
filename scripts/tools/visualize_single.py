@@ -96,12 +96,18 @@ class MainWindow(MainWindowUI):
 
         self.label_selector.currentIndexChanged.connect(self._on_label_changed)
         self.save_button.clicked.connect(self._on_save)
+        self.volume_viewer.boxes[0].view.picked.connect(self._on_picked)
 
         self.volume = None
 
         if default_patient is not None:
             index = self.data_manager.patients.index(default_patient)
             self.patient_selector.setCurrentIndex(index)
+
+    def _on_picked(self, actor):
+        label = actor._label
+        index = self.label_selector.findData(label)
+        self.label_selector.setCurrentIndex(index)
 
     def _on_patient_changed(self, index):
         volumes = self.data_manager.load_data(index)
