@@ -11,9 +11,9 @@ from keypoint.models import KeypointModel
 from src.console import Table, track
 
 class Trainer:
-    def __init__(self, experiment_name):
-        self.log_dir = os.path.join('logs', experiment_name)
-        self.train_loader, self.valid_loader = get_loader('datasets/slices')
+    def __init__(self, experiment_name, fold):
+        self.log_dir = os.path.join('logs', experiment_name, f'Fold_{fold}')
+        self.train_loader, self.valid_loader = get_loader('datasets/slices', fold)
         self.model = KeypointModel().cuda()
         self.optimizer = torch.optim.Adam(self.model.parameters(), lr=1e-4)
         self.criterion = torch.nn.SmoothL1Loss().cuda()

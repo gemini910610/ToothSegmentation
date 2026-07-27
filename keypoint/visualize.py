@@ -51,9 +51,9 @@ class BottomLayout(QHBoxLayout):
         return self.image_table
 
 class MainWindow(MainWindowUI):
-    def __init__(self, experiment_name):
+    def __init__(self, experiment_name, fold):
         super().__init__(TopLayout, BottomLayout)
-        self.cej_finder = CEJFinder(f'logs/{experiment_name}/best.pth')
+        self.cej_finder = CEJFinder(f'logs/{experiment_name}/Fold_{fold}/best.pth')
 
         self.setWindowTitle(experiment_name)
 
@@ -160,13 +160,15 @@ if __name__ == '__main__':
 
     parser = ArgumentParser()
     parser.add_argument('exp', type=str)
+    parser.add_argument('--fold', type=int, choices=list(range(1, 5)), required=True)
     args = parser.parse_args()
 
     experiment_name = args.exp
+    fold = args.fold
 
     app = QApplication([])
 
-    window = MainWindow(experiment_name)
+    window = MainWindow(experiment_name, fold)
 
     window.show()
 

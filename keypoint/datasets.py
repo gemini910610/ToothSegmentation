@@ -3,7 +3,6 @@ import json
 import os
 import torch
 
-from sklearn.model_selection import GroupShuffleSplit
 from torch.utils.data import DataLoader, Dataset
 from torchvision import transforms
 
@@ -11,7 +10,7 @@ class KeypointDataset(Dataset):
     def __init__(self, dataset_dir, patients):
         self.dataset_dir = dataset_dir
 
-        with open(os.path.join(dataset_dir, 'points_refine.json')) as file:
+        with open(os.path.join(dataset_dir, 'points.json')) as file:
             data = json.load(file)
 
         self.points = []
@@ -49,19 +48,20 @@ class KeypointDataset(Dataset):
         image = image.unsqueeze(0)
         return image
 
-def get_loader(dataset_dir):
-    with open(f'{dataset_dir}/points_refine.json') as file:
-        data = json.load(file)
+def get_fold(fold_id):
+    with open('splits/points.json') as file:
+        folds = json.load(file)
+    train_patients = []
+    valid_patients = []
+    for fold, patients in folds.items():
+        patient_list = valid_patients if str(fold_id) == fold else train_patients
+        patient_list.extend(patients)
+    train_patients = sorted(train_patients, key=lambda x: (x.split('/')[0], int(x.split('/')[1][5:])))
+    valid_patients = sorted(valid_patients, key=lambda x: (x.split('/')[0], int(x.split('/')[1][5:])))
+    return train_patients, valid_patients
 
-    groups = []
-    for patient, labels in data.items():
-        groups.extend([patient] * len(labels))
-    splitter = GroupShuffleSplit(test_size=0.2, random_state=42)
-    for train_indices, valid_indices in splitter.split(groups, groups=groups):
-        break
-
-    train_patients = sorted({groups[index] for index in train_indices}, key=lambda x: (x.split('/')[0], int(x.split('/')[1][5:])))
-    valid_patients = sorted({groups[index] for index in valid_indices}, key=lambda x: (x.split('/')[0], int(x.split('/')[1][5:])))
+def get_loader(dataset_dir, fold):
+    train_patients, valid_patients = get_fold(fold)
 
     train_dataset = KeypointDataset(dataset_dir, train_patients)
     valid_dataset = KeypointDataset(dataset_dir, valid_patients)
@@ -78,7 +78,7 @@ def get_loader(dataset_dir):
 if __name__ == '__main__':
     from src.console import Table
 
-    train_loader, valid_loader = get_loader('datasets/slices')
+    train_loader, valid_loader = get_loader('datasets/slices', 1)
 
     for images, points, origin_sizes in train_loader:
         break
