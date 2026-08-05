@@ -97,7 +97,7 @@ if __name__ == '__main__':
     if single_only:
         excel = excel[~excel['FDI'].isin([14, 16, 17, 18, 24, 26, 27, 28, 36, 37, 38, 46, 47, 48])]
 
-    excel = excel[['3D', '2D', 'Curve 0°', 'Area 0°', 'Mean Curve', 'Mean Area', 'Max Curve', 'Max Area']]
+    excel = excel[['3D', '2D', 'Mean Curve', 'Mean Area', 'Max Curve', 'Max Area']]
 
     error_values = {
         f'| {target} - X |': []

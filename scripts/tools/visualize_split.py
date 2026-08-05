@@ -120,7 +120,7 @@ class MainWindow(MainWindowUI):
         if patient == '' or label is None:
             return
 
-        path = os.path.join('split', f'{self.loader.data_manager.experiment_name}.json')
+        path = os.path.join('split', f'{self.data_manager.experiment_name}.json')
         with JsonHandler(path, SplitDataHandler) as handler:
             handler.set_data(patient, str(label), cluster)
 

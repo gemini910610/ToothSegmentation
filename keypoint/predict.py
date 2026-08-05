@@ -1,7 +1,7 @@
+import cv2
 import numpy
 import torch
 
-from scipy import ndimage
 from torchvision import transforms
 
 from keypoint.models import KeypointModel
@@ -43,12 +43,10 @@ class CEJFinder:
         return points
 
     def _move_to_surface(self, segmentation_slice, left_x, left_y, right_x, right_y):
-        tooth_area = segmentation_slice == Label.TOOTH
-        tooth_area = ndimage.binary_fill_holes(tooth_area)
-        structure = ndimage.generate_binary_structure(2, 1)
-        erosion = ndimage.binary_erosion(tooth_area, structure)
-        tooth_surface = tooth_area & ~erosion
-        ys, xs = numpy.where(tooth_surface)
+        tooth_area = (segmentation_slice == Label.TOOTH).astype(numpy.uint8)
+        contours, _ = cv2.findContours(tooth_area, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
+        points = numpy.concatenate(contours)[:, 0]
+        xs, ys = points.T
 
         distances = (xs - left_x) ** 2 + (ys - left_y) ** 2
         index = numpy.argmin(distances)

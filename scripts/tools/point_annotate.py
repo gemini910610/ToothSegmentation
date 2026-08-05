@@ -73,12 +73,16 @@ class MainWindow(MainWindowUI):
     def _on_label_changed(self, index):
         patient = self.patient_selector.currentText()
         label = self.label_selector.current_label()
-        image_folder = os.path.join(self.slice_folder, patient, label)
+        image_folder = os.path.join(self.slice_folder, patient, str(label))
         slices = []
         for degree in range(0, 180, 45):
-            image = cv2.imread(os.path.join(image_folder, f'image_{degree}.png'))
-            low = image.min()
-            high = image.max()
+            image = cv2.imread(os.path.join(image_folder, f'image_{degree}.png'), cv2.IMREAD_GRAYSCALE)
+            mask = cv2.imread(os.path.join(image_folder, f'segmentation_{degree}.png'), cv2.IMREAD_GRAYSCALE)
+
+            foreground = image[mask == 127]
+            foreground = foreground[foreground > 0]
+            low, high = numpy.quantile(foreground, [0.05, 0.95])
+            image = image.clip(low, high)
             image = (image - low) / (high - low)
             image = (image * 255).astype(numpy.uint8)
             slices.append(image)
@@ -87,7 +91,7 @@ class MainWindow(MainWindowUI):
         with JsonHandler(f'{self.slice_folder}/points.json', KeypointHandler) as handler:
             for i, box in enumerate(self.image_table.boxes):
                 degree = i * 45
-                points = handler.find(patient, label, str(degree))
+                points = handler.find(patient, str(label), str(degree))
                 if points is None:
                     continue
                 box.image.left_point = [point * size for point, size in zip(points[0], box.image.size)]
