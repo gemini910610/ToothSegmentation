@@ -30,8 +30,7 @@ lr = 1e-4
 
 # Loss Function
 [loss]
-name = "MultipleLoss"
-main_loss = "Total Loss"
+name = "DiceCELoss"
 
 [loss.parameters]
 num_classes = 3
@@ -42,5 +41,3 @@ name = "mIoU"
 
 [metric.parameters]
 num_classes = 3
-class_names = ["Tooth", "Bone"]
-monitor = "mIoU"
