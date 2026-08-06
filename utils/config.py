@@ -1,10 +1,11 @@
 import tomllib
-import torch
 
+import torch
 from omegaconf import MISSING, OmegaConf
 
-def load_config(load_path):
-    with open(load_path, 'rb') as file:
+
+def load_config(config_path):
+    with open(config_path, 'rb') as file:
         content = tomllib.load(file)
 
     config = OmegaConf.create(content)
@@ -18,11 +19,11 @@ def load_config(load_path):
     return config
 
 if __name__ == '__main__':
-    import os
+    from pathlib import Path
 
     from omegaconf.dictconfig import DictConfig
 
-    from refactor.src.console import Table
+    from utils.console import Table
 
     def get_items(config, prefix=''):
         for key, value in config.items():
@@ -32,9 +33,9 @@ if __name__ == '__main__':
             else:
                 yield key, value
 
-    config = load_config('configs/config.toml')
+    config = load_config('configs/segmentation.toml')
     config.fold = 1
-    config.split_file_path = os.path.join('splits', f'{config.split_filename}.json')
+    config.split_file_path = Path('splits') / f'{config.split_filename}.json'
 
     Table(
         ['Parameter', 'Value'],

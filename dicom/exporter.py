@@ -1,6 +1,7 @@
 import cv2
 import SimpleITK
 
+
 def save_volume(volume, output_dir):
     output_dir.mkdir(parents=True)
     volume = SimpleITK.GetArrayFromImage(volume)

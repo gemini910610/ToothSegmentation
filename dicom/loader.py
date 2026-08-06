@@ -1,6 +1,7 @@
 import pydicom
 import SimpleITK
 
+
 def collect_patients(root_dir):
     patients = {}
     for file in root_dir.rglob('*.dcm'):

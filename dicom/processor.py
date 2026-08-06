@@ -1,6 +1,7 @@
 import numpy
 import SimpleITK
 
+
 def normalize_volume(volume, min_value=-1000, max_value=4500):
     volume = SimpleITK.IntensityWindowing(volume, min_value, max_value) # [min_value, max_value] -> [0, 255]
     volume = SimpleITK.Cast(volume, SimpleITK.sitkUInt8)

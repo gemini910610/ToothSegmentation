@@ -1,7 +1,17 @@
 import torch
-
-from rich.progress import BarColumn, DownloadColumn, MofNCompleteColumn, Progress, ProgressColumn, TextColumn, TimeElapsedColumn, TimeRemainingColumn, TransferSpeedColumn
+from rich.progress import (
+    BarColumn,
+    DownloadColumn,
+    MofNCompleteColumn,
+    Progress,
+    ProgressColumn,
+    TextColumn,
+    TimeElapsedColumn,
+    TimeRemainingColumn,
+    TransferSpeedColumn,
+)
 from rich.text import Text
+
 
 class SpeedColumn(TransferSpeedColumn):
     def render(self, task):
