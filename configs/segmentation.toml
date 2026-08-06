@@ -1,16 +1,17 @@
 # System and Experiment
-experiment = "UNet_baseline"
+experiment = "Segmentation"
 seed = 42
 num_workers = 4
 
 # Data Configuration
-datasets = ["bone_tooth_mask"]
-split_filename = "bone_tooth_mask"
+dataset_root = "datasets"
+datasets = ["bone_tooth_mask", "bone_tooth_mask_1209"]
+split_filename = "segmentation"
 num_folds = 4
-batch_size = 16
 
 # Training Settings
 num_epochs = 50
+batch_size = 16
 
 # Model Architecture
 [model]

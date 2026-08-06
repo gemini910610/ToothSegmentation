@@ -22,7 +22,6 @@ def group_data(config):
                 for image in folder.iterdir()
                 if image.suffix == '.png'
             ]
-            # groups.extend([f'{dataset}/{folder.stem}'] * len(images))
             groups.extend([Path(dataset) / folder.stem] * len(images))
 
     return patients, groups

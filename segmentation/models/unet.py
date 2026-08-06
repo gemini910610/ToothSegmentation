@@ -1,7 +1,6 @@
 import torch
-
 from torch import nn
-from torch.nn.functional import interpolate
+
 
 class Block(nn.Module):
     def __init__(self, in_channels, out_channels):
@@ -55,69 +54,33 @@ class Decoder(nn.Module):
 
     def forward(self, x, encoder_features):
         features = encoder_features[::-1]
-        output_features = []
         for feature, upsample, block in zip(features, self.upsample, self.blocks):
             x = upsample(x)
             x = torch.cat([feature, x], dim=1)
             x = block(x)
-            output_features.append(x)
-        return output_features
+        return x
 
-class DeepSupervisionHead(nn.Module):
-    def __init__(self, channels, num_classes):
-        super().__init__()
-        self.side_classification = nn.ModuleList([
-            nn.Conv2d(channel, num_classes, 1)
-            for channel in channels
-        ])
-        self.fuse_classification = nn.Conv2d(num_classes * len(channels), num_classes, 1)
-
-    def forward(self, *xs):
-        side_outputs = []
-        target_size = xs[-1].shape[2:]
-        for x, side_classification in zip(xs, self.side_classification):
-            x = side_classification(x)
-            x = interpolate(x, target_size, mode='bilinear')
-            side_outputs.append(x)
-        side_outputs = side_outputs[::-1]
-        x = torch.cat(side_outputs, dim=1)
-        fuse_output = self.fuse_classification(x)
-        return fuse_output, *side_outputs
-
-class DeepUNet(nn.Module):
+class UNet(nn.Module):
     def __init__(self, in_channels, num_classes):
         super().__init__()
         self.encoder = Encoder(in_channels)
         self.bottleneck = Block(512, 1024)
         self.decoder = Decoder()
-        self.head = DeepSupervisionHead([1024, 512, 256, 128, 64], num_classes)
+        self.classification = nn.Conv2d(64, num_classes, 1)
 
     def forward(self, x):
         x, encoder_features = self.encoder(x)
         x = self.bottleneck(x)
-        outputs = self.decoder(x, encoder_features)
-        outputs = self.head(x, *outputs)
-        return outputs
+        x = self.decoder(x, encoder_features)
+        x = self.classification(x)
+        return x
 
 if __name__ == '__main__':
-    from refactor.src.config import load_config
-    from refactor.src.console import Table
+    model = UNet(1, 3).cuda()
 
-    config = load_config('configs/deep_unet.toml')
+    images = torch.zeros(16, 1, 640, 640, device='cuda')
 
-    model = DeepUNet(**config.model.parameters).to(config.device)
-
-    images = torch.zeros(config.batch_size, 1, 640, 640, device=config.device)
-
-    with torch.autocast(config.device):
+    with torch.autocast('cuda'):
         predicts = model(images)
 
-    Table(
-        ['Item', 'Shape'],
-        ['Input', images.shape],
-        ['Output Fusion', predicts[0].shape],
-        *[
-            [f'Output {i}', predict.shape]
-            for i, predict in enumerate(predicts[1:], start=1)
-        ]
-    ).display()
+    print(f'{tuple(images.shape)} --{model.__class__.__name__}-> {tuple(predicts.shape)}')

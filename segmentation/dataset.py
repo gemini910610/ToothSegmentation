@@ -53,6 +53,7 @@ class CBCTDataset(Dataset):
         mask = CBCTDataset.load_mask(mask_path)
         return image, mask
 
+    @staticmethod
     def load_image(image_path):
         image = cv2.imread(image_path, cv2.IMREAD_GRAYSCALE)
         image = torch.from_numpy(image)
@@ -60,6 +61,7 @@ class CBCTDataset(Dataset):
         image = image.unsqueeze(0)
         return image
 
+    @staticmethod
     def load_mask(mask_path):
         mask = cv2.imread(mask_path, cv2.IMREAD_GRAYSCALE)
         mask = torch.from_numpy(mask)
@@ -100,7 +102,7 @@ if __name__ == '__main__':
     from utils.config import load_config
     from utils.console import Table
 
-    config = load_config('configs/segmentation.toml')
+    config = load_config(Path('configs') / 'segmentation.toml')
     config.fold = 1
     config.split_file_path = Path('splits') / f'{config.split_filename}.json'
 

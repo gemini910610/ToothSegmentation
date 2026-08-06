@@ -33,7 +33,7 @@ if __name__ == '__main__':
             else:
                 yield key, value
 
-    config = load_config('configs/segmentation.toml')
+    config = load_config(Path('configs') / 'segmentation.toml')
     config.fold = 1
     config.split_file_path = Path('splits') / f'{config.split_filename}.json'
 
