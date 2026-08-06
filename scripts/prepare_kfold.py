@@ -37,7 +37,10 @@ folds = {}
 
 with Table(['Fold', 'Train', 'Valid']) as table:
     for fold, (train_indices, valid_indices) in enumerate(splits, 1):
-        valid_patients = {tuple(groups[index].split('/')) for index in valid_indices}
+        valid_patients = {
+            (str(groups[index].parent), groups[index].stem)
+            for index in valid_indices
+        }
         valid_patients = sorted(valid_patients)
         folds[str(fold)] = defaultdict(list)
         for dataset, patient in valid_patients:

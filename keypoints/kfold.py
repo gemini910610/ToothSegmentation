@@ -15,6 +15,6 @@ def group_data(config):
             len(label_data)
             for label_data in patient_data.values()
         )
-        groups.extend([patient] * count)
+        groups.extend([Path(patient)] * count)
 
     return patients, groups

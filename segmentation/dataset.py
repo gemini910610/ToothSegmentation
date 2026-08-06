@@ -1,0 +1,128 @@
+import json
+from collections import defaultdict
+from pathlib import Path
+
+import cv2
+import torch
+from torch.utils.data import ConcatDataset, DataLoader, Dataset
+
+
+def get_fold(split_file_path, fold_id):
+    with open(split_file_path, encoding='utf-8') as file:
+        folds = json.load(file)
+
+    train_dataset_patients = defaultdict(list)
+    valid_dataset_patients = defaultdict(list)
+    for fold, dataset_patients in folds.items():
+        patient_list = valid_dataset_patients if str(fold_id) == fold else train_dataset_patients
+        for dataset, patients in dataset_patients.items():
+            patient_list[dataset].extend(patients)
+
+    train_dataset_patients = {
+        dataset: sorted(patients)
+        for dataset, patients in train_dataset_patients.items()
+    }
+    valid_dataset_patients = {
+        dataset: sorted(patients)
+        for dataset, patients in valid_dataset_patients.items()
+    }
+
+    return train_dataset_patients, valid_dataset_patients
+
+class CBCTDataset(Dataset):
+    def __init__(self, dataset_dir, patients):
+        self.dataset_dir = dataset_dir
+
+        self.filenames = []
+        for patient in patients:
+            folder_path = self.dataset_dir / 'mask' / patient
+            file_paths = folder_path.iterdir()
+            file_paths = sorted(file_paths, key=lambda x: int(x.stem))
+            self.filenames.extend([Path(patient) / file_path.name for file_path in file_paths])
+
+        self.length = len(self.filenames)
+
+    def __len__(self):
+        return self.length
+
+    def __getitem__(self, index):
+        filename = self.filenames[index]
+        image_path = self.dataset_dir / 'image' / filename
+        image = CBCTDataset.load_image(image_path)
+        mask_path = self.dataset_dir / 'mask' / filename
+        mask = CBCTDataset.load_mask(mask_path)
+        return image, mask
+
+    def load_image(image_path):
+        image = cv2.imread(image_path, cv2.IMREAD_GRAYSCALE)
+        image = torch.from_numpy(image)
+        image = image / 255
+        image = image.unsqueeze(0)
+        return image
+
+    def load_mask(mask_path):
+        mask = cv2.imread(mask_path, cv2.IMREAD_GRAYSCALE)
+        mask = torch.from_numpy(mask)
+        mask = mask.long()
+        return mask
+
+def get_loader(config):
+    train_dataset_patients, valid_dataset_patients = get_fold(config.split_file_path, config.fold)
+
+    train_datasets = []
+    valid_datasets = []
+    for dataset in config.datasets:
+        train_patients = train_dataset_patients[dataset]
+        valid_patients = valid_dataset_patients[dataset]
+
+        dataset_dir = Path('datasets') / dataset
+
+        train_dataset = CBCTDataset(dataset_dir, train_patients)
+        valid_dataset = CBCTDataset(dataset_dir, valid_patients)
+
+        train_datasets.append(train_dataset)
+        valid_datasets.append(valid_dataset)
+
+    train_dataset = ConcatDataset(train_datasets)
+    valid_dataset = ConcatDataset(valid_datasets)
+
+    loader_parameters = {
+        'batch_size': config.batch_size,
+        'num_workers': config.num_workers,
+        'pin_memory': True
+    }
+    train_loader = DataLoader(train_dataset, shuffle=True, **loader_parameters)
+    valid_loader = DataLoader(valid_dataset, shuffle=False, **loader_parameters)
+
+    return train_loader, valid_loader
+
+if __name__ == '__main__':
+    from utils.config import load_config
+    from utils.console import Table
+
+    config = load_config('configs/segmentation.toml')
+    config.fold = 1
+    config.split_file_path = Path('splits') / f'{config.split_filename}.json'
+
+    train_loader, valid_loader = get_loader(config)
+
+    for images, masks in train_loader:
+        break
+
+    print('  Train Dataset')
+    Table(
+        ['Item', 'Shape', 'Range', 'Type'],
+        ['image', images.shape, f'{images.min():.4f} ~ {images.max():.4f}', images.dtype],
+        ['mask', masks.shape, f'{masks.min()} ~ {masks.max()}', masks.dtype]
+    ).display()
+
+    for images, masks in valid_loader:
+        break
+
+    print('  Valid Dataset')
+    Table(
+        ['Item', 'Shape', 'Range', 'Type'],
+        ['image', images.shape, f'{images.min():.4f} ~ {images.max():.4f}', images.dtype],
+        ['mask', masks.shape, f'{masks.min()} ~ {masks.max()}', masks.dtype]
+    ).display()
+

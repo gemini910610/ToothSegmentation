@@ -16,12 +16,13 @@ def group_data(config):
         folders.sort()
 
         for folder in folders:
-            patients.append(folder.name)
+            patients.append(folder.stem)
             images = [
                 image
                 for image in folder.iterdir()
                 if image.suffix == '.png'
             ]
-            groups.extend([f'{dataset}/{folder.name}'] * len(images))
+            # groups.extend([f'{dataset}/{folder.stem}'] * len(images))
+            groups.extend([Path(dataset) / folder.stem] * len(images))
 
     return patients, groups
