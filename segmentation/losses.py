@@ -53,7 +53,6 @@ if __name__ == '__main__':
 
     from utils.console import Table
 
-
     criterion = DiceCELoss(3).cuda()
 
     predicts = torch.randn(16, 3, 640, 640, device='cuda')
