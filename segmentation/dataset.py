@@ -102,9 +102,7 @@ if __name__ == '__main__':
     from utils.config import load_config
     from utils.console import Table
 
-    config = load_config(Path('configs') / 'segmentation.toml')
-    config.fold = 1
-    config.split_file_path = Path('splits') / f'{config.split_filename}.json'
+    config = load_config(Path('configs') / 'segmentation.toml', fold=1)
 
     train_loader, valid_loader = get_loader(config)
 

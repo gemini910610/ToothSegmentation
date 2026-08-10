@@ -1,17 +1,18 @@
 import tomllib
+from pathlib import Path
 
 import torch
 from omegaconf import MISSING, OmegaConf
 
 
-def load_config(config_path):
+def load_config(config_path, fold=MISSING):
     with open(config_path, 'rb') as file:
         content = tomllib.load(file)
 
     config = OmegaConf.create(content)
 
-    config.fold = MISSING
-    config.split_file_path = MISSING
+    config.fold = fold
+    config.split_file_path = Path('splits') / f'{config.split_filename}.json'
     config.device = 'cuda' if torch.cuda.is_available() else 'cpu'
 
     OmegaConf.set_struct(config, True)
@@ -19,8 +20,6 @@ def load_config(config_path):
     return config
 
 if __name__ == '__main__':
-    from pathlib import Path
-
     from omegaconf.dictconfig import DictConfig
 
     from utils.console import Table
@@ -33,9 +32,7 @@ if __name__ == '__main__':
             else:
                 yield key, value
 
-    config = load_config(Path('configs') / 'segmentation.toml')
-    config.fold = 1
-    config.split_file_path = Path('splits') / f'{config.split_filename}.json'
+    config = load_config(Path('configs') / 'segmentation.toml', fold=1)
 
     Table(
         ['Parameter', 'Value'],

@@ -1,0 +1,34 @@
+from pathlib import Path
+
+from utils.config import load_config
+from utils.console import Table
+
+
+def train(task, fold):
+    config = load_config(Path('configs') / f'{task}.toml', fold)
+
+    match task:
+        case 'segmentation':
+            from segmentation.trainer import Trainer
+
+    Table(
+        ['Argument', 'Value'],
+        ['task', task],
+        ['fold', config.fold]
+    ).display()
+
+    trainer = Trainer(config)
+    trainer.fit(config.num_epochs)
+
+if __name__ == '__main__':
+    from argparse import ArgumentParser
+
+    parser = ArgumentParser()
+    parser.add_argument('task', type=str, choices=['segmentation', 'keypoints'])
+    parser.add_argument('fold', type=int)
+    args = parser.parse_args()
+
+    task = args.task
+    fold = args.fold
+
+    train(task, fold)
