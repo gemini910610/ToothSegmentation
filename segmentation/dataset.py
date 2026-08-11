@@ -30,12 +30,13 @@ def get_fold(split_file_path, fold_id):
     return train_dataset_patients, valid_dataset_patients
 
 class CBCTDataset(Dataset):
-    def __init__(self, dataset_dir, patients):
+    def __init__(self, dataset_dir, patients, return_mask=True):
         self.dataset_dir = dataset_dir
+        self.return_mask = return_mask
 
         self.filenames = []
         for patient in patients:
-            folder_path = self.dataset_dir / 'mask' / patient
+            folder_path = self.dataset_dir / ('mask' if return_mask else 'image') / patient
             file_paths = folder_path.iterdir()
             file_paths = sorted(file_paths, key=lambda x: int(x.stem))
             self.filenames.extend([Path(patient) / file_path.name for file_path in file_paths])
@@ -49,6 +50,9 @@ class CBCTDataset(Dataset):
         filename = self.filenames[index]
         image_path = self.dataset_dir / 'image' / filename
         image = CBCTDataset.load_image(image_path)
+        if not self.return_mask:
+            return image
+
         mask_path = self.dataset_dir / 'mask' / filename
         mask = CBCTDataset.load_mask(mask_path)
         return image, mask
