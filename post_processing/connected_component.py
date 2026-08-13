@@ -18,7 +18,7 @@ def relabel(volume):
 def remove_outlier(volume):
     component_count = volume.max()
 
-    objects = ndimage.find_objects(volume, max_label=component_count)
+    objects = ndimage.find_objects(volume)
 
     valid_labels = []
     centroids = []
