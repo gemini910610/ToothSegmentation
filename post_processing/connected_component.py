@@ -12,6 +12,7 @@ def relabel(volume):
     lookup_table = numpy.zeros(labels.max() + 1, dtype=numpy.uint8)
     lookup_table[labels] = numpy.arange(2, len(labels) + 2, dtype=numpy.uint8)
     volume = lookup_table[volume]
+
     return volume
 
 def remove_outlier(volume):
@@ -66,6 +67,7 @@ def filter_connected_component(volume, is_bone=False, voxel_threshold=0):
         roi.volume = remove_outlier(volume)
 
     volume = roi.restore()
+
     return volume
 
 if __name__ == '__main__':
@@ -91,6 +93,7 @@ if __name__ == '__main__':
     for dataset, patient in iterate_datasets(experiment_name, datasets):
         volume_path = Path('outputs') / experiment_name / dataset / patient / f'{Mode.PREDICT}.npy'
         volume = numpy.load(volume_path)
+
         volume = volume == target
         volume = filter_connected_component(volume, target == Label.BONE, voxel_threshold)
 

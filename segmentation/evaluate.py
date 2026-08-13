@@ -21,6 +21,7 @@ class Evaluator:
         with torch.autocast(self.device):
             predicts = model(images)
             loss = self.criterion(predicts, masks)
+
         return predicts, loss
 
     def _run_loader(self, model, loader, desc):

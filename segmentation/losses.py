@@ -26,6 +26,7 @@ class DiceLoss(nn.Module):
 
         dice_loss = 1 - (2 * intersection + 1e-6) / (predict_area + target_area + 1e-6)
         dice_loss = dice_loss.mean()
+
         return dice_loss
 
 class DiceCELoss(nn.Module):
@@ -39,6 +40,7 @@ class DiceCELoss(nn.Module):
         dice_loss = self.dice_loss(predicts, targets)
         cross_entropy_loss = self.cross_entropy_loss(predicts, targets)
         loss = 0.5 * dice_loss + 0.5 * cross_entropy_loss
+
         return loss
 
 LOSSES = {

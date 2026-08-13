@@ -31,6 +31,7 @@ class Trainer:
         with torch.autocast(self.device):
             predicts = self.model(images)
             loss = self.criterion(predicts, masks)
+
         return predicts, loss
 
     def _run_loader(self, loader, desc, train=True):

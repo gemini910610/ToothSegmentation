@@ -34,6 +34,7 @@ class Encoder(nn.Module):
             x = block(x)
             features.append(x)
             x = self.downsample(x)
+
         return x, features
 
 class Decoder(nn.Module):
@@ -58,6 +59,7 @@ class Decoder(nn.Module):
             x = upsample(x)
             x = torch.cat([feature, x], dim=1)
             x = block(x)
+
         return x
 
 class UNet(nn.Module):
@@ -73,6 +75,7 @@ class UNet(nn.Module):
         x = self.bottleneck(x)
         x = self.decoder(x, encoder_features)
         x = self.classification(x)
+
         return x
 
 if __name__ == '__main__':

@@ -50,11 +50,13 @@ class CBCTDataset(Dataset):
         filename = self.filenames[index]
         image_path = self.dataset_dir / 'image' / filename
         image = CBCTDataset.load_image(image_path)
+
         if not self.return_mask:
             return image
 
         mask_path = self.dataset_dir / 'mask' / filename
         mask = CBCTDataset.load_mask(mask_path)
+
         return image, mask
 
     @staticmethod
@@ -63,6 +65,7 @@ class CBCTDataset(Dataset):
         image = torch.from_numpy(image)
         image = image / 255
         image = image.unsqueeze(0)
+
         return image
 
     @staticmethod
@@ -70,6 +73,7 @@ class CBCTDataset(Dataset):
         mask = cv2.imread(mask_path, cv2.IMREAD_GRAYSCALE)
         mask = torch.from_numpy(mask)
         mask = mask.long()
+
         return mask
 
 def get_loader(config):

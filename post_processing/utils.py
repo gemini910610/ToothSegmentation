@@ -21,6 +21,7 @@ class ROIVolume:
     def restore(self):
         origin_volume = numpy.zeros(self.origin_shape, dtype=numpy.uint8)
         origin_volume[self.slices] = self.volume
+
         return origin_volume
 
 def iterate_datasets(experiment_name, datasets):

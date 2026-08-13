@@ -16,6 +16,7 @@ from rich.text import Text
 class SpeedColumn(TransferSpeedColumn):
     def render(self, task):
         transfer_speed = super().render(task)
+
         return Text.assemble(
             Text('( ', 'dim'),
             transfer_speed,
@@ -31,6 +32,7 @@ class RuntimeColumn(ProgressColumn):
     def render(self, task):
         elapsed = self.elapsed.render(task)
         remaining = self.remaining.render(task)
+
         return Text.assemble(
             Text('[ ', 'dim'),
             elapsed,
@@ -85,10 +87,13 @@ class Table:
     def _convert_str(self, data):
         if isinstance(data, torch.Size):
             return str(tuple(data))
+
         if isinstance(data, (float, torch.Tensor)):
             return f'{data:.6f}'
+
         if not isinstance(data, str):
             return str(data)
+
         return data
 
     def _display_line(self, tokens, widths):
@@ -119,4 +124,5 @@ class Table:
     def __exit__(self, exc_type, exc, tb):
         if exc_type is None:
             self.display()
+
         return False

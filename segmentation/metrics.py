@@ -16,6 +16,7 @@ class mIoU(Module):
     def compute_reset(self):
         metric = self.metric_fn.compute()
         self.metric_fn.reset()
+
         return metric
 
 METRICS = {

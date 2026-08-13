@@ -14,7 +14,9 @@ def collect_patients(root_dir):
             patient_id = dcm.PatientID
         except pydicom.errors.InvalidDicomError:
             continue
+
         patients[parent] = patient_id
+
     return patients
 
 def load_volume(volume_dir):
@@ -31,4 +33,5 @@ def load_volume(volume_dir):
     filenames.sort(key=len, reverse=True)
     reader.SetFileNames(filenames[0])
     volume = reader.Execute()
+
     return volume
