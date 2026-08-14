@@ -71,24 +71,36 @@ def filter_connected_component(volume, is_bone=False, voxel_threshold=0):
     return volume
 
 if __name__ == '__main__':
+    import sys
     from argparse import ArgumentParser
     from pathlib import Path
 
     from constants.label import Label
     from constants.mode import Mode
     from post_processing.utils import iterate_datasets
+    from tui.apps import ConnectedComponentApp
 
-    parser = ArgumentParser()
-    parser.add_argument('exp', type=str)
-    parser.add_argument('target', type=int)
-    parser.add_argument('threshold', type=int)
-    parser.add_argument('datasets', nargs='+', type=str)
-    args = parser.parse_args()
+    if len(sys.argv) == 1:
+        args = ConnectedComponentApp().run()
+        if args is None:
+            sys.exit()
 
-    experiment_name = args.exp
-    target = args.target
-    voxel_threshold = args.threshold
-    datasets = args.datasets
+        experiment_name = args['experiment_name']
+        datasets = args['datasets']
+        target = Label.TOOTH if args['target'] == 'tooth' else Label.BONE
+        voxel_threshold = args['threshold']
+    else:
+        parser = ArgumentParser()
+        parser.add_argument('exp', type=str)
+        parser.add_argument('datasets', nargs='+', type=str)
+        parser.add_argument('target', type=int)
+        parser.add_argument('threshold', type=int)
+        args = parser.parse_args()
+
+        experiment_name = args.exp
+        datasets = args.datasets
+        target = args.target
+        voxel_threshold = args.threshold
 
     for dataset, patient in iterate_datasets(experiment_name, datasets):
         volume_path = Path('outputs') / experiment_name / dataset / patient / f'{Mode.PREDICT}.npy'

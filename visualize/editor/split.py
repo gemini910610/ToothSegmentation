@@ -37,10 +37,9 @@ class BottomLayout(HorizontalLayout):
         ]
 
 class MainWindow(BaseWindow):
-    def __init__(self, data_manager, default_patient=None, default_label=None):
+    def __init__(self, data_manager):
         super().__init__(TopLayout, BottomLayout)
         self.data_manager = data_manager
-        self.default_label = default_label
 
         self.setWindowTitle(data_manager.experiment_name)
 
@@ -59,10 +58,6 @@ class MainWindow(BaseWindow):
         self.volume = None
         self.label_volume = None
 
-        if default_patient is not None:
-            index = self.data_manager.patients.index(default_patient)
-            self.patient_selector.setCurrentIndex(index)
-
     def _on_patient_changed(self, index):
         volumes = self.data_manager.load_data(index)
         cc_volume = volumes[Mode.TOOTH_CONNECTED_COMPONENT]
@@ -77,9 +72,7 @@ class MainWindow(BaseWindow):
 
         self.label_selector.update_items(labels)
 
-        index = 0 if self.default_label is None or self.default_label not in labels else labels.tolist().index(self.default_label)
-        self.label_selector.setCurrentIndex(index)
-        self.default_label = None
+        self.label_selector.setCurrentIndex(0)
 
     def _on_label_changed(self, index):
         if self.volume is None:
@@ -124,26 +117,19 @@ class MainWindow(BaseWindow):
         self.label_selector.setCurrentIndex(index)
 
 if __name__ == '__main__':
-    from argparse import ArgumentParser
+    import sys
 
     from post_processing.utils import iterate_datasets
+    from tui.apps import BaseApp
     from visualize.utils import DataManager, run_app
 
-    parser = ArgumentParser()
-    parser.add_argument('exp', type=str)
-    parser.add_argument('datasets', nargs='+', type=str)
-    parser.add_argument('--patient', type=str)
-    parser.add_argument('--label', type=int)
-    args = parser.parse_args()
+    args = BaseApp().run()
+    if args is None:
+        sys.exit()
 
-    experiment_name = args.exp
-    datasets = args.datasets
-    default_patient = args.patient
-    default_label = args.label
+    experiment_name = args['experiment_name']
+    datasets = args['datasets']
 
     patients = [f'{dataset}/{patient}' for dataset, patient in iterate_datasets(experiment_name, datasets)]
-    if default_patient is not None and default_patient not in patients:
-        raise ValueError(f'patient {default_patient} not found')
-
     data_manager = DataManager(experiment_name, patients, [Mode.TOOTH_CONNECTED_COMPONENT, Mode.WATERSHED])
-    run_app(MainWindow, data_manager, default_patient, default_label)
+    run_app(MainWindow, data_manager)

@@ -1,7 +1,5 @@
 from PySide6.QtWidgets import QHBoxLayout, QMainWindow, QVBoxLayout, QWidget
 
-from visualize.ui.views import VolumeViewer
-
 
 class BaseWindow(QMainWindow):
     def __init__(self, *Layouts, vertical=True):
