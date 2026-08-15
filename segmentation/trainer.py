@@ -63,9 +63,11 @@ class Trainer:
     def _run_epoch(self, train=True):
         if train:
             self.model.train()
+
             return self._run_loader(self.train_loader, 'Train', train=True)
         else:
             self.model.eval()
+
             return self._run_loader(self.valid_loader, 'Valid', train=False)
 
     def _write_summary(self, train_loss, train_metric, valid_loss, valid_metric, epoch):

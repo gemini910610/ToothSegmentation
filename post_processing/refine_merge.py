@@ -7,6 +7,7 @@ def refine_merge(volume, merge_components):
         lookup_table[labels] = labels[0]
 
     volume = lookup_table[volume]
+
     return volume
 
 if __name__ == '__main__':

@@ -7,7 +7,7 @@ from post_processing.utils import ROIVolume
 
 def relabel(volume):
     labels = numpy.unique(volume)
-    labels = labels[labels != 0]
+    labels = labels[labels > 0]
 
     lookup_table = numpy.zeros(labels.max() + 1, dtype=numpy.uint8)
     lookup_table[labels] = numpy.arange(2, len(labels) + 2, dtype=numpy.uint8)

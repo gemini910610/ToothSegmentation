@@ -23,6 +23,7 @@ class DirectorySelector(RadioSet):
     @property
     def selected(self):
         button = self.pressed_button
+
         return None if button is None else str(button.label)
 
     async def update(self, directory):

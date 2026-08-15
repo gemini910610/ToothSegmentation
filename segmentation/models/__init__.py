@@ -7,6 +7,7 @@ def get_model(config):
     match config.model.name:
         case 'UNet':
             from segmentation.models.unet import UNet
+
             return UNet(**config.model.parameters)
 
 def load_model(config):

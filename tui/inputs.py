@@ -12,4 +12,5 @@ class BaseInput(Input):
 
     def get_value(self):
         value = super().value
+
         return None if value == '' else int(super().value)

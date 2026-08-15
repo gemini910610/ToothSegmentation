@@ -149,6 +149,7 @@ class VolumeViewer(QWidget):
             for view in self.views:
                 if view is not source:
                     view.render()
+
         return callback
 
     def set_titles(self, *titles):
