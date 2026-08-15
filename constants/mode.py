@@ -8,6 +8,8 @@ class Mode:
     REFINE_MERGE = 'refine_merge'
     UNTRUNCATED = 'untruncated'
     CLEANED = 'cleaned'
+    TOOTH_FILLED = 'tooth_filled'
+    BONE_FILLED = 'bone_filled'
 
     @staticmethod
     def items():
@@ -19,7 +21,9 @@ class Mode:
             Mode.REFINE_SPLIT,
             Mode.REFINE_MERGE,
             Mode.UNTRUNCATED,
-            Mode.CLEANED
+            Mode.CLEANED,
+            Mode.TOOTH_FILLED,
+            Mode.BONE_FILLED
         ]
 
     @staticmethod
@@ -32,5 +36,7 @@ class Mode:
             Mode.REFINE_SPLIT: 'Refine Split',
             Mode.REFINE_MERGE: 'Refine Merge',
             Mode.UNTRUNCATED: 'Untruncated',
-            Mode.CLEANED: 'Cleaned'
+            Mode.CLEANED: 'Cleaned',
+            Mode.TOOTH_FILLED: 'Tooth Filled',
+            Mode.BONE_FILLED: 'Bone Filled'
         }[mode]
