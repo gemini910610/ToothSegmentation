@@ -5,6 +5,7 @@ class Mode:
     BONE_CONNECTED_COMPONENT = 'bone_cc'
     WATERSHED = 'watershed'
     REFINE_SPLIT = 'refine_split'
+    REFINE_MERGE = 'refine_merge'
 
     @staticmethod
     def items():
@@ -13,7 +14,8 @@ class Mode:
             Mode.TOOTH_CONNECTED_COMPONENT,
             Mode.BONE_CONNECTED_COMPONENT,
             Mode.WATERSHED,
-            Mode.REFINE_SPLIT
+            Mode.REFINE_SPLIT,
+            Mode.REFINE_MERGE
         ]
 
     @staticmethod
@@ -23,5 +25,6 @@ class Mode:
             Mode.TOOTH_CONNECTED_COMPONENT: 'Connected Component (Tooth)',
             Mode.BONE_CONNECTED_COMPONENT: 'Connected Component (Bone)',
             Mode.WATERSHED: 'Watershed',
-            Mode.REFINE_SPLIT: 'Refine Split'
+            Mode.REFINE_SPLIT: 'Refine Split',
+            Mode.REFINE_MERGE: 'Refine Merge'
         }[mode]

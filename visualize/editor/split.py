@@ -14,17 +14,17 @@ from visualize.utils import DataHandler, JsonHandler
 
 
 class SplitDataHandler(DataHandler):
-    def set_data(self, patient, label, cluster):
+    def set_data(self, patient, label, count):
         if patient not in self.data:
             self.data[patient] = {}
-        self.data[patient][str(label)] = cluster
+        self.data[patient][str(label)] = count
 
 class TopLayout(HorizontalLayout):
     def _init_widgets(self):
         return [
             PatientSelector(),
             IconLabelSelector(),
-            QSpinBox(suffix=' Cluster', minimum=2),
+            QSpinBox(suffix=' Components', minimum=2),
             QPushButton('Execute'),
             QPushButton('Save'),
             None
@@ -43,7 +43,7 @@ class MainWindow(BaseWindow):
 
         self.setWindowTitle(data_manager.experiment_name)
 
-        self.patient_selector, self.label_selector, self.cluster_input, self.execute_button, self.save_button = self.layouts[0].widgets
+        self.patient_selector, self.label_selector, self.count_input, self.execute_button, self.save_button = self.layouts[0].widgets
         self.volume_viewer, = self.layouts[1].widgets
 
         self.patient_selector.setup(data_manager.patients, self._on_patient_changed)
@@ -84,16 +84,16 @@ class MainWindow(BaseWindow):
         volume = (self.label_volume * label).astype(numpy.uint8)
         self.volume_viewer.views[2].update_volume(volume, include_labels=True, reset=False)
 
-        self.cluster_input.setValue(self.cluster_input.minimum())
+        self.count_input.setValue(self.count_input.minimum())
 
     def _on_execute(self):
         if self.label_volume is None:
             return
 
-        cluster = self.cluster_input.value()
+        count = self.count_input.value()
 
         roi = ROIVolume(self.label_volume)
-        volume = split_k_component(roi.volume, h=1, k=cluster)
+        volume = split_k_component(roi.volume, h=1, k=count)
         volume[volume > 0] += 1
         roi.volume = volume
         volume = roi.restore()
@@ -102,14 +102,14 @@ class MainWindow(BaseWindow):
     def _on_save(self):
         patient = self.patient_selector.currentText()
         label = self.label_selector.currentData()
-        cluster = self.cluster_input.value()
+        count = self.count_input.value()
 
         if patient == '' or label is None:
             return
 
         path = Path('split') / f'{self.data_manager.experiment_name}.json'
         with JsonHandler(path, SplitDataHandler) as handler:
-            handler.set_data(patient, label, cluster)
+            handler.set_data(patient, label, count)
 
     def _on_picked(self, actor):
         label = actor._label

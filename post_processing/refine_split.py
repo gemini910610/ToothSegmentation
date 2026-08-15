@@ -2,15 +2,15 @@ from post_processing.utils import ROIVolume
 from post_processing.watershed import split_k_component
 
 
-def refine_split(source_volume, destination_volume, clusters):
+def refine_split(source_volume, destination_volume, split_components):
     new_volume = destination_volume.copy()
 
-    for label, cluster in clusters.items():
+    for label, count in split_components.items():
         label = int(label)
         mask = source_volume == label
 
         roi = ROIVolume(mask)
-        roi.volume = split_k_component(roi.volume, h=1, k=cluster)
+        roi.volume = split_k_component(roi.volume, h=1, k=count)
         volume = roi.restore()
 
         max_label = new_volume.max()
@@ -46,9 +46,9 @@ if __name__ == '__main__':
         experiment_name = args.exp
         datasets = args.datasets
 
-    cluster_path = Path('split') / f'{experiment_name}.json'
-    with cluster_path.open() as file:
-        clusters = json.load(file)
+    split_components_path = Path('split') / f'{experiment_name}.json'
+    with split_components_path.open() as file:
+        split_components = json.load(file)
 
     for dataset, patient in iterate_datasets(experiment_name, datasets):
         cc_path = Path('outputs') / experiment_name / dataset / patient / f'{Mode.TOOTH_CONNECTED_COMPONENT}.npy'
@@ -57,7 +57,7 @@ if __name__ == '__main__':
         watershed_volume = numpy.load(watershed_path)
 
         data = f'{dataset}/{patient}'
-        volume = watershed_volume if data not in clusters else refine_split(cc_volume, watershed_volume, clusters[data])
+        volume = watershed_volume if data not in split_components else refine_split(cc_volume, watershed_volume, split_components[data])
 
         output_path = cc_path.parent / f'{Mode.REFINE_SPLIT}.npy'
         numpy.save(output_path, volume)
