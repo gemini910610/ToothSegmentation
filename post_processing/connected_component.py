@@ -16,8 +16,6 @@ def relabel(volume):
     return volume
 
 def remove_outlier(volume):
-    component_count = volume.max()
-
     objects = ndimage.find_objects(volume)
 
     valid_labels = []
@@ -47,7 +45,7 @@ def remove_outlier(volume):
     height_median = numpy.median(heights)
     outlier_labels = valid_labels[distances > 1.5 * height_median]
 
-    lookup_table = numpy.arange(component_count + 1, dtype=numpy.uint8)
+    lookup_table = numpy.arange(volume.max() + 1, dtype=numpy.uint8)
     lookup_table[outlier_labels] = 0
     volume = lookup_table[volume]
 

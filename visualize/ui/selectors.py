@@ -2,6 +2,7 @@ from PySide6.QtGui import QColor, QIcon, QPixmap
 from PySide6.QtWidgets import QComboBox
 
 from constants.color import GLASBEY_PALETTE
+from visualize.ui.images import Icon
 
 
 class PatientSelector(QComboBox):
@@ -35,10 +36,5 @@ class IconLabelSelector(LabelSelector):
         size = self.font().pointSize()
         for label in labels:
             r, g, b = GLASBEY_PALETTE[label]
-            color = QColor(r, g, b)
-
-            pixmap = QPixmap(size, size)
-            pixmap.fill(color)
-            icon = QIcon(pixmap)
-
+            icon = Icon(size, r, g, b)
             self.addItem(icon, f'Label {label}', int(label))
