@@ -7,6 +7,7 @@ class Mode:
     REFINE_SPLIT = 'refine_split'
     REFINE_MERGE = 'refine_merge'
     UNTRUNCATED = 'untruncated'
+    CLEANED = 'cleaned'
 
     @staticmethod
     def items():
@@ -17,7 +18,8 @@ class Mode:
             Mode.WATERSHED,
             Mode.REFINE_SPLIT,
             Mode.REFINE_MERGE,
-            Mode.UNTRUNCATED
+            Mode.UNTRUNCATED,
+            Mode.CLEANED
         ]
 
     @staticmethod
@@ -29,5 +31,6 @@ class Mode:
             Mode.WATERSHED: 'Watershed',
             Mode.REFINE_SPLIT: 'Refine Split',
             Mode.REFINE_MERGE: 'Refine Merge',
-            Mode.UNTRUNCATED: 'Untruncated'
+            Mode.UNTRUNCATED: 'Untruncated',
+            Mode.CLEANED: 'Cleaned'
         }[mode]

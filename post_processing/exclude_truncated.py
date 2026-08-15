@@ -9,7 +9,6 @@ def exclude_truncated(volume):
 
     lookup_table = numpy.arange(volume.max() + 1, dtype=numpy.uint8)
     lookup_table[truncated_labels] = numpy.arange(Label.TRUNCATED, Label.TRUNCATED + len(truncated_labels), dtype=numpy.uint8)
-
     volume = lookup_table[volume]
 
     return volume
