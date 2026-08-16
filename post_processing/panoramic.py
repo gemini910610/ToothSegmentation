@@ -1,34 +1,38 @@
-import copy
 import cv2
 import numpy
-
 from scipy import ndimage
 from scipy.interpolate import make_splprep
 
-from refactor.scripts.post_processing.relabel import split_teeth_jaw
-from refactor.scripts.tools.widgets import glasbey_palette, Label
+from constants.color import GLASBEY_PALETTE
+from constants.label import Label
+from post_processing.relabel import split_teeth_jaw
+
 
 def synthetic_tooth(tooth_list, width):
     if len(tooth_list) == 1:
-        fake_tooth = copy.deepcopy(tooth_list[0])
-        fake_tooth['center'][0] = width - fake_tooth['center'][0]
+        x, y, z = tooth_list[0]['center']
+        fake_tooth = tooth_list[0] | {'center': (width - x, y, z)}
         tooth_list = [tooth_list[0], fake_tooth]
         tooth_list.sort(key=lambda tooth: tooth['center'][0], reverse=True)
+
     left_x, left_y, left_z = tooth_list[0]['center']
     right_x, right_y, right_z = tooth_list[1]['center']
     center_x = (left_x + right_x) / 2
     center_y = (left_y + right_y) / 2 / 2
     center_z = (left_z + right_z) / 2
-    fake_tooth = copy.deepcopy(tooth_list[0])
-    fake_tooth['center'] = ((left_x + center_x) / 2, (left_y + center_y) / 2, (left_z + center_z) / 2)
+
+    center = ((left_x + center_x) / 2, (left_y + center_y) / 2, (left_z + center_z) / 2)
+    fake_tooth = tooth_list[0] | {'center': center}
     tooth_list.insert(1, fake_tooth)
-    fake_tooth = copy.deepcopy(tooth_list[0])
-    fake_tooth['center'] = ((center_x + right_x) / 2, (center_y + right_y) / 2, (center_z + right_z) / 2)
+
+    center = ((center_x + right_x) / 2, (center_y + right_y) / 2, (center_z + right_z) / 2)
+    fake_tooth = tooth_list[0] | {'center': center}
     tooth_list.insert(2, fake_tooth)
+
     return tooth_list
 
 def extract_curve(tooth_list, width):
-    if len(tooth_list) < 3:
+    if len(tooth_list) < 4:
         tooth_list = synthetic_tooth(tooth_list, width)
 
     points = numpy.array([tooth['center'][:2] for tooth in tooth_list])
@@ -78,14 +82,13 @@ def sample_panoramic(image_volume, segmentation_volume, tooth_list):
     horizontal = numpy.concatenate([widths, heights]).max()
     horizontal = min(horizontal, int(2 * radius.min() * 0.9))
 
+    u = numpy.linspace(-horizontal / 2, horizontal / 2, horizontal)
+    v = numpy.linspace(vertical / 2, -vertical / 2, vertical)
+    uu, vv = numpy.meshgrid(u, v, indexing='ij')
+
     image_panoramic = []
     segmentation_panoramic = []
-
     for point, normal in zip(curve_points, normals):
-        u = numpy.linspace(-horizontal / 2, horizontal / 2, horizontal)
-        v = numpy.linspace(vertical / 2, -vertical / 2, vertical)
-        uu, vv = numpy.meshgrid(u, v, indexing='ij')
-
         point = numpy.array([point[0], point[1], center_z])
         normal = numpy.array([normal[0], normal[1], 0])
         coordinates = point + uu[:, :, None] * normal + vv[:, :, None] * z
@@ -117,13 +120,14 @@ def get_panoramic(image_volume, segmentation_volume):
     jaw_segmentation_panoramic = []
 
     upper_tooth, lower_tooth = split_teeth_jaw(tooth_volume, bone_volume)
-    upper_tooth = [tooth for tooth in upper_tooth if tooth['label'] < Label.CROPPED]
-    lower_tooth = [tooth for tooth in lower_tooth if tooth['label'] < Label.CROPPED]
+    upper_tooth = [tooth for tooth in upper_tooth if tooth['label'] < Label.TRUNCATED]
+    lower_tooth = [tooth for tooth in lower_tooth if tooth['label'] < Label.TRUNCATED]
 
     for tooth_list in (upper_tooth, lower_tooth):
-        if len(tooth_list) == 0:
+        if not tooth_list:
             jaw_labels.append([])
             continue
+
         labels = [tooth['label'] for tooth in tooth_list[::-1]]
         jaw_mask = numpy.isin(segmentation_volume, labels)
         jaw_image_volume = numpy.where(jaw_mask, image_volume, 0)
@@ -147,16 +151,13 @@ def get_panoramic(image_volume, segmentation_volume):
 def draw_label(image_panoramic, segmentation_panoramic):
     image_panoramic = cv2.cvtColor(image_panoramic, cv2.COLOR_GRAY2RGB)
 
-    tooth_count = segmentation_panoramic.max()
-    palette = glasbey_palette(tooth_count)
-
     labels = numpy.unique(segmentation_panoramic)
     labels = labels[labels > 0]
     for label in labels:
         area = segmentation_panoramic == label
         area = ndimage.binary_fill_holes(area)
 
-        color = palette[label - 1][:3]
+        color = GLASBEY_PALETTE[label]
 
         points = numpy.argwhere(area)
         center = points.mean(0)[::-1]
@@ -167,34 +168,5 @@ def draw_label(image_panoramic, segmentation_panoramic):
         cv2.putText(image_panoramic, str(label), (x, y), cv2.FONT_HERSHEY_SIMPLEX, 1, color, 2, cv2.LINE_AA)
 
     image_panoramic = cv2.cvtColor(image_panoramic, cv2.COLOR_RGB2BGR)
+
     return image_panoramic
-
-if __name__ == '__main__':
-    import os
-
-    from argparse import ArgumentParser
-
-    from refactor.scripts.post_processing.iterators import iterate_datasets
-    from refactor.scripts.tools.widgets import Mode
-
-    parser = ArgumentParser()
-    parser.add_argument('exp', type=str)
-    args = parser.parse_args()
-
-    experiment_name = args.exp
-
-    datasets = ['bone_tooth_mask', 'bone_tooth_mask_1209', 'bone_tooth_mask_0508']
-    for dataset, patient in iterate_datasets(experiment_name, datasets):
-        volume_path = os.path.join('outputs', experiment_name, dataset, patient, f'{Mode.POST_PROCESSING}.npy')
-        volume = numpy.load(volume_path)
-        image_volume_path = os.path.join('outputs', experiment_name, dataset, patient, f'{Mode.IMAGE}.npy')
-        image_volume = numpy.load(image_volume_path)
-
-        jaw_labels, image_panoramic, segmentation_panoramic = get_panoramic(image_volume, volume)
-        image_panoramic = draw_label(image_panoramic, segmentation_panoramic)
-
-        print(f'{dataset}/{patient}')
-        print(jaw_labels[0])
-        print(jaw_labels[1])
-        cv2.imshow('panoramic', image_panoramic)
-        cv2.waitKey(0)
