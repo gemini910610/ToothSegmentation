@@ -1,9 +1,9 @@
 import numpy
-
 from scipy import ndimage
 from scipy.interpolate import make_splprep
 
-from refactor.scripts.tools.widgets import Label
+from constants.label import Label
+
 
 def split_teeth_jaw(tooth_volume, bone_volume):
     upper_tooth = []
@@ -50,9 +50,9 @@ def split_teeth_jaw(tooth_volume, bone_volume):
             'center': tooth_center
         })
 
-    if len(upper_tooth) > 0:
+    if upper_tooth:
         upper_tooth = sort_angle(upper_tooth)
-    if len(lower_tooth) > 0:
+    if lower_tooth:
         lower_tooth = sort_angle(lower_tooth)
 
     return upper_tooth, lower_tooth
@@ -74,20 +74,13 @@ def sort_angle(tooth_list, center=None):
     return [tooth_list[index] for index in order]
 
 def estimate_missing_points(points):
-    if len(points) < 2:
+    if len(points) < 4:
         return []
 
-    differences = points[1:] - points[:-1] #
-    distances = numpy.linalg.norm(differences, axis=1) #
+    differences = points[1:] - points[:-1]
+    distances = numpy.linalg.norm(differences, axis=1)
 
     curve, u = make_splprep(points.T)
-
-    # dense_u = numpy.linspace(u[0], u[-1], 100)
-    # sample_points = curve(dense_u).T
-    # sample_distances = numpy.linalg.norm(sample_points[1:] - sample_points[:-1], axis=1)
-    # cumulative_distances = numpy.concatenate([[0], numpy.cumsum(sample_distances)])
-    # distances = numpy.interp(u, dense_u, cumulative_distances)
-    # distances = distances[1:] - distances[:-1]
 
     missing_points = []
     threshold = numpy.median(distances)
@@ -96,11 +89,7 @@ def estimate_missing_points(points):
         if k < 1:
             continue
 
-        u_new = numpy.linspace(u[i], u[i+1], k + 2)[1:-1] #
-        # d0 = numpy.interp(u[i], dense_u, cumulative_distances)
-        # d1 = numpy.interp(u[i+1], dense_u, cumulative_distances)
-        # d_new = numpy.linspace(d0, d1, k + 2)[1:-1]
-        # u_new = numpy.interp(d_new, cumulative_distances, dense_u)
+        u_new = numpy.linspace(u[i], u[i+1], k + 2)[1:-1]
         x_new, y_new = curve(u_new)
 
         for point in zip(x_new, y_new):
@@ -109,29 +98,41 @@ def estimate_missing_points(points):
     return missing_points
 
 def split_left_right(points, default):
-    if len(points) < 3:
+    if len(points) == 0:
         return default, []
 
     missing_points = estimate_missing_points(points)
-    if len(missing_points) > 0:
+    if missing_points:
         points = numpy.concatenate([points, missing_points])
 
     order = numpy.argsort(points[:, 1])
     points = points[order]
     k = int(len(points) * 0.5) // 2 * 2
     if k < 3:
-        return default
+        return default, []
 
     points = points[:k]
     center = numpy.median(points[:, 0])
     return center, missing_points
 
+def get_quadrant(is_lower, is_left):
+    if not is_lower and is_left:
+        return 1
+
+    if not is_lower and not is_left:
+        return 2
+
+    if is_lower and not is_left:
+        return 3
+
+    return 4
+
 def relabel_volume(tooth_volume, bone_volume):
     tooth_volume = tooth_volume.copy()
 
-    removed_mask = tooth_volume >= Label.CROPPED
-    removed_tooth = tooth_volume[removed_mask]
-    tooth_volume[removed_mask] = 0
+    exclude_mask = tooth_volume >= Label.TRUNCATED
+    exclude_tooth = tooth_volume[exclude_mask]
+    tooth_volume[exclude_mask] = 0
     upper_tooth, lower_tooth = split_teeth_jaw(tooth_volume, bone_volume)
 
     quadrants = {1: [], 2: [], 3: [], 4: []}
@@ -143,23 +144,13 @@ def relabel_volume(tooth_volume, bone_volume):
         for tooth in tooth_list:
             x = tooth['center'][0]
             is_left = x < center
-            quadrant = (
-                1 if not is_lower and is_left else
-                2 if not is_lower and not is_left else
-                3 if is_lower and not is_left else
-                4
-            )
+            quadrant = get_quadrant(is_lower, is_left)
             quadrants[quadrant].append(tooth)
 
         for point in missing_points:
             x = point[0]
             is_left = x < center
-            quadrant = (
-                1 if not is_lower and is_left else
-                2 if not is_lower and not is_left else
-                3 if is_lower and not is_left else
-                4
-            )
+            quadrant = get_quadrant(is_lower, is_left)
             quadrants[quadrant].append({
                 'label': None,
                 'center': point
@@ -168,7 +159,7 @@ def relabel_volume(tooth_volume, bone_volume):
     volume = numpy.zeros_like(tooth_volume, dtype=numpy.uint8)
     center = (volume.shape[0] / 2, volume.shape[1] / 2)
     for quadrant, tooth_list in quadrants.items():
-        if len(tooth_list) == 0:
+        if not tooth_list:
             continue
 
         tooth_list = sort_angle(tooth_list, center)
@@ -179,33 +170,42 @@ def relabel_volume(tooth_volume, bone_volume):
                 continue
             volume[tooth['slices']][tooth['roi']] = quadrant * 10 + index
 
-    volume[removed_mask] = removed_tooth
+    volume[exclude_mask] = exclude_tooth
 
     return volume
 
 if __name__ == '__main__':
-    import os
-
+    import sys
     from argparse import ArgumentParser
+    from pathlib import Path
 
-    from refactor.scripts.post_processing.iterators import iterate_datasets
-    from refactor.scripts.tools.widgets import Mode
+    from constants.mode import Mode
+    from post_processing.utils import iterate_datasets
+    from tui.apps import BaseApp
 
-    parser = ArgumentParser()
-    parser.add_argument('exp', type=str)
-    args = parser.parse_args()
+    if len(sys.argv) == 1:
+        args = BaseApp().run()
+        if args is None:
+            sys.exit()
 
-    experiment_name = args.exp
+        experiment_name = args['experiment_name']
+        datasets = args['datasets']
+    else:
+        parser = ArgumentParser()
+        parser.add_argument('exp', type=str)
+        parser.add_argument('datasets', nargs='+', type=str)
+        args = parser.parse_args()
 
-    datasets = ['bone_tooth_mask', 'bone_tooth_mask_1209', 'bone_tooth_mask_0508']
+        experiment_name = args.exp
+        datasets = args.datasets
+
     for dataset, patient in iterate_datasets(experiment_name, datasets):
-        output_dir = os.path.join('outputs', experiment_name, dataset, patient)
-        tooth_volume_path = os.path.join(output_dir, f'{Mode.TOOTH_FILLED}.npy')
-        bone_volume_path = os.path.join(output_dir, f'{Mode.BONE_FILLED}.npy')
-        tooth_volume = numpy.load(tooth_volume_path)
-        bone_volume = numpy.load(bone_volume_path)
+        tooth_path = Path('outputs') / experiment_name / dataset / patient / f'{Mode.TOOTH_FILLED}.npy'
+        tooth_volume = numpy.load(tooth_path)
+        bone_path = tooth_path.parent / f'{Mode.BONE_FILLED}.npy'
+        bone_volume = numpy.load(bone_path)
 
-        tooth_volume = relabel_volume(tooth_volume, bone_volume)
+        volume = relabel_volume(tooth_volume, bone_volume)
 
-        relabeled_path = os.path.join(output_dir, f'{Mode.RELABELED}.npy')
-        numpy.save(relabeled_path, tooth_volume)
+        output_path = tooth_path.parent / f'{Mode.RELABELED}.npy'
+        numpy.save(output_path, volume)
