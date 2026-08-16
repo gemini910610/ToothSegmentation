@@ -11,6 +11,7 @@ class Mode:
     TOOTH_FILLED = 'tooth_filled'
     BONE_FILLED = 'bone_filled'
     RELABELED = 'relabeled'
+    FDI = 'fdi'
 
     @staticmethod
     def items():
@@ -25,7 +26,8 @@ class Mode:
             Mode.CLEANED,
             Mode.TOOTH_FILLED,
             Mode.BONE_FILLED,
-            Mode.RELABELED
+            Mode.RELABELED,
+            Mode.FDI
         ]
 
     @staticmethod
@@ -41,5 +43,6 @@ class Mode:
             Mode.CLEANED: 'Cleaned',
             Mode.TOOTH_FILLED: 'Tooth Filled',
             Mode.BONE_FILLED: 'Bone Filled',
-            Mode.RELABELED: 'Relabeled'
+            Mode.RELABELED: 'Relabeled',
+            Mode.FDI: 'FDI'
         }[mode]

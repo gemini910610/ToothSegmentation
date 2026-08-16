@@ -6,3 +6,4 @@ class Label:
     UNERUPTED = 70
     RESIDUAL_ROOT = 90
     FAKE = 110
+    MISSING_FDI = 130
