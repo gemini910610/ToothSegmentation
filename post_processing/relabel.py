@@ -82,7 +82,7 @@ def estimate_missing_points(points):
 
     curve, u = make_splprep(points.T)
 
-    missing_points = []
+    missing_tooth_list = []
     threshold = numpy.median(distances)
     for i, distance in enumerate(distances):
         k = round(distance / threshold) - 1
@@ -93,17 +93,18 @@ def estimate_missing_points(points):
         x_new, y_new = curve(u_new)
 
         for point in zip(x_new, y_new):
-            missing_points.append(numpy.array(point))
+            missing_tooth_list.append({'label': None, 'center': numpy.array(point), 'multiplicity': k})
 
-    return missing_points
+    return missing_tooth_list
 
 def split_left_right(points, default):
     if len(points) == 0:
         return default, []
 
-    missing_points = estimate_missing_points(points)
-    if missing_points:
-        points = numpy.concatenate([points, missing_points])
+    missing_tooth_list = estimate_missing_points(points)
+    if missing_tooth_list:
+        missing_coordinates = numpy.array([tooth['center'] for tooth in missing_tooth_list])
+        points = numpy.concatenate([points, missing_coordinates])
 
     order = numpy.argsort(points[:, 1])
     points = points[order]
@@ -113,7 +114,7 @@ def split_left_right(points, default):
 
     points = points[:k]
     center = numpy.median(points[:, 0])
-    return center, missing_points
+    return center, missing_tooth_list
 
 def get_quadrant(is_lower, is_left):
     if not is_lower and is_left:
@@ -139,22 +140,14 @@ def relabel_volume(tooth_volume, bone_volume):
 
     for is_lower, tooth_list in enumerate((upper_tooth, lower_tooth)):
         points = numpy.array([tooth['center'][:2] for tooth in tooth_list])
-        center, missing_points = split_left_right(points, tooth_volume.shape[0] / 2)
+        center, missing_tooth_list = split_left_right(points, tooth_volume.shape[0] / 2)
 
-        for tooth in tooth_list:
-            x = tooth['center'][0]
-            is_left = x < center
-            quadrant = get_quadrant(is_lower, is_left)
-            quadrants[quadrant].append(tooth)
-
-        for point in missing_points:
-            x = point[0]
-            is_left = x < center
-            quadrant = get_quadrant(is_lower, is_left)
-            quadrants[quadrant].append({
-                'label': None,
-                'center': point
-            })
+        for teeth in (tooth_list, missing_tooth_list):
+            for tooth in teeth:
+                x = tooth['center'][0]
+                is_left = x < center
+                quadrant = get_quadrant(is_lower, is_left)
+                quadrants[quadrant].append(tooth)
 
     volume = numpy.zeros_like(tooth_volume, dtype=numpy.uint8)
     center = (volume.shape[0] / 2, volume.shape[1] / 2)
@@ -165,6 +158,17 @@ def relabel_volume(tooth_volume, bone_volume):
         tooth_list = sort_angle(tooth_list, center)
         if quadrant in {2, 3}:
             tooth_list = tooth_list[::-1]
+
+        excess = len(tooth_list) - 8
+        if excess > 0:
+            missing_indices = sorted(
+                (index for index, tooth in enumerate(tooth_list) if tooth['label'] is None),
+                key=lambda index: tooth_list[index]['multiplicity'],
+                reverse=True
+            )
+            drop = set(missing_indices[:excess])
+            tooth_list = [tooth for index, tooth in enumerate(tooth_list) if index not in drop]
+
         for index, tooth in enumerate(tooth_list, 1):
             if tooth['label'] is None:
                 continue

@@ -1,3 +1,6 @@
+import copy
+from pathlib import Path
+
 import cv2
 import numpy
 from scipy import ndimage
@@ -170,3 +173,131 @@ def draw_label(image_panoramic, segmentation_panoramic):
     image_panoramic = cv2.cvtColor(image_panoramic, cv2.COLOR_RGB2BGR)
 
     return image_panoramic
+
+def IoU(data_a, data_b):
+    a_center_x, a_center_y = data_a['center']
+    a_width, a_height = data_a['box_size']
+    a_area = a_width * a_height
+    a_left = a_center_x - a_width / 2
+    a_right = a_center_x + a_width / 2
+    a_top = a_center_y - a_height / 2
+    a_bottom = a_center_y + a_height / 2
+
+    b_center_x, b_center_y = data_b['center']
+    b_width, b_height = data_b['box_size']
+    b_area = b_width * b_height
+    b_left = b_center_x - b_width / 2
+    b_right = b_center_x + b_width / 2
+    b_top = b_center_y - b_height / 2
+    b_bottom = b_center_y + b_height / 2
+
+    left = max(a_left, b_left)
+    right = min(a_right, b_right)
+    top = max(a_top, b_top)
+    bottom = min(a_bottom, b_bottom)
+
+    intersection = max(0, right - left) * max(0, bottom - top)
+    union = a_area + b_area - intersection
+    return intersection / union
+
+def merge_box(tooth_data, threshold=0.9):
+    box_count = len(tooth_data)
+    overlaps = {
+        index: []
+        for index in range(box_count)
+    }
+    for i in range(box_count - 1):
+        for j in range(i + 1, box_count):
+            iou = IoU(tooth_data[i], tooth_data[j])
+            if iou > threshold:
+                overlaps[i].append(j)
+                overlaps[j].append(i)
+
+    visited = [False] * box_count
+    merged_data = []
+    for index in range(box_count):
+        if visited[index]:
+            continue
+
+        group = []
+        queue = [index]
+        visited[index] = True
+        while queue:
+            current = queue.pop(0)
+            group.append(current)
+            for neighbor in overlaps[current]:
+                if not visited[neighbor]:
+                    visited[neighbor] = True
+                    queue.append(neighbor)
+
+        best_index = max(group, key=lambda index: tooth_data[index]['bone_loss'])
+        data = copy.deepcopy(tooth_data[best_index])
+        for index in group:
+            data['FDI'].extend(tooth_data[index]['FDI'])
+        data['FDI'] = sorted(set(data['FDI']))
+        merged_data.append(data)
+
+    return merged_data
+
+def find_panoramic_paths(dataset, patient):
+    xray_folder = Path('datasets') / dataset.replace('bone_tooth_mask', 'xray') / patient
+    if not xray_folder.is_dir():
+        return None
+
+    for folder in xray_folder.iterdir():
+        if not folder.name.endswith('Pano'):
+            continue
+
+        files = list(folder.iterdir())
+        if not files:
+            return None
+
+        image_path = files[0]
+        prediction_path = Path('pano_predict') / f'{image_path.stem}.txt'
+        if not prediction_path.exists():
+            return None
+
+        return image_path, prediction_path
+
+    return None
+
+def load_panoramic(image_path, prediction_path):
+    image = cv2.imread(str(image_path), cv2.IMREAD_GRAYSCALE)
+
+    with open(prediction_path) as file:
+        data = file.read().strip()
+
+    tooth_data = []
+    for line in data.split('\n'):
+        fdi, center_x, center_y, width, height, left_crone_x, left_crone_y, left_bone_x, left_bone_y, left_root_x, left_root_y, right_crone_x, right_crone_y, right_bone_x, right_bone_y, right_root_x, right_root_y, bone_loss = line.split(',')
+        tooth_data.append({
+            'FDI': [fdi],
+            'center': (float(center_x), float(center_y)),
+            'box_size': (int(width), int(height)),
+            'left_crone': (float(left_crone_x), float(left_crone_y)),
+            'left_bone': (float(left_bone_x), float(left_bone_y)),
+            'left_root': (float(left_root_x), float(left_root_y)),
+            'right_crone': (float(right_crone_x), float(right_crone_y)),
+            'right_bone': (float(right_bone_x), float(right_bone_y)),
+            'right_root': (float(right_root_x), float(right_root_y)),
+            'bone_loss': int(bone_loss)
+        })
+    tooth_data = merge_box(tooth_data)
+
+    return image, tooth_data
+
+def draw_panoramic(image, tooth_data):
+    image = cv2.cvtColor(image, cv2.COLOR_GRAY2RGB)
+    for tooth in tooth_data:
+        center_x, center_y = tooth['center']
+        (width, height), baseline = cv2.getTextSize(tooth['FDI'][0], cv2.FONT_HERSHEY_SIMPLEX, 1, 2)
+        x = int(center_x - width / 2)
+        y = int(center_y + (height - baseline) / 2)
+        color = GLASBEY_PALETTE[int(tooth['FDI'][0])]
+        for fdi in tooth['FDI']:
+            cv2.putText(image, fdi, (x, y), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 0), 10, cv2.LINE_AA)
+            cv2.putText(image, fdi, (x, y), cv2.FONT_HERSHEY_SIMPLEX, 1, color, 2, cv2.LINE_AA)
+            y += height + 15
+    image = cv2.cvtColor(image, cv2.COLOR_RGB2BGR)
+
+    return image
