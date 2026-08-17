@@ -16,10 +16,10 @@ class Trainer:
     def __init__(self, config):
         self.log_dir = Path('logs') / config.experiment / f'Fold_{config.fold}'
         self.train_loader, self.valid_loader = get_loader(config)
-        self.model = get_model(config).to(config.device)
+        self.model = get_model(config)
         self.optimizer = get_optimizer(self.model, config)
-        self.criterion = get_loss(config).to(config.device)
-        self.metric_fn = get_metric(config).to(config.device)
+        self.criterion = get_loss(config)
+        self.metric_fn = get_metric(config)
         self.device = config.device
         self.loss_name = self.criterion.__class__.__name__
         self.metric_name = self.metric_fn.__class__.__name__

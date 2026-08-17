@@ -48,7 +48,7 @@ LOSSES = {
 }
 
 def get_loss(config):
-    return LOSSES[config.loss.name](**config.loss.parameters)
+    return LOSSES[config.loss.name](**config.loss.parameters).to(config.device)
 
 if __name__ == '__main__':
     import torch

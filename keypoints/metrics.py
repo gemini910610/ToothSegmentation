@@ -33,7 +33,7 @@ METRICS = {
 }
 
 def get_metric(config):
-    return METRICS[config.metric.name](**config.metric.parameters)
+    return METRICS[config.metric.name](**config.metric.parameters).to(config.device)
 
 if __name__ == '__main__':
     from utils.console import Table

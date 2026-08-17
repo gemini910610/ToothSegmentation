@@ -10,8 +10,8 @@ from utils.console import track
 class Evaluator:
     def __init__(self, config):
         self.config = config
-        self.criterion = get_loss(config).to(config.device)
-        self.metric_fn = get_metric(config).to(config.device)
+        self.criterion = get_loss(config)
+        self.metric_fn = get_metric(config)
         self.num_folds = config.num_folds
         self.device = config.device
         self.loss_name = self.criterion.__class__.__name__
