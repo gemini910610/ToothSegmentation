@@ -16,6 +16,8 @@ batch_size = 32
 name = "ResNet-18"
 
 [model.parameters]
+in_channels = 1
+num_keypoints = 2
 
 # Optimizer
 [optimizer]
