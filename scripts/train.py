@@ -10,6 +10,8 @@ def train(task, fold):
     match task:
         case 'segmentation':
             from segmentation.trainer import Trainer
+        case 'keypoints':
+            from keypoints.trainer import Trainer
 
     Table(
         ['Argument', 'Value'],
