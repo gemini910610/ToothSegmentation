@@ -28,4 +28,4 @@ def iterate_datasets(experiment_name, datasets):
     for dataset in datasets:
         dataset_dir = Path('outputs') / experiment_name / dataset
         for patient in track(list(dataset_dir.iterdir()), desc=dataset):
-            yield dataset, patient.stem
+            yield dataset, patient.name

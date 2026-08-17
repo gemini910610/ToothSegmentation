@@ -107,8 +107,7 @@ class MainWindow(BaseWindow):
         if patient == '' or label is None:
             return
 
-        path = Path('split') / f'{self.data_manager.experiment_name}.json'
-        with JsonHandler(path, SplitDataHandler) as handler:
+        with JsonHandler(Path('split') / f'{self.data_manager.experiment_name}.json', SplitDataHandler) as handler:
             handler.set_data(patient, label, count)
 
     def _on_picked(self, actor):

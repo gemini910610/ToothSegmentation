@@ -83,9 +83,8 @@ if __name__ == '__main__':
 
     for dataset in datasets:
         print(dataset)
-        dataset_dir = Path('datasets') / dataset / 'image'
-        for patient in dataset_dir.iterdir():
-            patient = patient.stem
+        for patient in (Path('datasets') / dataset / 'image').iterdir():
+            patient = patient.name
             if f'{dataset}/{patient}' in processed_patients:
                 continue
 

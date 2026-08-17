@@ -4,7 +4,6 @@ seed = 42
 num_workers = 4
 
 # Data Configuration
-annotation_file = "slices/points.json"
 split_filename = "keypoints"
 num_folds = 4
 

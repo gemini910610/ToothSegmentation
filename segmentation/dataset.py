@@ -7,6 +7,13 @@ import torch
 from torch.utils.data import ConcatDataset, DataLoader, Dataset
 
 
+def find_datasets():
+    return sorted(
+        dataset.name
+        for dataset in Path('datasets').iterdir()
+        if (dataset / 'mask').exists()
+    )
+
 def get_fold(split_file_path, fold_id):
     with open(split_file_path, encoding='utf-8') as file:
         folds = json.load(file)
@@ -81,7 +88,7 @@ def get_loader(config):
 
     train_datasets = []
     valid_datasets = []
-    for dataset in config.datasets:
+    for dataset in find_datasets():
         train_patients = train_dataset_patients[dataset]
         valid_patients = valid_dataset_patients[dataset]
 

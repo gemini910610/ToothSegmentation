@@ -38,7 +38,7 @@ folds = {}
 with Table(['Fold', 'Train', 'Valid']) as table:
     for fold, (train_indices, valid_indices) in enumerate(splits, 1):
         valid_patients = {
-            (str(groups[index].parent), groups[index].stem)
+            (str(groups[index].parent), groups[index].name)
             for index in valid_indices
         }
         valid_patients = sorted(valid_patients)

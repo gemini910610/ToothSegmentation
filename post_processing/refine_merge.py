@@ -36,8 +36,7 @@ if __name__ == '__main__':
         experiment_name = args.exp
         datasets = args.datasets
 
-    merge_components_path = Path('merge') / f'{experiment_name}.json'
-    with merge_components_path.open() as file:
+    with (Path('merge') / f'{experiment_name}.json').open() as file:
         merge_components = json.load(file)
 
     for dataset, patient in iterate_datasets(experiment_name, datasets):

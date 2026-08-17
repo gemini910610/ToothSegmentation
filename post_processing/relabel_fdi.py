@@ -47,8 +47,7 @@ if __name__ == '__main__':
         experiment_name = args.exp
         datasets = args.datasets
 
-    fdi_mapping_path = Path('fdi') / f'{experiment_name}.json'
-    with fdi_mapping_path.open() as file:
+    with (Path('fdi') / f'{experiment_name}.json').open() as file:
         fdi_mapping = json.load(file)
 
     patients = [

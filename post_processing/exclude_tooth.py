@@ -45,8 +45,7 @@ if __name__ == '__main__':
         experiment_name = args.exp
         datasets = args.datasets
 
-    exclude_labels_path = Path('exclude') / f'{experiment_name}.json'
-    with exclude_labels_path.open() as file:
+    with (Path('exclude') / f'{experiment_name}.json').open() as file:
         exclude_labels = json.load(file)
 
     for dataset, patient in iterate_datasets(experiment_name, datasets):

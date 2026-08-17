@@ -4,8 +4,6 @@ seed = 42
 num_workers = 4
 
 # Data Configuration
-dataset_root = "datasets"
-datasets = ["bone_tooth_mask", "bone_tooth_mask_1209"]
 split_filename = "segmentation"
 num_folds = 4
 

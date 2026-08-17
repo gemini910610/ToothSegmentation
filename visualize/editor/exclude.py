@@ -131,8 +131,7 @@ class MainWindow(BaseWindow):
         label = self.label_selector.currentData()
         exclude_type = self.exclude_selector.checked_title()
 
-        path = Path('exclude') / f'{self.data_manager.experiment_name}.json'
-        with JsonHandler(path, ExcludeDataHandler) as handler:
+        with JsonHandler(Path('exclude') / f'{self.data_manager.experiment_name}.json', ExcludeDataHandler) as handler:
             if exclude_type == 'Normal Tooth':
                 handler.remove_data(patient, label)
             else: # Unerupted Tooth, Residual Root, Fake Tooth

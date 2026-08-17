@@ -29,7 +29,7 @@ class DirectorySelector(RadioSet):
     async def update(self, directory):
         await self.remove_children()
         await self.mount(*[
-            RadioButton(folder.stem)
+            RadioButton(folder.name)
             for folder in directory.iterdir()
         ])
         self.directory = directory
@@ -53,7 +53,7 @@ class DirectoryMultiSelector(SelectionList):
     def update(self, directory):
         self.clear_options()
         self.add_options([
-            (folder.stem, folder.stem)
+            (folder.name, folder.name)
             for folder in directory.iterdir()
         ])
         self.select_all()

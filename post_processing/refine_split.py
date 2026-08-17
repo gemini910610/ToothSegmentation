@@ -46,8 +46,7 @@ if __name__ == '__main__':
         experiment_name = args.exp
         datasets = args.datasets
 
-    split_components_path = Path('split') / f'{experiment_name}.json'
-    with split_components_path.open() as file:
+    with (Path('split') / f'{experiment_name}.json').open() as file:
         split_components = json.load(file)
 
     for dataset, patient in iterate_datasets(experiment_name, datasets):

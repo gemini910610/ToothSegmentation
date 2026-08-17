@@ -171,7 +171,6 @@ if __name__ == '__main__':
 
     from post_processing.utils import iterate_datasets
     from tui.apps import BaseApp
-    from utils.config import load_config
     from visualize.utils import run_app
 
     args = BaseApp().run()
@@ -181,10 +180,7 @@ if __name__ == '__main__':
     experiment_name = args['experiment_name']
     datasets = args['datasets']
 
-    config = load_config(Path('configs') / 'keypoints.toml')
-
     slice_folder = Path('output_slices') / experiment_name
-    annotation_path = Path('datasets') / config.annotation_file
 
     patients = [
         f'{dataset}/{patient}'
@@ -192,4 +188,4 @@ if __name__ == '__main__':
         if (slice_folder / dataset / patient).exists()
     ]
 
-    run_app(MainWindow, experiment_name, slice_folder, annotation_path, patients)
+    run_app(MainWindow, experiment_name, slice_folder, Path('datasets') / 'slices' / 'keypoints.json', patients)
