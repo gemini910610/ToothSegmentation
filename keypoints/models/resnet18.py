@@ -17,7 +17,7 @@ if __name__ == '__main__':
 
     model = ResNet18(1, 2).cuda()
 
-    images = torch.zeros(16, 1, 224, 224, device='cuda')
+    images = torch.zeros(32, 1, 224, 224, device='cuda')
 
     with torch.autocast('cuda'):
         predicts = model(images)
