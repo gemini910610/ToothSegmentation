@@ -1,11 +1,13 @@
 import fnmatch
 import os
-import posixpath
 import stat
+from pathlib import Path, PurePosixPath
 
 from dotenv import load_dotenv
 from paramiko import SSHClient, SSHException
-from refactor.src.console import DownloadProgress
+
+from utils.console import DownloadProgress
+
 
 class SFTPDownloader:
     def __init__(self, hostname, port, username, password):
@@ -17,14 +19,19 @@ class SFTPDownloader:
         self.client = None
         self.sftp = None
 
-    def _walk_dir(self, remote_dir='.', relative_dir='', ignore_files=None):
-        ignore_files = ignore_files or []
+    def _walk_dir(self, remote_dir=None, relative_dir=None, ignore_files=None):
+        if remote_dir is None:
+            remote_dir = PurePosixPath('.')
+        if relative_dir is None:
+            relative_dir = PurePosixPath('.')
+        if ignore_files is None:
+            ignore_files = []
 
         total_files = []
         total_size = 0
-        for item in self.sftp.listdir_attr(remote_dir):
-            path = posixpath.join(remote_dir, item.filename)
-            relative_path = posixpath.join(relative_dir, item.filename)
+        for item in self.sftp.listdir_attr(str(remote_dir)):
+            path = remote_dir / item.filename
+            relative_path = relative_dir / item.filename
 
             if stat.S_ISLNK(item.st_mode):
                 print(f'\033[33m[WARNING]\033[0m {path} is a symbolic link, will be ignored.')
@@ -37,33 +44,39 @@ class SFTPDownloader:
                 total_files.extend(files)
                 total_size += size
             else:
-                size = item.st_size or 0
+                size = item.st_size
+                if size is None:
+                    size = 0
                 total_files.append((path, relative_path))
                 total_size += size
 
         return total_files, total_size
 
+    def _download_callback(self, progress, task):
+        downloaded = 0
+
+        def callback(transferred, total):
+            nonlocal downloaded
+
+            delta = transferred - downloaded
+            if delta > 0:
+                progress.update(task, advance=delta)
+                downloaded = transferred
+
+        return callback
+
     def download_dir(self, source_log_dir, experiment_name, output_dir, ignore_files=None):
-        source_dir = posixpath.join(source_log_dir, experiment_name)
-        output_dir = os.path.join(output_dir, experiment_name)
+        source_dir = PurePosixPath(source_log_dir) / experiment_name
+        output_dir = Path(output_dir) / experiment_name
         files, size = self._walk_dir(source_dir, ignore_files=ignore_files)
 
         with DownloadProgress() as progress:
             task = progress.add_task('download', total=size)
             for source_path, relative_path in files:
-                local_path = os.path.join(output_dir, *relative_path.split('/'))
-                os.makedirs(os.path.dirname(local_path), exist_ok=True)
+                local_path = output_dir / relative_path
+                local_path.parent.mkdir(parents=True, exist_ok=True)
 
-                progress.update(task, current=relative_path)
-
-                current = {'size': 0}
-                def callback(transferred, total):
-                    delta = transferred - current['size']
-                    if delta > 0:
-                        progress.update(task, advance=delta)
-                        current['size'] = transferred
-
-                self.sftp.get(source_path, local_path, callback=callback)
+                self.sftp.get(str(source_path), str(local_path), callback=self._download_callback(progress, task))
 
     def __enter__(self):
         self.client = SSHClient()
@@ -80,7 +93,7 @@ class SFTPDownloader:
         return False
 
 def get_env():
-    if not os.path.exists('.env'):
+    if not Path('.env').exists():
         raise FileNotFoundError(
             '.env file not found.\033[0m\n'
             'This file is required for SFTP connection.\n\n'
@@ -102,7 +115,8 @@ def get_env():
     }
 
 def download_experiment(experiment_name, *, source_log_dir='tooth_segmentation/logs', output_dir='logs', ignore_files=None):
-    ignore_files = ignore_files or ['events.out.tfevents.*', 'last.pth']
+    if ignore_files is None:
+        ignore_files = ['events.out.tfevents.*']
 
     env = get_env()
     hostname = env['hostname']
@@ -123,6 +137,6 @@ def download_experiment(experiment_name, *, source_log_dir='tooth_segmentation/l
         raise FileNotFoundError(f'\033[35mExperiment "{experiment_name}" not found in server.\033[0m') from None
 
 def ensure_experiment_exists(experiment_name, *, source_log_dir='tooth_segmentation/logs', output_dir='logs', ignore_files=None):
-    if not os.path.exists(os.path.join(output_dir, experiment_name)):
+    if not (Path(output_dir) / experiment_name).exists():
         print(f'Experiment "{experiment_name}" not found. Downloading from the server...')
         download_experiment(experiment_name, source_log_dir=source_log_dir, output_dir=output_dir, ignore_files=ignore_files)
