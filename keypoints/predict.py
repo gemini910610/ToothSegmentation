@@ -1,18 +1,15 @@
 import cv2
 import numpy
 import torch
-
 from torchvision import transforms
 
-from refactor.keypoint.models import KeypointModel
-from refactor.scripts.tools.widgets import Label
+from constants.label import Label
+
 
 class CEJFinder:
-    def __init__(self, model_path):
-        model = KeypointModel().cuda()
-        state_dict = torch.load(model_path)
-        model.load_state_dict(state_dict)
-        self.model = model.eval()
+    def __init__(self, model, device):
+        self.model = model
+        self.device = device
         self.transform = transforms.Resize((224, 224))
 
     def _preprocess_image(self, image):
@@ -20,13 +17,14 @@ class CEJFinder:
         image = image / 255
         image = image.unsqueeze(0)
         image = self.transform(image)
+
         return image
 
     def find(self, segmentation_slices, tooth_slices):
         images = torch.stack([self._preprocess_image(image) for image in tooth_slices])
-        images = images.cuda()
+        images = images.to(self.device, non_blocking=True)
 
-        with torch.no_grad(), torch.autocast('cuda'):
+        with torch.no_grad(), torch.autocast(self.device):
             predicts = self.model(images)
 
         points = []
@@ -39,8 +37,8 @@ class CEJFinder:
 
             point = self._move_to_surface(segmentation_slice, left_x, left_y, right_x, right_y)
             points.append(point)
-        points = numpy.array(points)
-        return points
+
+        return numpy.array(points)
 
     def _move_to_surface(self, segmentation_slice, left_x, left_y, right_x, right_y):
         tooth_area = (segmentation_slice == Label.TOOTH).astype(numpy.uint8)
