@@ -4,7 +4,7 @@ from segmentation.dataset import get_loader
 from segmentation.losses import get_loss
 from segmentation.metrics import get_metric
 from segmentation.models import load_model
-from utils.console import track
+from utils.console import Table, track
 
 
 class Evaluator:
@@ -57,28 +57,11 @@ class Evaluator:
 
         return logs
 
-if __name__ == '__main__':
-    from argparse import ArgumentParser
-    from pathlib import Path
-
-    from utils.config import load_config
-    from utils.console import Table
-
-    parser = ArgumentParser()
-    parser.add_argument('exp', type=str)
-    args = parser.parse_args()
-
-    experiment_name = args.exp
-
-    config = load_config(Path('logs') / experiment_name / 'segmentation.toml')
-
-    evaluator = Evaluator(config)
-    logs = evaluator.evaluate()
-
-    Table(
-        ['', evaluator.loss_name, evaluator.metric_name],
-        *[
-            [fold, *log]
-            for fold, log in logs.items()
-        ]
-    ).display()
+    def format(self, logs):
+        return Table(
+            ['', self.loss_name, self.metric_name],
+            *[
+                [fold, *log]
+                for fold, log in logs.items()
+            ]
+        )

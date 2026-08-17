@@ -1,3 +1,5 @@
+import torch
+
 from segmentation.dataset import get_loader
 from segmentation.losses import get_loss
 from segmentation.metrics import get_metric
@@ -8,7 +10,7 @@ from utils.trainer import BaseTrainer
 
 class Trainer(BaseTrainer):
     def __init__(self, config):
-        super().__init__(config, get_loader, get_model, get_optimizer, get_loss, get_metric, higher_is_better=True)
+        super().__init__(config, get_loader, get_model, get_optimizer, get_loss, get_metric)
 
     def _forward(self, batch):
         images, masks = batch
@@ -20,3 +22,9 @@ class Trainer(BaseTrainer):
     def _update_metric(self, predicts, batch):
         _, masks = batch
         self.metric_fn.update(predicts, masks)
+
+    def _worst_metric(self):
+        return -torch.inf
+
+    def _is_better(self, metric, best_metric):
+        return metric >= best_metric

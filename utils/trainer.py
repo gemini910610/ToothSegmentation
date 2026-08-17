@@ -8,7 +8,7 @@ from utils.console import Table, track
 
 
 class BaseTrainer:
-    def __init__(self, config, get_loader, get_model, get_optimizer, get_loss, get_metric, higher_is_better=True):
+    def __init__(self, config, get_loader, get_model, get_optimizer, get_loss, get_metric):
         self.log_dir = Path('logs') / config.experiment / f'Fold_{config.fold}'
         self.train_loader, self.valid_loader = get_loader(config)
         self.model = get_model(config)
@@ -16,7 +16,6 @@ class BaseTrainer:
         self.criterion = get_loss(config)
         self.metric_fn = get_metric(config)
 
-        self.higher_is_better = higher_is_better
         self.device = config.device
         self.loss_name = self.criterion.__class__.__name__
         self.metric_name = self.metric_fn.__class__.__name__
@@ -28,6 +27,12 @@ class BaseTrainer:
         raise NotImplementedError
 
     def _update_metric(self, predicts, batch):
+        raise NotImplementedError
+
+    def _worst_metric(self):
+        raise NotImplementedError
+
+    def _is_better(self, metric, best_metric):
         raise NotImplementedError
 
     def _run_loader(self, loader, desc, train=True):
@@ -71,12 +76,9 @@ class BaseTrainer:
         self.summary_writer.add_scalars(self.loss_name, {'Train': train_loss, 'Valid': valid_loss}, epoch)
         self.summary_writer.add_scalars(self.metric_name, {'Train': train_metric, 'Valid': valid_metric}, epoch)
 
-    def _is_better(self, metric, best_metric):
-        return metric >= best_metric if self.higher_is_better else metric <= best_metric
-
     def fit(self, epochs):
         width = len(str(epochs))
-        best_metric = -torch.inf if self.higher_is_better else torch.inf
+        best_metric = self._worst_metric()
 
         for epoch in range(1, epochs + 1):
             print(f'{epoch:>{width}}/{epochs}')
