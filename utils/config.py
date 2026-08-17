@@ -20,6 +20,8 @@ def load_config(config_path, fold=MISSING):
     return config
 
 if __name__ == '__main__':
+    from argparse import ArgumentParser
+
     from omegaconf.dictconfig import DictConfig
 
     from utils.console import Table
@@ -32,7 +34,13 @@ if __name__ == '__main__':
             else:
                 yield key, value
 
-    config = load_config(Path('configs') / 'segmentation.toml', fold=1)
+    parser = ArgumentParser()
+    parser.add_argument('task', type=str, choices=['segmentation', 'keypoints'])
+    args = parser.parse_args()
+
+    task = args.task
+
+    config = load_config(Path('configs') / f'{task}.toml', fold=1)
 
     Table(
         ['Parameter', 'Value'],

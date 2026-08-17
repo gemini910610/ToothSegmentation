@@ -34,5 +34,6 @@ name = "SmoothL1Loss"
 
 # Metric
 [metric]
+name = "PixelError"
 
 [metric.parameters]
