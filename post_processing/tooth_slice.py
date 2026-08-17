@@ -1,13 +1,12 @@
 import numpy
-
 from scipy import ndimage
 from scipy.interpolate import make_splprep
 
-from refactor.scripts.post_processing.relabel import split_teeth_jaw
-from refactor.scripts.tools.widgets import Label
+from constants.label import Label
+from post_processing.relabel import split_teeth_jaw
 
-def extract_single_tooth(segmentation_volume, normal_vector, tooth_label, bone_label, padding=25):
-    tooth_mask = segmentation_volume == tooth_label
+
+def extract_single_tooth(tooth_mask, bone_mask, bone_coordinates, normal_vector, padding=25):
     tooth_coordinates = numpy.argwhere(tooth_mask)
     tooth_center = tooth_coordinates.mean(0)
 
@@ -31,7 +30,7 @@ def extract_single_tooth(segmentation_volume, normal_vector, tooth_label, bone_l
     u_min, v_min, w_min = -length
     u_max, v_max, w_max = length
 
-    coordinates = numpy.argwhere((segmentation_volume == tooth_label) | (segmentation_volume == bone_label))
+    coordinates = numpy.concatenate([tooth_coordinates, bone_coordinates])
     uvw = (coordinates - tooth_center) @ rotate_matrix
 
     mask = (
@@ -41,9 +40,8 @@ def extract_single_tooth(segmentation_volume, normal_vector, tooth_label, bone_l
     )
     coordinates = coordinates[mask]
 
-    filtered_segmentation = numpy.zeros_like(segmentation_volume, dtype=numpy.uint8)
-    values = segmentation_volume[*coordinates.T]
-    filtered_segmentation[*coordinates.T] = (values == tooth_label) * Label.TOOTH + (values == bone_label) * Label.BONE
+    filtered_segmentation = numpy.zeros_like(tooth_mask, dtype=numpy.uint8)
+    filtered_segmentation[*coordinates.T] = tooth_mask[*coordinates.T] * Label.TOOTH + bone_mask[*coordinates.T] * Label.BONE
 
     transform_meta = {
         'center': tooth_center,
@@ -53,7 +51,7 @@ def extract_single_tooth(segmentation_volume, normal_vector, tooth_label, bone_l
 
     return filtered_segmentation, transform_meta
 
-def align_crop_tooth(segmentation_volume, image_volume, transform_meta):
+def align_crop_tooth(segmentation_volume, image_coefficients, transform_meta):
     center = transform_meta['center']
     length = transform_meta['length']
     axes = transform_meta['axes']
@@ -71,19 +69,14 @@ def align_crop_tooth(segmentation_volume, image_volume, transform_meta):
     coordinates = uvw @ rotate_matrix.T + center
     coordinates = coordinates.transpose(3, 0, 1, 2)
     aligned_segmentation = ndimage.map_coordinates(segmentation_volume, coordinates, order=0)
-    aligned_image = ndimage.map_coordinates(image_volume, coordinates, order=3)
+    aligned_image = ndimage.map_coordinates(image_coefficients, coordinates, order=3, prefilter=False)
 
     return aligned_segmentation, aligned_image
 
-def oblique_slice(segmentation_volume, image_volume, theta, offset=90):
-    width, height, depth = segmentation_volume.shape
-    center = numpy.array([width, height, depth]) / 2
-
-    size = numpy.sqrt(width ** 2 + height ** 2)
-    h_line = numpy.linspace(-size / 2, size / 2, int(size))
-    v_line = numpy.arange(depth)
-
-    hh, vv = numpy.meshgrid(h_line, v_line, indexing='ij')
+def oblique_slice(segmentation_volume, image_coefficients, grid, theta, offset=90):
+    center = grid['center']
+    hh = grid['hh']
+    vv = grid['vv']
 
     radian = numpy.deg2rad(theta + offset)
 
@@ -94,7 +87,7 @@ def oblique_slice(segmentation_volume, image_volume, theta, offset=90):
     coordinates = numpy.stack([xs, ys, zs], axis=0)
     segmentation_slice = ndimage.map_coordinates(segmentation_volume, coordinates, order=0)
     segmentation_slice = segmentation_slice.T[::-1]
-    image_slice = ndimage.map_coordinates(image_volume, coordinates, order=3)
+    image_slice = ndimage.map_coordinates(image_coefficients, coordinates, order=3, prefilter=False)
     image_slice = image_slice.T[::-1]
 
     tooth_slice = segmentation_slice == Label.TOOTH
@@ -109,26 +102,36 @@ def oblique_slice(segmentation_volume, image_volume, theta, offset=90):
     return segmentation_slice, image_slice
 
 def get_slices(segmentation_volume, image_volume, count=8, reverse=False, offset=90):
+    image_coefficients = ndimage.spline_filter(image_volume, order=3)
+
+    width, height, depth = segmentation_volume.shape
+    size = numpy.sqrt(width ** 2 + height ** 2)
+    h_line = numpy.linspace(-size / 2, size / 2, int(size))
+    v_line = numpy.arange(depth)
+    hh, vv = numpy.meshgrid(h_line, v_line, indexing='ij')
+    grid = {
+        'center': numpy.array([width, height, depth]) / 2,
+        'hh': hh,
+        'vv': vv
+    }
+
     slices = []
     for theta in numpy.linspace(0, 360, count, endpoint=False):
         if reverse:
             theta *= -1
-        segmentation_slice, image_slice = oblique_slice(segmentation_volume, image_volume, theta, offset)
-        tooth_slice = (segmentation_slice == 1) * image_slice
-        slices.append((segmentation_slice, image_slice, tooth_slice))
+        segmentation_slice, image_slice = oblique_slice(segmentation_volume, image_coefficients, grid, theta, offset)
+        slices.append((segmentation_slice, image_slice))
+
     return slices
 
-def normalize_slice(segmentation_slice, image_slice, tooth_slice):
+def normalize_slice(segmentation_slice, image_slice):
     segmentation_slice = segmentation_slice / 2 * 255
     segmentation_slice = segmentation_slice.astype(numpy.uint8)
 
     image_slice = image_slice.clip(0, 255)
     image_slice = image_slice.astype(numpy.uint8)
 
-    tooth_slice = tooth_slice.clip(0, 255)
-    tooth_slice = tooth_slice.astype(numpy.uint8)
-
-    return segmentation_slice, image_slice, tooth_slice
+    return segmentation_slice, image_slice
 
 def find_normal_vectors(segmentation_volume):
     tooth_volume = segmentation_volume.copy()
@@ -162,50 +165,71 @@ def find_normal_vectors(segmentation_volume):
     return normal_vectors
 
 if __name__ == '__main__':
-    import cv2
-    import os
-
+    import sys
     from argparse import ArgumentParser
+    from pathlib import Path
 
-    from refactor.scripts.post_processing.iterators import iterate_datasets
-    from refactor.scripts.tools.widgets import Mode
+    import cv2
 
-    parser = ArgumentParser()
-    parser.add_argument('exp', type=str)
-    parser.add_argument('output', type=str)
-    args = parser.parse_args()
+    from constants.mode import Mode
+    from post_processing.utils import iterate_datasets
+    from tui.apps import BaseApp
 
-    experiment_name = args.exp
-    output_dir = args.output
+    if len(sys.argv) == 1:
+        args = BaseApp().run()
+        if args is None:
+            sys.exit()
 
-    if os.path.exists(output_dir):
+        experiment_name = args['experiment_name']
+        datasets = args['datasets']
+    else:
+        parser = ArgumentParser()
+        parser.add_argument('exp', type=str)
+        parser.add_argument('datasets', nargs='+', type=str)
+        args = parser.parse_args()
+
+        experiment_name = args.exp
+        datasets = args.datasets
+
+    output_dir = Path('output_slices') / experiment_name
+    if output_dir.exists():
         raise FileExistsError(f'folder "{output_dir}" already exists')
 
-    datasets = ['bone_tooth_mask', 'bone_tooth_mask_1209', 'bone_tooth_mask_0508']
     for dataset, patient in iterate_datasets(experiment_name, datasets):
-        volume_path = os.path.join('outputs', experiment_name, dataset, patient, f'{Mode.POST_PROCESSING}.npy')
-        volume = numpy.load(volume_path)
-        image_volume_path = os.path.join('outputs', experiment_name, dataset, patient, f'{Mode.IMAGE}.npy')
+        fdi_volume_path = Path('outputs') / experiment_name / dataset / patient / f'{Mode.FDI}.npy'
+        if not fdi_volume_path.exists():
+            continue
+
+        fdi_volume = numpy.load(fdi_volume_path)
+        bone_volume_path = fdi_volume_path.parent / f'{Mode.BONE_FILLED}.npy'
+        bone_volume = numpy.load(bone_volume_path)
+        image_volume_path = fdi_volume_path.parent / f'{Mode.IMAGE}.npy'
         image_volume = numpy.load(image_volume_path)
 
-        normal_vectors = find_normal_vectors(volume)
+        segmentation_volume = fdi_volume + (bone_volume > 0)
+        bone_mask = segmentation_volume == 1
+        bone_coordinates = numpy.argwhere(bone_mask)
+        image_coefficients = ndimage.spline_filter(image_volume, order=3)
 
-        labels = numpy.unique(volume)
-        labels = labels[(labels > 1) & (labels < Label.CROPPED)] # exclude background, bone and removed teeth
+        normal_vectors = find_normal_vectors(segmentation_volume)
+
+        labels = numpy.unique(segmentation_volume)
+        labels = labels[(labels > 1) & (labels < Label.TRUNCATED)] # exclude background, bone and removed teeth
 
         for label in labels:
-            output_path = os.path.join(output_dir, dataset, patient, str(label))
-            os.makedirs(output_path)
+            slice_dir = output_dir / dataset / patient / str(label)
+            slice_dir.mkdir(parents=True)
 
             normal_vector = normal_vectors[label]
-            filtered_volume, transform_meta = extract_single_tooth(volume, normal_vector, tooth_label=label, bone_label=1)
-            aligned_volume, aligned_image = align_crop_tooth(filtered_volume, image_volume, transform_meta)
+            filtered_volume, transform_meta = extract_single_tooth(segmentation_volume == label, bone_mask, bone_coordinates, normal_vector)
+            aligned_volume, aligned_image = align_crop_tooth(filtered_volume, image_coefficients, transform_meta)
             slices = get_slices(aligned_volume, aligned_image, reverse=label // 10 in {2, 3})
 
-            degrees = numpy.linspace(0, 360, len(slices), endpoint=False)
-            for degree, (segmentation_slice, image_slice, tooth_slice) in zip(degrees, slices):
-                if degree.is_integer():
-                    degree = int(degree)
-                segmentation_slice, image_slice, tooth_slice = normalize_slice(segmentation_slice, image_slice, tooth_slice)
-                for title, image in {'segmentation': segmentation_slice, 'image': image_slice, 'tooth': tooth_slice}.items():
-                    cv2.imwrite(os.path.join(output_path, f'{title}_{degree}.png'), image)
+            degrees = numpy.linspace(0, 360, len(slices), endpoint=False, dtype=numpy.int32)
+            for degree, (segmentation_slice, image_slice) in zip(degrees, slices):
+                segmentation_slice, image_slice = normalize_slice(segmentation_slice, image_slice)
+
+                segmentation_path = slice_dir / f'segmentation_{degree}.png'
+                cv2.imwrite(segmentation_path, segmentation_slice)
+                image_path = segmentation_path.parent / f'image_{degree}.png'
+                cv2.imwrite(image_path, image_slice)

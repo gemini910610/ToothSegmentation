@@ -11,10 +11,10 @@ from constants.label import Label
 from post_processing.relabel import split_teeth_jaw
 
 
-def synthetic_tooth(tooth_list, width):
+def synthetic_tooth(tooth_list, volume_width):
     if len(tooth_list) == 1:
         x, y, z = tooth_list[0]['center']
-        fake_tooth = tooth_list[0] | {'center': (width - x, y, z)}
+        fake_tooth = tooth_list[0] | {'center': (volume_width - x, y, z)}
         tooth_list = [tooth_list[0], fake_tooth]
         tooth_list.sort(key=lambda tooth: tooth['center'][0], reverse=True)
 
@@ -34,9 +34,9 @@ def synthetic_tooth(tooth_list, width):
 
     return tooth_list
 
-def extract_curve(tooth_list, width):
+def extract_curve(tooth_list, volume_width, base_width=400, padding=40):
     if len(tooth_list) < 4:
-        tooth_list = synthetic_tooth(tooth_list, width)
+        tooth_list = synthetic_tooth(tooth_list, volume_width)
 
     points = numpy.array([tooth['center'][:2] for tooth in tooth_list])
     curve, _ = make_splprep(points.T)
@@ -45,7 +45,7 @@ def extract_curve(tooth_list, width):
     curve_points = curve(dense_u).T
     distances = numpy.linalg.norm(curve_points[1:] - curve_points[:-1], axis=1)
     s = numpy.concatenate([[0], numpy.cumsum(distances)])
-    uniform_s = numpy.linspace(0, s[-1], 400)
+    uniform_s = numpy.linspace(0, s[-1], base_width)
     uniform_u = numpy.interp(uniform_s, s, dense_u)
     curve_points = curve(uniform_u).T
 
@@ -55,7 +55,6 @@ def extract_curve(tooth_list, width):
     step = uniform_s[1] - uniform_s[0]
     previous_vector = -tangents[0] * step
     next_vector = tangents[-1] * step
-    padding = 40
     previous_points = [curve_points[0] + previous_vector * i for i in range(padding, 0, -1)]
     next_points = [curve_points[-1] + next_vector * i for i in range(1, padding + 1)]
     curve_points = numpy.concatenate([previous_points, curve_points, next_points])
