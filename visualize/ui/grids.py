@@ -1,11 +1,20 @@
+from datetime import datetime
+from pathlib import Path
+from zoneinfo import ZoneInfo
+
+from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
     QGridLayout,
+    QGroupBox,
     QHBoxLayout,
     QLabel,
     QLineEdit,
     QSpacerItem,
+    QVBoxLayout,
     QWidget,
 )
+
+from visualize.ui.images import PointImage
 
 
 def _match_keypoints(segmentation_label, keypoint_label):
@@ -115,3 +124,44 @@ class LabelGrid(QWidget):
         self.right_grid.addItem(QSpacerItem(30, 15), 2, 0)
 
         return label_editors
+
+class ImageCell:
+    def __init__(self, title, row, column):
+        self.title = title
+        self.row = row
+        self.column = column
+
+class PointImageGrid(QWidget):
+    def __init__(self, cells, size=(128, 128), clickable=False):
+        super().__init__()
+        self.cells = cells
+
+        layout = QGridLayout()
+        self.setLayout(layout)
+
+        self.images = []
+        for cell in cells:
+            box = QGroupBox(cell.title)
+            box_layout = QVBoxLayout()
+            image = PointImage(size, clickable)
+            box_layout.addWidget(image)
+            box.setLayout(box_layout)
+
+            layout.addWidget(box, cell.row, cell.column)
+            self.images.append(image)
+
+        self.setFixedSize(self.sizeHint())
+
+    def update_images(self, slices):
+        for image, slice_image in zip(self.images, slices):
+            image.update_image(slice_image)
+
+    def mousePressEvent(self, event):
+        if event.modifiers() & Qt.KeyboardModifier.AltModifier and event.button() == Qt.MouseButton.LeftButton:
+            path = Path('screenshots')
+            path.mkdir(exist_ok=True)
+
+            timestamp = datetime.now(ZoneInfo('Asia/Taipei')).strftime('%Y%m%d_%H%M%S')
+            self.grab().save(str(path / f'{timestamp}.png'))
+
+        super().mousePressEvent(event)

@@ -1,0 +1,37 @@
+# System and Experiment
+experiment = "Keypoints"
+seed = 42
+num_workers = 4
+
+# Data Configuration
+annotation_file = "slices/points.json"
+split_filename = "keypoints"
+num_folds = 4
+
+# Training Settings
+num_epochs = 200
+batch_size = 32
+
+# Model Architecture
+[model]
+name = "ResNet-18"
+
+[model.parameters]
+
+# Optimizer
+[optimizer]
+name = "Adam"
+
+[optimizer.parameters]
+lr = 1e-4
+
+# Loss Function
+[loss]
+name = "SmoothL1Loss"
+
+[loss.parameters]
+
+# Metric
+[metric]
+
+[metric.parameters]

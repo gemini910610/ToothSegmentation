@@ -51,15 +51,17 @@ if __name__ == '__main__':
     with fdi_mapping_path.open() as file:
         fdi_mapping = json.load(file)
 
-    for dataset, patient in iterate_datasets(experiment_name, datasets):
-        data = f'{dataset}/{patient}'
-        if data not in fdi_mapping:
-            continue
+    patients = [
+        (dataset, patient)
+        for dataset, patient in iterate_datasets(experiment_name, datasets)
+        if f'{dataset}/{patient}' in fdi_mapping
+    ]
 
+    for dataset, patient in patients:
         volume_path = Path('outputs') / experiment_name / dataset / patient / f'{Mode.RELABELED}.npy'
         volume = numpy.load(volume_path)
 
-        volume = relabel_fdi(volume, fdi_mapping[data])
+        volume = relabel_fdi(volume, fdi_mapping[f'{dataset}/{patient}'])
 
         output_path = volume_path.parent / f'{Mode.FDI}.npy'
         numpy.save(output_path, volume)

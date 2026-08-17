@@ -195,11 +195,14 @@ if __name__ == '__main__':
     if output_dir.exists():
         raise FileExistsError(f'folder "{output_dir}" already exists')
 
-    for dataset, patient in iterate_datasets(experiment_name, datasets):
-        fdi_volume_path = Path('outputs') / experiment_name / dataset / patient / f'{Mode.FDI}.npy'
-        if not fdi_volume_path.exists():
-            continue
+    patients = [
+        (dataset, patient)
+        for dataset, patient in iterate_datasets(experiment_name, datasets)
+        if (Path('outputs') / experiment_name / dataset / patient / f'{Mode.FDI}.npy').exists()
+    ]
 
+    for dataset, patient in patients:
+        fdi_volume_path = Path('outputs') / experiment_name / dataset / patient / f'{Mode.FDI}.npy'
         fdi_volume = numpy.load(fdi_volume_path)
         bone_volume_path = fdi_volume_path.parent / f'{Mode.BONE_FILLED}.npy'
         bone_volume = numpy.load(bone_volume_path)
