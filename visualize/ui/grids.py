@@ -140,6 +140,7 @@ class PointImageGrid(QWidget):
         self.setLayout(layout)
 
         self.images = []
+        self.boxes = []
         for cell in cells:
             box = QGroupBox(cell.title)
             box_layout = QVBoxLayout()
@@ -149,12 +150,31 @@ class PointImageGrid(QWidget):
 
             layout.addWidget(box, cell.row, cell.column)
             self.images.append(image)
+            self.boxes.append(box)
 
         self.setFixedSize(self.sizeHint())
 
-    def update_images(self, slices):
-        for image, slice_image in zip(self.images, slices):
+    def update_images(self, slices, points=None):
+        if points is None:
+            points = [None] * len(self.images)
+
+        for image, slice_image, point in zip(self.images, slices, points):
             image.update_image(slice_image)
+
+            if point is None:
+                continue
+
+            width, height = image.size
+            origin_height, origin_width = slice_image.shape[:2]
+            left_x, left_y, right_x, right_y = point
+
+            image.left_point = (left_x * width / origin_width, left_y * height / origin_height)
+            image.right_point = (right_x * width / origin_width, right_y * height / origin_height)
+            image.update()
+
+    def update_titles(self, suffixes):
+        for box, cell, suffix in zip(self.boxes, self.cells, suffixes):
+            box.setTitle(f'{cell.title} {suffix}')
 
     def mousePressEvent(self, event):
         if event.modifiers() & Qt.KeyboardModifier.AltModifier and event.button() == Qt.MouseButton.LeftButton:

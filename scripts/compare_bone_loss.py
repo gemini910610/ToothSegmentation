@@ -59,8 +59,8 @@ for dataset, patient in track(patients):
     bone_volume = numpy.load(patient_folder / f'{Mode.BONE_FILLED}.npy')
     image_volume = numpy.load(patient_folder / f'{Mode.IMAGE}.npy')
 
-    segmentation_volume = fdi_volume + (bone_volume > 0)
-    bone_mask = segmentation_volume == 1
+    bone_mask = bone_volume > 0
+    segmentation_volume = fdi_volume + bone_mask
     bone_coordinates = numpy.argwhere(bone_mask)
     image_coefficients = ndimage.spline_filter(image_volume, order=3)
 

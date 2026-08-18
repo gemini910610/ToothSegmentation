@@ -209,8 +209,8 @@ if __name__ == '__main__':
         image_volume_path = fdi_volume_path.parent / f'{Mode.IMAGE}.npy'
         image_volume = numpy.load(image_volume_path)
 
-        segmentation_volume = fdi_volume + (bone_volume > 0)
-        bone_mask = segmentation_volume == 1
+        bone_mask = bone_volume > 0
+        segmentation_volume = fdi_volume + bone_mask
         bone_coordinates = numpy.argwhere(bone_mask)
         image_coefficients = ndimage.spline_filter(image_volume, order=3)
 

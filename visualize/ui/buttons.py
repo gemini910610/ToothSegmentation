@@ -20,3 +20,6 @@ class RadioGroup(QWidget):
 
     def select_first(self):
         self.group.buttons()[0].setChecked(True)
+
+    def on_change(self, callback):
+        self.group.buttonClicked.connect(lambda button: callback(button.text()))

@@ -13,11 +13,9 @@ from tui.switches import LabelSwitch
 class BaseApp(App):
     def compose(self):
         with BaseContainer(width='80%'):
-            with BaseGrid(rows=1, columns=2):
-                self.experiment_selector = DirectorySelector(Path('outputs'), 'experiment', self._on_experiment_change)
-                self.dataset_selector = DirectoryMultiSelector(title='datasets')
-                yield self.experiment_selector
-                yield self.dataset_selector
+            widgets = self.selectors()
+            with BaseGrid(rows=1, columns=len(widgets)):
+                yield from widgets
 
             yield from self.extra_widgets()
 
@@ -27,6 +25,11 @@ class BaseApp(App):
                 ('cancel', self._on_cancel),
                 ('continue', self._on_continue, 'success')
             )
+
+    def selectors(self):
+        self.experiment_selector = DirectorySelector(Path('outputs'), 'experiment', self._on_experiment_change)
+        self.dataset_selector = DirectoryMultiSelector(title='datasets')
+        return [self.experiment_selector, self.dataset_selector]
 
     def extra_widgets(self):
         yield from ()
@@ -49,6 +52,20 @@ class BaseApp(App):
     def _on_continue(self):
         data = self.collect_data()
         self.exit(data)
+
+class BoneLossApp(BaseApp):
+    def selectors(self):
+        self.segmentation_experiment_selector = DirectorySelector(Path('outputs'), 'segmentation experiment', self._on_experiment_change)
+        self.keypoint_experiment_selector = DirectorySelector(Path('logs'), 'keypoint experiment')
+        self.dataset_selector = DirectoryMultiSelector(title='datasets')
+        return [self.segmentation_experiment_selector, self.keypoint_experiment_selector, self.dataset_selector]
+
+    def collect_data(self):
+        return {
+            'segmentation_experiment_name': self.segmentation_experiment_selector.selected,
+            'keypoint_experiment_name': self.keypoint_experiment_selector.selected,
+            'datasets': self.dataset_selector.selected
+        }
 
 class ConnectedComponentApp(BaseApp):
     def extra_widgets(self):
