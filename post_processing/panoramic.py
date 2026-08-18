@@ -153,15 +153,18 @@ def get_panoramic(image_volume, segmentation_volume):
 def draw_label(image_panoramic, segmentation_panoramic):
     image_panoramic = cv2.cvtColor(image_panoramic, cv2.COLOR_GRAY2RGB)
 
-    labels = numpy.unique(segmentation_panoramic)
-    labels = labels[labels > 0]
-    for label in labels:
-        area = segmentation_panoramic == label
+    objects = ndimage.find_objects(segmentation_panoramic)
+    for label, slices in enumerate(objects, 1):
+        if slices is None:
+            continue
+
+        area = segmentation_panoramic[slices] == label
         area = ndimage.binary_fill_holes(area)
 
         color = GLASBEY_PALETTE[label]
 
-        points = numpy.argwhere(area)
+        offset = numpy.array([slices[0].start, slices[1].start])
+        points = numpy.argwhere(area) + offset
         center = points.mean(0)[::-1]
         (width, height), baseline = cv2.getTextSize(str(label), cv2.FONT_HERSHEY_SIMPLEX, 1, 2)
         x = int(center[0] - width / 2)
@@ -260,7 +263,7 @@ def find_panoramic_paths(dataset, patient):
 
     return None
 
-def load_panoramic(image_path, prediction_path):
+def load_panoramic(image_path, prediction_path, merge=True):
     image = cv2.imread(str(image_path), cv2.IMREAD_GRAYSCALE)
 
     with open(prediction_path) as file:
@@ -281,9 +284,32 @@ def load_panoramic(image_path, prediction_path):
             'right_root': (float(right_root_x), float(right_root_y)),
             'bone_loss': int(bone_loss)
         })
-    tooth_data = merge_box(tooth_data)
+    if merge:
+        tooth_data = merge_box(tooth_data)
 
     return image, tooth_data
+
+def crop_panoramic(image, tooth):
+    center_x, center_y = tooth['center']
+    width, height = tooth['box_size']
+    left = round(center_x - width / 2)
+    top = round(center_y - height / 2)
+    right = round(center_x + width / 2)
+    bottom = round(center_y + height / 2)
+    image = image[top:bottom, left:right].copy()
+
+    for key, color in [('left_crone', (255, 0, 0)), ('right_crone', (255, 0, 0)), ('left_bone', (0, 255, 0)), ('right_bone', (0, 255, 0)), ('left_root', (0, 0, 255)), ('right_root', (0, 0, 255))]:
+        x, y = tooth[key]
+        point = (round(x - left), round(y - top))
+        image = cv2.circle(image, point, 2, color, 2)
+
+    (text_height, _), _ = cv2.getTextSize(str(tooth['bone_loss']), cv2.FONT_HERSHEY_SIMPLEX, 1, 2)
+    image = cv2.putText(image, str(tooth['bone_loss']), (10, text_height // 2 + 10), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 0), 5, cv2.LINE_AA)
+    image = cv2.putText(image, str(tooth['bone_loss']), (10, text_height // 2 + 10), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 255), 2, cv2.LINE_AA)
+
+    image = cv2.cvtColor(image, cv2.COLOR_RGB2BGR)
+
+    return image
 
 def draw_panoramic(image, tooth_data):
     image = cv2.cvtColor(image, cv2.COLOR_GRAY2RGB)
@@ -300,3 +326,55 @@ def draw_panoramic(image, tooth_data):
     image = cv2.cvtColor(image, cv2.COLOR_RGB2BGR)
 
     return image
+
+if __name__ == '__main__':
+    import sys
+    from argparse import ArgumentParser
+    from collections import Counter, defaultdict
+
+    from post_processing.utils import iterate_datasets
+    from tui.apps import BaseApp
+
+    if len(sys.argv) == 1:
+        args = BaseApp().run()
+        if args is None:
+            sys.exit()
+
+        experiment_name = args['experiment_name']
+        datasets = args['datasets']
+    else:
+        parser = ArgumentParser()
+        parser.add_argument('exp', type=str)
+        parser.add_argument('datasets', nargs='+', type=str)
+        args = parser.parse_args()
+
+        experiment_name = args.exp
+        datasets = args.datasets
+
+    patients = []
+    for dataset, patient in iterate_datasets(experiment_name, datasets):
+        paths = find_panoramic_paths(dataset, patient)
+        if paths is not None:
+            patients.append((dataset, patient, paths))
+
+    for dataset, patient, paths in patients:
+        image_path, prediction_path = paths
+        image, tooth_data = load_panoramic(image_path, prediction_path, merge=False)
+        image = cv2.cvtColor(image, cv2.COLOR_GRAY2RGB)
+
+        output_folder = Path('pano_crop') / experiment_name / dataset / patient
+        output_folder.mkdir(parents=True, exist_ok=True)
+
+        fdi_counts = Counter(tooth['FDI'][0] for tooth in tooth_data)
+
+        indices = defaultdict(int)
+        for tooth in tooth_data:
+            crop = crop_panoramic(image, tooth)
+
+            fdi = tooth['FDI'][0]
+            if fdi_counts[fdi] == 1:
+                filename = f'{fdi}.png'
+            else:
+                indices[fdi] += 1
+                filename = f'{fdi}_{indices[fdi]}.png'
+            cv2.imwrite(str(output_folder / filename), crop)
