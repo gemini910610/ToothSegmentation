@@ -79,7 +79,7 @@ def get_bone_surface(tooth_area, bone_area):
 
     return bone_surface
 
-def slice_bone_loss(tooth_surface, bone_surface, point, is_upper):
+def slice_contour_bone_loss(tooth_surface, bone_surface, point, is_upper):
     _, left_y, _, right_y = point
 
     height, width = tooth_surface.shape
