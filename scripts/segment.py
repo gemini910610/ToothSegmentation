@@ -1,41 +1,17 @@
 from pathlib import Path
 
 import numpy
-import torch
 from torch.utils.data import DataLoader
 
 from segmentation.dataset import CBCTDataset
-from utils.console import track
+from segmentation.predict import predict_volumes
 
 
 def predict_patient(model, dataset, patient, config):
     dataset = CBCTDataset(Path('datasets') / dataset, [patient], return_mask=False)
     loader = DataLoader(dataset, config.batch_size, shuffle=False, num_workers=config.num_workers, pin_memory=True)
 
-    image_volume = []
-    predict_volume = []
-    for images in track(loader, desc=patient):
-        image_volume.append(images.squeeze(1))
-        images = images.to(config.device, non_blocking=True)
-
-        with torch.no_grad(), torch.autocast(config.device):
-            predicts = model(images) # (B, C, H, W)
-        predicts = predicts.argmax(1).cpu() # (B, H, W)
-
-        predict_volume.append(predicts)
-
-    image_volume = torch.cat(image_volume) # (Z, H, W)
-    image_volume = image_volume.numpy()
-    image_volume = image_volume.transpose(2, 1, 0) # (W, H, Z)
-    image_volume = image_volume * 255
-    image_volume = image_volume.astype(numpy.uint8)
-
-    predict_volume = torch.cat(predict_volume) # (Z, H, W)
-    predict_volume = predict_volume.numpy()
-    predict_volume = predict_volume.transpose(2, 1, 0) # (W, H, Z)
-    predict_volume = predict_volume.astype(numpy.uint8)
-
-    return image_volume, predict_volume
+    return predict_volumes(model, loader, config, desc=patient)
 
 if __name__ == '__main__':
     from argparse import ArgumentParser

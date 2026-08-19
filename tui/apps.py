@@ -56,7 +56,7 @@ class BaseApp(App):
 class BoneLossApp(BaseApp):
     def selectors(self):
         self.segmentation_experiment_selector = DirectorySelector(Path('outputs'), 'segmentation experiment', self._on_experiment_change)
-        self.keypoint_experiment_selector = DirectorySelector(Path('logs'), 'keypoint experiment')
+        self.keypoint_experiment_selector = DirectorySelector(Path('logs'), 'keypoint experiment', task='keypoints')
         self.dataset_selector = DirectoryMultiSelector(title='datasets')
         return [self.segmentation_experiment_selector, self.keypoint_experiment_selector, self.dataset_selector]
 
@@ -64,6 +64,44 @@ class BoneLossApp(BaseApp):
         return {
             'segmentation_experiment_name': self.segmentation_experiment_selector.selected,
             'keypoint_experiment_name': self.keypoint_experiment_selector.selected,
+            'datasets': self.dataset_selector.selected
+        }
+
+class SegmentationPredictApp(BaseApp):
+    def selectors(self):
+        self.experiment_selector = DirectorySelector(Path('logs'), 'segmentation dataset', task='segmentation')
+        self.keypoint_experiment_selector = DirectorySelector(Path('logs'), 'keypoint dataset', task='keypoints')
+        return [self.experiment_selector, self.keypoint_experiment_selector]
+
+    def extra_widgets(self):
+        yield HorizontalRule()
+
+        with BaseHorizontal():
+            self.fold_input = BaseInput('segmentation fold')
+            self.fold_input.styles.width = '1fr'
+            self.fold_input.value = '4'
+            yield self.fold_input
+
+            self.keypoint_fold_input = BaseInput('keypoint fold')
+            self.keypoint_fold_input.styles.width = '1fr'
+            self.keypoint_fold_input.value = '1'
+            yield self.keypoint_fold_input
+
+    def collect_data(self):
+        return {
+            'experiment_name': self.experiment_selector.selected,
+            'fold': self.fold_input.get_value(),
+            'keypoint_experiment_name': self.keypoint_experiment_selector.selected,
+            'keypoint_fold': self.keypoint_fold_input.get_value()
+        }
+
+class PanoramicPredictApp(BaseApp):
+    def selectors(self):
+        self.dataset_selector = DirectoryMultiSelector(Path('datasets'), 'xray datasets')
+        return [self.dataset_selector]
+
+    def collect_data(self):
+        return {
             'datasets': self.dataset_selector.selected
         }
 

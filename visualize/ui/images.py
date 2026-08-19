@@ -3,7 +3,7 @@ from PIL import Image
 from PIL.ImageQt import ImageQt
 from PySide6.QtCore import QMimeData, Qt, Signal
 from PySide6.QtGui import QColor, QDrag, QIcon, QImage, QPainter, QPen, QPixmap
-from PySide6.QtWidgets import QLabel, QMessageBox
+from PySide6.QtWidgets import QLabel, QMessageBox, QSizePolicy
 
 
 class Icon(QIcon):
@@ -24,6 +24,7 @@ def bgr_to_pixmap(image):
 class AutoFitImage(QLabel):
     def __init__(self, pixmap=None):
         super().__init__(scaledContents=True)
+        self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
         self.origin_pixmap = pixmap
         if pixmap is not None:
             self.setPixmap(pixmap)

@@ -19,6 +19,17 @@ def collect_patients(root_dir):
 
     return patients
 
+def read_patient_id(dicom_dir):
+    for file in dicom_dir.glob('*.dcm'):
+        try:
+            dcm = pydicom.dcmread(file, stop_before_pixels=True)
+        except pydicom.errors.InvalidDicomError:
+            continue
+
+        return dcm.PatientID
+
+    return None
+
 def load_volume(volume_dir):
     reader = SimpleITK.ImageSeriesReader()
     series_ids = reader.GetGDCMSeriesIDs(volume_dir)

@@ -1,4 +1,3 @@
-from PySide6.QtGui import QColor, QIcon, QPixmap
 from PySide6.QtWidgets import QComboBox
 
 from constants.color import GLASBEY_PALETTE

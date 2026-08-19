@@ -9,6 +9,9 @@ def relabel(volume):
     labels = numpy.unique(volume)
     labels = labels[labels > 0]
 
+    if labels.size == 0:
+        return numpy.zeros_like(volume, dtype=numpy.uint8)
+
     lookup_table = numpy.zeros(labels.max() + 1, dtype=numpy.uint8)
     lookup_table[labels] = numpy.arange(2, len(labels) + 2, dtype=numpy.uint8)
     volume = lookup_table[volume]

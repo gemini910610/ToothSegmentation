@@ -241,6 +241,17 @@ def merge_box(tooth_data, threshold=0.9):
 
     return merged_data
 
+def find_panoramic_image(working_dir, patient):
+    panoramic_dir = working_dir / patient / 'panoramic'
+    if not panoramic_dir.exists():
+        return None
+
+    for file in sorted(panoramic_dir.iterdir()):
+        if file.is_file():
+            return file
+
+    return None
+
 def find_panoramic_paths(dataset, patient):
     xray_folder = Path('datasets') / dataset.replace('bone_tooth_mask', 'xray') / patient
     if not xray_folder.is_dir():
@@ -311,9 +322,18 @@ def crop_panoramic(image, tooth):
 
     return image
 
-def draw_panoramic(image, tooth_data):
+def draw_panoramic(image, tooth_data, draw_keypoints=False):
     image = cv2.cvtColor(image, cv2.COLOR_GRAY2RGB)
     for tooth in tooth_data:
+        if draw_keypoints:
+            for key, color in [
+                ('left_crone', (0, 255, 0)), ('right_crone', (0, 255, 0)),
+                ('left_bone', (255, 0, 0)), ('right_bone', (255, 0, 0)),
+                ('left_root', (255, 255, 0)), ('right_root', (0, 255, 209)),
+            ]:
+                x, y = tooth[key]
+                cv2.circle(image, (round(x), round(y)), 3, color, -1)
+
         center_x, center_y = tooth['center']
         (width, height), baseline = cv2.getTextSize(tooth['FDI'][0], cv2.FONT_HERSHEY_SIMPLEX, 1, 2)
         x = int(center_x - width / 2)

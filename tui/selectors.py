@@ -2,11 +2,12 @@ from textual.widgets import RadioButton, RadioSet, SelectionList
 
 
 class DirectorySelector(RadioSet):
-    def __init__(self, directory=None, title=None, callback=None):
+    def __init__(self, directory=None, title=None, callback=None, task=None):
         super().__init__()
         self.directory = directory
         self.border_title = title
         self.callback = callback
+        self._task_name = task
 
         color = self.app.get_css_variables()['primary']
         self.styles.border = ('solid', color)
@@ -28,9 +29,15 @@ class DirectorySelector(RadioSet):
 
     async def update(self, directory):
         await self.remove_children()
+
+        folders = [
+            folder for folder in directory.iterdir()
+            if self._task_name is None or (folder / f'{self._task_name}.toml').exists()
+        ]
+
         await self.mount(*[
             RadioButton(folder.name)
-            for folder in directory.iterdir()
+            for folder in folders
         ])
         self.directory = directory
 

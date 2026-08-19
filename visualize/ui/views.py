@@ -4,7 +4,7 @@ from zoneinfo import ZoneInfo
 
 import numpy
 from PySide6.QtCore import Qt, Signal
-from PySide6.QtWidgets import QGroupBox, QHBoxLayout, QVBoxLayout, QWidget
+from PySide6.QtWidgets import QGroupBox, QHBoxLayout, QSizePolicy, QVBoxLayout, QWidget
 from pyvista import ImageData
 from pyvistaqt import QtInteractor
 from scipy import ndimage
@@ -118,6 +118,7 @@ class SyncView(QtInteractor):
 class SyncViewBox(QGroupBox):
     def __init__(self, size=(640, 640)):
         super().__init__()
+        self.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
         self.view = SyncView(size)
         layout = QVBoxLayout()
         layout.addWidget(self.view)
