@@ -79,7 +79,7 @@ class MergePage(QWidget):
             return
 
         volume_path = self.working_dir / patient / f'{Mode.REFINE_SPLIT}.npy'
-        if not volume_path.exists():
+        if not volume_path.is_file():
             return
 
         self.volume = numpy.load(volume_path)

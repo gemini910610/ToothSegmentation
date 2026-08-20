@@ -177,15 +177,15 @@ if __name__ == '__main__':
     if args is None:
         sys.exit()
 
-    experiment_name = args['experiment_name']
+    segmentation_experiment_name = args['experiment_name']
     datasets = args['datasets']
 
-    slice_folder = Path('output_slices') / experiment_name
+    slice_folder = Path('output_slices') / segmentation_experiment_name
 
     patients = [
         f'{dataset}/{patient}'
-        for dataset, patient in iterate_datasets(experiment_name, datasets)
-        if (slice_folder / dataset / patient).exists()
+        for dataset, patient in iterate_datasets(segmentation_experiment_name, datasets)
+        if (slice_folder / dataset / patient).is_dir()
     ]
 
-    run_app(MainWindow, experiment_name, slice_folder, Path('datasets') / 'slices' / 'keypoints.json', patients)
+    run_app(MainWindow, segmentation_experiment_name, slice_folder, Path('datasets') / 'slices' / 'keypoints.json', patients)

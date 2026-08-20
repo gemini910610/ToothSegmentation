@@ -25,22 +25,22 @@ if __name__ == '__main__':
         if args is None:
             sys.exit()
 
-        experiment_name = args['experiment_name']
+        segmentation_experiment_name = args['experiment_name']
         datasets = args['datasets']
     else:
         parser = ArgumentParser()
-        parser.add_argument('exp', type=str)
+        parser.add_argument('segmentation_exp', type=str)
         parser.add_argument('datasets', nargs='+', type=str)
         args = parser.parse_args()
 
-        experiment_name = args.exp
+        segmentation_experiment_name = args.segmentation_exp
         datasets = args.datasets
 
-    with (Path('merge') / f'{experiment_name}.json').open() as file:
+    with (Path('merge') / f'{segmentation_experiment_name}.json').open() as file:
         merge_components = json.load(file)
 
-    for dataset, patient in iterate_datasets(experiment_name, datasets):
-        volume_path = Path('outputs') / experiment_name / dataset / patient / f'{Mode.REFINE_SPLIT}.npy'
+    for dataset, patient in iterate_datasets(segmentation_experiment_name, datasets):
+        volume_path = Path('outputs') / segmentation_experiment_name / dataset / patient / f'{Mode.REFINE_SPLIT}.npy'
         volume = numpy.load(volume_path)
 
         data = f'{dataset}/{patient}'

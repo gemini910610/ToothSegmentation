@@ -153,9 +153,9 @@ if __name__ == '__main__':
     if args is None:
         sys.exit()
 
-    experiment_name = args['experiment_name']
+    segmentation_experiment_name = args['experiment_name']
     datasets = args['datasets']
 
-    patients = [f'{dataset}/{patient}' for dataset, patient in iterate_datasets(experiment_name, datasets)]
-    data_manager = DataManager(experiment_name, patients, [Mode.UNTRUNCATED, Mode.BONE_CONNECTED_COMPONENT])
+    patients = [f'{dataset}/{patient}' for dataset, patient in iterate_datasets(segmentation_experiment_name, datasets)]
+    data_manager = DataManager(segmentation_experiment_name, patients, [Mode.UNTRUNCATED, Mode.BONE_CONNECTED_COMPONENT])
     run_app(MainWindow, data_manager)

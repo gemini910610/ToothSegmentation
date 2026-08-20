@@ -102,7 +102,7 @@ class MainWindow(QMainWindow):
         central_layout.addWidget(self.tabs)
         self.setCentralWidget(central)
 
-        patients = sorted(patient.name for patient in working_dir.iterdir() if (patient / 'image').exists())
+        patients = sorted(patient.name for patient in working_dir.iterdir() if (patient / 'image').is_dir())
         self.patient_selector.setup(patients, self._on_patient_changed)
 
         self.import_button.clicked.connect(self._on_import)
@@ -209,7 +209,7 @@ class MainWindow(QMainWindow):
 
     def _fdi_fallback_target(self):
         patient_dir = self.working_dir / self.current_patient
-        has_segmentation = (patient_dir / f'{Mode.RELABELED}.npy').exists() and (patient_dir / f'{Mode.BONE_FILLED}.npy').exists()
+        has_segmentation = (patient_dir / f'{Mode.RELABELED}.npy').is_file() and (patient_dir / f'{Mode.BONE_FILLED}.npy').is_file()
         if not has_segmentation:
             return self.exclude_page
 
@@ -236,10 +236,10 @@ class MainWindow(QMainWindow):
 if __name__ == '__main__':
     import sys
 
-    from keypoints.models import load_model as load_keypoint_model
+    from keypoints.models import load_model as load_keypoints_model
     from keypoints.predict import CEJFinder
     from panoramic.predict import PanoramicModels
-    from segmentation.models import load_model
+    from segmentation.models import load_model as load_segmentation_model
     from tui.apps import LauncherApp
     from utils.config import load_config
     from visualize.utils import run_app
@@ -250,15 +250,15 @@ if __name__ == '__main__':
 
     segmentation_experiment_name = args['segmentation_experiment_name']
     segmentation_fold = args['segmentation_fold']
-    keypoint_experiment_name = args['keypoint_experiment_name']
-    keypoint_fold = args['keypoint_fold']
+    keypoints_experiment_name = args['keypoints_experiment_name']
+    keypoints_fold = args['keypoints_fold']
 
     config = load_config(Path('logs') / segmentation_experiment_name / 'segmentation.toml', fold=segmentation_fold)
-    model = load_model(config)
+    segmentation_model = load_segmentation_model(config)
 
-    keypoint_config = load_config(Path('logs') / keypoint_experiment_name / 'keypoints.toml', fold=keypoint_fold)
-    keypoint_model = load_keypoint_model(keypoint_config)
-    cej_finder = CEJFinder(keypoint_model, keypoint_config.device)
+    keypoints_config = load_config(Path('logs') / keypoints_experiment_name / 'keypoints.toml', fold=keypoints_fold)
+    keypoints_model = load_keypoints_model(keypoints_config)
+    cej_finder = CEJFinder(keypoints_model, keypoints_config.device)
 
     panoramic_weights_dir = Path('panoramic/weights')
     panoramic_models = PanoramicModels(
@@ -267,4 +267,4 @@ if __name__ == '__main__':
         panoramic_weights_dir / 'pano_transpose_v2_6p.pkl',
     )
 
-    run_app(MainWindow, model, config, cej_finder, panoramic_models)
+    run_app(MainWindow, segmentation_model, config, cej_finder, panoramic_models)

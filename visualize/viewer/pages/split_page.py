@@ -80,7 +80,7 @@ class SplitPage(QWidget):
         patient_dir = self.working_dir / patient
         tooth_path = patient_dir / f'{Mode.TOOTH_CONNECTED_COMPONENT}.npy'
         watershed_path = patient_dir / f'{Mode.WATERSHED}.npy'
-        if not (tooth_path.exists() and watershed_path.exists()):
+        if not (tooth_path.is_file() and watershed_path.is_file()):
             return
 
         self.tooth_volume = numpy.load(tooth_path)

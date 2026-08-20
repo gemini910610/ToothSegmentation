@@ -180,29 +180,29 @@ if __name__ == '__main__':
         if args is None:
             sys.exit()
 
-        experiment_name = args['experiment_name']
+        segmentation_experiment_name = args['experiment_name']
         datasets = args['datasets']
     else:
         parser = ArgumentParser()
-        parser.add_argument('exp', type=str)
+        parser.add_argument('segmentation_exp', type=str)
         parser.add_argument('datasets', nargs='+', type=str)
         args = parser.parse_args()
 
-        experiment_name = args.exp
+        segmentation_experiment_name = args.segmentation_exp
         datasets = args.datasets
 
-    output_dir = Path('output_slices') / experiment_name
-    if output_dir.exists():
+    output_dir = Path('output_slices') / segmentation_experiment_name
+    if output_dir.is_dir():
         raise FileExistsError(f'folder "{output_dir}" already exists')
 
     patients = [
         (dataset, patient)
-        for dataset, patient in iterate_datasets(experiment_name, datasets)
-        if (Path('outputs') / experiment_name / dataset / patient / f'{Mode.FDI}.npy').exists()
+        for dataset, patient in iterate_datasets(segmentation_experiment_name, datasets)
+        if (Path('outputs') / segmentation_experiment_name / dataset / patient / f'{Mode.FDI}.npy').is_file()
     ]
 
     for dataset, patient in patients:
-        fdi_volume_path = Path('outputs') / experiment_name / dataset / patient / f'{Mode.FDI}.npy'
+        fdi_volume_path = Path('outputs') / segmentation_experiment_name / dataset / patient / f'{Mode.FDI}.npy'
         fdi_volume = numpy.load(fdi_volume_path)
         bone_volume_path = fdi_volume_path.parent / f'{Mode.BONE_FILLED}.npy'
         bone_volume = numpy.load(bone_volume_path)

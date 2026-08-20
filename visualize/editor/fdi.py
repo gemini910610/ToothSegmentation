@@ -179,15 +179,15 @@ if __name__ == '__main__':
     if args is None:
         sys.exit()
 
-    experiment_name = args['experiment_name']
+    segmentation_experiment_name = args['experiment_name']
     datasets = args['datasets']
 
     panoramic_paths = {}
-    for dataset, patient in iterate_datasets(experiment_name, datasets):
+    for dataset, patient in iterate_datasets(segmentation_experiment_name, datasets):
         paths = find_panoramic_paths(dataset, patient)
         if paths is not None:
             panoramic_paths[f'{dataset}/{patient}'] = paths
 
     patients = list(panoramic_paths.keys())
-    data_manager = DataManager(experiment_name, patients, [Mode.IMAGE, Mode.RELABELED, Mode.BONE_FILLED])
+    data_manager = DataManager(segmentation_experiment_name, patients, [Mode.IMAGE, Mode.RELABELED, Mode.BONE_FILLED])
     run_app(MainWindow, data_manager, panoramic_paths)

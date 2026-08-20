@@ -52,19 +52,19 @@ if __name__ == '__main__':
         if args is None:
             sys.exit()
 
-        experiment_name = args['experiment_name']
+        segmentation_experiment_name = args['experiment_name']
         datasets = args['datasets']
     else:
         parser = ArgumentParser()
-        parser.add_argument('exp', type=str)
+        parser.add_argument('segmentation_exp', type=str)
         parser.add_argument('datasets', nargs='+', type=str)
         args = parser.parse_args()
 
-        experiment_name = args.exp
+        segmentation_experiment_name = args.segmentation_exp
         datasets = args.datasets
 
-    for dataset, patient in iterate_datasets(experiment_name, datasets):
-        tooth_path = Path('outputs') / experiment_name / dataset / patient / f'{Mode.CLEANED}.npy'
+    for dataset, patient in iterate_datasets(segmentation_experiment_name, datasets):
+        tooth_path = Path('outputs') / segmentation_experiment_name / dataset / patient / f'{Mode.CLEANED}.npy'
         tooth_volume = numpy.load(tooth_path)
         bone_path = tooth_path.parent / f'{Mode.BONE_CONNECTED_COMPONENT}.npy'
         bone_volume = numpy.load(bone_path)

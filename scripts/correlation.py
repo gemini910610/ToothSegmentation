@@ -46,28 +46,28 @@ if __name__ == '__main__':
         if args is None:
             sys.exit()
 
-        experiment_name = args['experiment_name']
+        segmentation_experiment_name = args['experiment_name']
         exclude = args['exclude']
         single_only = args['single_only']
     else:
         from argparse import ArgumentParser
 
         parser = ArgumentParser()
-        parser.add_argument('exp', type=str)
+        parser.add_argument('segmentation_exp', type=str)
         parser.add_argument('--exclude', type=str, choices=['slice', 'tooth'])
         parser.add_argument('--single-only', action='store_true')
         args = parser.parse_args()
 
-        experiment_name = args.exp
+        segmentation_experiment_name = args.segmentation_exp
         exclude = args.exclude
         single_only = args.single_only
 
-    excel = load_excel(f'bone_loss/{experiment_name}.xlsx')
+    excel = load_excel(f'bone_loss/{segmentation_experiment_name}.xlsx')
     if 'extra' in excel.columns:
         excel = excel.drop(excel[~excel['extra'].isna()].index)
         excel = excel.drop(columns='extra')
 
-    with open(f'exclude/{experiment_name}.json') as file:
+    with open(f'exclude/{segmentation_experiment_name}.json') as file:
         excludes = json.load(file)
 
     indices = []

@@ -17,7 +17,7 @@ def import_dicom(dicom_dir, working_dir, min_value=-1000, max_value=4500, new_sp
         return None
 
     patient_dir = working_dir / patient_id
-    if patient_dir.exists():
+    if patient_dir.is_dir():
         raise DuplicatePatientError(patient_id, patient_dir)
 
     volume = load_volume(dicom_dir)

@@ -20,7 +20,7 @@ def _list_drives():
     return [
         drive
         for letter in string.ascii_uppercase
-        if (drive := Path(f'{letter}:/')).exists()
+        if (drive := Path(f'{letter}:/')).is_dir()
     ]
 
 class UpDirectoryTree(DirectoryTree):
@@ -83,9 +83,9 @@ class UpDirectoryTree(DirectoryTree):
 class DirectoryBrowserScreen(ModalScreen):
     def __init__(self, root=None, allow_new_folder=False):
         super().__init__()
-        self.root = Path(root).resolve() if root else Path('.').resolve()
+        self.root = Path(root).resolve() if root else Path.cwd()
         if not self.root.is_dir():
-            self.root = Path('.').resolve()
+            self.root = Path.cwd()
 
         self.allow_new_folder = allow_new_folder
         self.new_folder_input = None

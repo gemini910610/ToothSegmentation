@@ -248,7 +248,7 @@ if __name__ == '__main__':
     import sys
     from pathlib import Path
 
-    from keypoints.models import load_model
+    from keypoints.models import load_model as load_keypoints_model
     from keypoints.predict import CEJFinder
     from post_processing.utils import iterate_datasets
     from tui.apps import BoneLossApp
@@ -260,17 +260,18 @@ if __name__ == '__main__':
         sys.exit()
 
     segmentation_experiment_name = args['segmentation_experiment_name']
-    keypoint_experiment_name = args['keypoint_experiment_name']
+    keypoints_experiment_name = args['keypoints_experiment_name']
     datasets = args['datasets']
+    keypoints_fold = args['keypoints_fold']
 
-    config = load_config(Path('logs') / keypoint_experiment_name / 'keypoints.toml', fold=1)
-    model = load_model(config)
-    cej_finder = CEJFinder(model, config.device)
+    config = load_config(Path('logs') / keypoints_experiment_name / 'keypoints.toml', fold=keypoints_fold)
+    keypoints_model = load_keypoints_model(config)
+    cej_finder = CEJFinder(keypoints_model, config.device)
 
     patients = [
         f'{dataset}/{patient}'
         for dataset, patient in iterate_datasets(segmentation_experiment_name, datasets)
-        if (Path('outputs') / segmentation_experiment_name / dataset / patient / f'{Mode.FDI}.npy').exists()
+        if (Path('outputs') / segmentation_experiment_name / dataset / patient / f'{Mode.FDI}.npy').is_file()
     ]
     data_manager = DataManager(segmentation_experiment_name, patients, [Mode.FDI, Mode.BONE_FILLED, Mode.IMAGE])
     run_app(MainWindow, data_manager, cej_finder)

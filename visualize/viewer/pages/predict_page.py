@@ -80,7 +80,7 @@ class PredictPage(QWidget):
         image_path = patient_dir / f'{Mode.IMAGE}.npy'
         predict_path = patient_dir / f'{Mode.PREDICT}.npy'
 
-        if not (image_path.exists() and predict_path.exists()):
+        if not (image_path.is_file() and predict_path.is_file()):
             return False
 
         self.image_volume = numpy.load(image_path)

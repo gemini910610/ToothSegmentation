@@ -34,7 +34,7 @@ class JsonHandler:
 
     @staticmethod
     def load(path):
-        if not path.exists():
+        if not path.is_file():
             return {}
 
         with path.open() as file:

@@ -74,13 +74,13 @@ class ConnectedComponentPage(QWidget):
             return
 
         predict_path = self.working_dir / patient / f'{Mode.PREDICT}.npy'
-        if not predict_path.exists():
+        if not predict_path.is_file():
             return
 
         self.predict_volume = numpy.load(predict_path)
 
         output_path = self.working_dir / patient / f'{self.output_mode}.npy'
-        if output_path.exists():
+        if output_path.is_file():
             self.filtered_volume = numpy.load(output_path)
             original = (self.predict_volume == self.label).astype(numpy.uint8) * self.label
             self.viewer.views[0].update_volume(original)

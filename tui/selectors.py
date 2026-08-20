@@ -32,7 +32,7 @@ class DirectorySelector(RadioSet):
 
         folders = [
             folder for folder in directory.iterdir()
-            if self._task_name is None or (folder / f'{self._task_name}.toml').exists()
+            if self._task_name is None or (folder / f'{self._task_name}.toml').is_file()
         ]
 
         buttons = [RadioButton(folder.name) for folder in folders]
@@ -86,19 +86,20 @@ class FileSelector(RadioSet):
         self.children[0].value = True
 
 class OptionSelector(RadioSet):
-    def __init__(self, options, title=None):
+    def __init__(self, options, title=None, default=None):
         super().__init__()
         self.options = options
         self.border_title = title
+        self.default = default
 
         color = self.app.get_css_variables()['primary']
         self.styles.border = ('solid', color)
         self.styles.background = 'transparent'
 
     async def on_mount(self):
-        await self.update(self.options)
+        await self.update(self.options, self.default)
 
-    async def update(self, options):
+    async def update(self, options, default=None):
         await self.remove_children()
 
         buttons = [RadioButton(option) for option in options]
@@ -107,10 +108,12 @@ class OptionSelector(RadioSet):
 
         await self.mount(*buttons)
 
-        self._selected = 0
-        self.children[0].value = True
+        index = options.index(default) if default in options else 0
+        self._selected = index
+        self.children[index].value = True
 
         self.options = options
+        self.default = default
 
     @property
     def selected(self):

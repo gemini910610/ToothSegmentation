@@ -30,41 +30,41 @@ from utils.console import track
 from utils.excel import ExcelWriter
 
 if len(sys.argv) == 1:
-    from tui.apps import CompareBoneLossApp
+    from tui.apps import BoneLossApp
 
-    args = CompareBoneLossApp().run()
+    args = BoneLossApp().run()
     if args is None:
         sys.exit()
 
     segmentation_experiment_name = args['segmentation_experiment_name']
-    keypoint_experiment_name = args['keypoint_experiment_name']
+    keypoints_experiment_name = args['keypoints_experiment_name']
     datasets = args['datasets']
-    fold = args['keypoint_fold']
+    keypoints_fold = args['keypoints_fold']
 else:
     from argparse import ArgumentParser
 
     parser = ArgumentParser()
     parser.add_argument('segmentation_exp', type=str)
-    parser.add_argument('keypoint_exp', type=str)
+    parser.add_argument('keypoints_exp', type=str)
     parser.add_argument('datasets', nargs='+', type=str)
-    parser.add_argument('--fold', type=int, default=1)
+    parser.add_argument('--keypoints-fold', type=int, default=1)
     args = parser.parse_args()
 
     segmentation_experiment_name = args.segmentation_exp
-    keypoint_experiment_name = args.keypoint_exp
+    keypoints_experiment_name = args.keypoints_exp
     datasets = args.datasets
-    fold = args.fold
+    keypoints_fold = args.keypoints_fold
 
-config = load_config(Path('logs') / keypoint_experiment_name / 'keypoints.toml', fold=fold)
-model = load_model(config)
-cej_finder = CEJFinder(model, config.device)
+config = load_config(Path('logs') / keypoints_experiment_name / 'keypoints.toml', fold=keypoints_fold)
+keypoints_model = load_model(config)
+cej_finder = CEJFinder(keypoints_model, config.device)
 
 writer = ExcelWriter(Path('bone_loss') / f'{segmentation_experiment_name}.xlsx')
 
 patients = [
     (dataset, patient)
     for dataset, patient in iterate_datasets(segmentation_experiment_name, datasets)
-    if (Path('outputs') / segmentation_experiment_name / dataset / patient / f'{Mode.FDI}.npy').exists()
+    if (Path('outputs') / segmentation_experiment_name / dataset / patient / f'{Mode.FDI}.npy').is_file()
 ]
 
 for dataset, patient in track(patients):

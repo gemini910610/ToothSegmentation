@@ -35,22 +35,22 @@ if __name__ == '__main__':
         if args is None:
             sys.exit()
 
-        experiment_name = args['experiment_name']
+        segmentation_experiment_name = args['experiment_name']
         datasets = args['datasets']
     else:
         parser = ArgumentParser()
-        parser.add_argument('exp', type=str)
+        parser.add_argument('segmentation_exp', type=str)
         parser.add_argument('datasets', nargs='+', type=str)
         args = parser.parse_args()
 
-        experiment_name = args.exp
+        segmentation_experiment_name = args.segmentation_exp
         datasets = args.datasets
 
-    with (Path('split') / f'{experiment_name}.json').open() as file:
+    with (Path('split') / f'{segmentation_experiment_name}.json').open() as file:
         split_components = json.load(file)
 
-    for dataset, patient in iterate_datasets(experiment_name, datasets):
-        cc_path = Path('outputs') / experiment_name / dataset / patient / f'{Mode.TOOTH_CONNECTED_COMPONENT}.npy'
+    for dataset, patient in iterate_datasets(segmentation_experiment_name, datasets):
+        cc_path = Path('outputs') / segmentation_experiment_name / dataset / patient / f'{Mode.TOOTH_CONNECTED_COMPONENT}.npy'
         cc_volume = numpy.load(cc_path)
         watershed_path = cc_path.parent / f'{Mode.WATERSHED}.npy'
         watershed_volume = numpy.load(watershed_path)

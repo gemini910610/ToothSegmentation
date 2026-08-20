@@ -79,11 +79,11 @@ class UNet(nn.Module):
         return x
 
 if __name__ == '__main__':
-    model = UNet(1, 3).cuda()
+    segmentation_model = UNet(1, 3).cuda()
 
     images = torch.zeros(16, 1, 640, 640, device='cuda')
 
     with torch.autocast('cuda'):
-        predicts = model(images)
+        predicts = segmentation_model(images)
 
-    print(f'{tuple(images.shape)} --{model.__class__.__name__}-> {tuple(predicts.shape)}')
+    print(f'{tuple(images.shape)} --{segmentation_model.__class__.__name__}-> {tuple(predicts.shape)}')

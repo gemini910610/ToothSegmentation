@@ -8,10 +8,20 @@ from tui.containers import BaseContainer, BaseGrid, BaseHorizontal
 from tui.decorators import HorizontalRule
 from tui.inputs import BaseInput
 from tui.screens import DirectoryBrowserScreen
-from tui.selectors import DirectoryMultiSelector, DirectorySelector, FileSelector, OptionSelector
+from tui.selectors import (
+    DirectoryMultiSelector,
+    DirectorySelector,
+    FileSelector,
+    OptionSelector,
+)
 from tui.switches import LabelSwitch
 from utils.config import load_config
 
+
+def _folds(task):
+    config = load_config(Path('configs') / f'{task}.toml')
+
+    return [str(fold) for fold in range(1, config.num_folds + 1)]
 
 class BaseApp(App):
     def compose(self):
@@ -59,59 +69,47 @@ class BaseApp(App):
 class BoneLossApp(BaseApp):
     def selectors(self):
         self.segmentation_experiment_selector = DirectorySelector(Path('outputs'), 'segmentation experiment', self._on_experiment_change)
-        self.keypoint_experiment_selector = DirectorySelector(Path('logs'), 'keypoint experiment', task='keypoints')
+        self.keypoints_experiment_selector = DirectorySelector(Path('logs'), 'keypoints experiment', task='keypoints')
         self.dataset_selector = DirectoryMultiSelector(title='datasets')
-        return [self.segmentation_experiment_selector, self.keypoint_experiment_selector, self.dataset_selector]
+        return [self.segmentation_experiment_selector, self.keypoints_experiment_selector, self.dataset_selector]
+
+    def extra_widgets(self):
+        yield HorizontalRule()
+
+        self.keypoints_fold_selector = OptionSelector(_folds('keypoints'), 'keypoints fold')
+        yield self.keypoints_fold_selector
 
     def collect_data(self):
         return {
             'segmentation_experiment_name': self.segmentation_experiment_selector.selected,
-            'keypoint_experiment_name': self.keypoint_experiment_selector.selected,
-            'datasets': self.dataset_selector.selected
+            'keypoints_experiment_name': self.keypoints_experiment_selector.selected,
+            'datasets': self.dataset_selector.selected,
+            'keypoints_fold': int(self.keypoints_fold_selector.selected)
         }
 
 class LauncherApp(BaseApp):
     def selectors(self):
-        self.segmentation_experiment_selector = DirectorySelector(Path('logs'), 'segmentation dataset', task='segmentation')
-        self.keypoint_experiment_selector = DirectorySelector(Path('logs'), 'keypoint dataset', task='keypoints')
-        return [self.segmentation_experiment_selector, self.keypoint_experiment_selector]
+        self.segmentation_experiment_selector = DirectorySelector(Path('logs'), 'segmentation experiment', task='segmentation')
+        self.keypoints_experiment_selector = DirectorySelector(Path('logs'), 'keypoints experiment', task='keypoints')
+        return [self.segmentation_experiment_selector, self.keypoints_experiment_selector]
 
     def extra_widgets(self):
         yield HorizontalRule()
 
         with BaseHorizontal():
-            self.segmentation_fold_input = BaseInput('segmentation fold')
-            self.segmentation_fold_input.styles.width = '1fr'
-            self.segmentation_fold_input.value = '4'
-            yield self.segmentation_fold_input
+            segmentation_folds = _folds('segmentation')
+            self.segmentation_fold_selector = OptionSelector(segmentation_folds, 'segmentation fold', default=segmentation_folds[-1])
+            yield self.segmentation_fold_selector
 
-            self.keypoint_fold_input = BaseInput('keypoint fold')
-            self.keypoint_fold_input.styles.width = '1fr'
-            self.keypoint_fold_input.value = '1'
-            yield self.keypoint_fold_input
+            self.keypoints_fold_selector = OptionSelector(_folds('keypoints'), 'keypoints fold')
+            yield self.keypoints_fold_selector
 
     def collect_data(self):
         return {
             'segmentation_experiment_name': self.segmentation_experiment_selector.selected,
-            'segmentation_fold': self.segmentation_fold_input.get_value(),
-            'keypoint_experiment_name': self.keypoint_experiment_selector.selected,
-            'keypoint_fold': self.keypoint_fold_input.get_value()
-        }
-
-class CompareBoneLossApp(BoneLossApp):
-    def extra_widgets(self):
-        yield HorizontalRule()
-
-        with BaseHorizontal():
-            self.keypoint_fold_input = BaseInput('keypoint fold')
-            self.keypoint_fold_input.styles.width = '1fr'
-            self.keypoint_fold_input.value = '1'
-            yield self.keypoint_fold_input
-
-    def collect_data(self):
-        return {
-            **super().collect_data(),
-            'keypoint_fold': self.keypoint_fold_input.get_value()
+            'segmentation_fold': int(self.segmentation_fold_selector.selected),
+            'keypoints_experiment_name': self.keypoints_experiment_selector.selected,
+            'keypoints_fold': int(self.keypoints_fold_selector.selected)
         }
 
 class PanoramicPredictApp(BaseApp):
@@ -207,17 +205,11 @@ class TrainApp(BaseApp):
 
         yield HorizontalRule()
 
-        self.fold_selector = OptionSelector(TrainApp._folds('segmentation'), 'fold')
+        self.fold_selector = OptionSelector(_folds('segmentation'), 'fold')
         yield self.fold_selector
 
     async def _on_task_changed(self, task):
-        await self.fold_selector.update(TrainApp._folds(task))
-
-    @staticmethod
-    def _folds(task):
-        config = load_config(Path('configs') / f'{task}.toml')
-
-        return [str(fold) for fold in range(1, config.num_folds + 1)]
+        await self.fold_selector.update(_folds(task))
 
     def collect_data(self):
         return {
@@ -282,16 +274,14 @@ class SegmentApp(BaseApp):
     def extra_widgets(self):
         yield HorizontalRule()
 
-        with BaseHorizontal():
-            self.fold_input = BaseInput('segmentation fold')
-            self.fold_input.styles.width = '1fr'
-            self.fold_input.value = '4'
-            yield self.fold_input
+        folds = _folds('segmentation')
+        self.fold_selector = OptionSelector(folds, 'segmentation fold', default=folds[-1])
+        yield self.fold_selector
 
     def collect_data(self):
         return {
             'segmentation_experiment_name': self.experiment_selector.selected,
-            'segmentation_fold': self.fold_input.get_value(),
+            'segmentation_fold': int(self.fold_selector.selected),
             'datasets': self.dataset_selector.selected
         }
 

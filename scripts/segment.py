@@ -28,30 +28,30 @@ if __name__ == '__main__':
         if args is None:
             sys.exit()
 
-        experiment_name = args['segmentation_experiment_name']
-        best_fold = args['segmentation_fold']
+        segmentation_experiment_name = args['segmentation_experiment_name']
+        segmentation_fold = args['segmentation_fold']
         datasets = args['datasets']
     else:
         from argparse import ArgumentParser
 
         parser = ArgumentParser()
-        parser.add_argument('exp', type=str)
-        parser.add_argument('best_fold', type=int)
+        parser.add_argument('segmentation_exp', type=str)
         parser.add_argument('datasets', nargs='+', type=str)
+        parser.add_argument('--segmentation-fold', type=int, default=4)
         args = parser.parse_args()
 
-        experiment_name = args.exp
-        best_fold = args.best_fold
+        segmentation_experiment_name = args.segmentation_exp
+        segmentation_fold = args.segmentation_fold
         datasets = args.datasets
 
-    config = load_config(Path('logs') / experiment_name / 'segmentation.toml')
+    config = load_config(Path('logs') / segmentation_experiment_name / 'segmentation.toml')
 
     processed_patients = set()
 
     for fold in range(1, config.num_folds + 1):
         config.fold = fold
 
-        model = load_model(config)
+        segmentation_model = load_model(config)
 
         _, dataset_patients = get_fold(config.split_file_path, fold)
         for dataset, patients in dataset_patients.items():
@@ -60,15 +60,15 @@ if __name__ == '__main__':
 
             print(f'Fold {fold} {dataset}')
             for patient in patients:
-                image_volume, predict_volume = predict_patient(model, dataset, patient, config)
-                output_dir = Path('outputs') / experiment_name / dataset / patient
+                image_volume, predict_volume = predict_patient(segmentation_model, dataset, patient, config)
+                output_dir = Path('outputs') / segmentation_experiment_name / dataset / patient
                 output_dir.mkdir(parents=True, exist_ok=True)
                 numpy.save(output_dir / f'{Mode.IMAGE}.npy', image_volume)
                 numpy.save(output_dir / f'{Mode.PREDICT}.npy', predict_volume)
                 processed_patients.add(f'{dataset}/{patient}')
 
-    config.fold = best_fold
-    model = load_model(config)
+    config.fold = segmentation_fold
+    segmentation_model = load_model(config)
 
     for dataset in datasets:
         print(dataset)
@@ -77,8 +77,8 @@ if __name__ == '__main__':
             if f'{dataset}/{patient}' in processed_patients:
                 continue
 
-            image_volume, predict_volume = predict_patient(model, dataset, patient, config)
-            output_dir = Path('outputs') / experiment_name / dataset / patient
+            image_volume, predict_volume = predict_patient(segmentation_model, dataset, patient, config)
+            output_dir = Path('outputs') / segmentation_experiment_name / dataset / patient
             output_dir.mkdir(parents=True, exist_ok=True)
             numpy.save(output_dir / f'{Mode.IMAGE}.npy', image_volume)
             numpy.save(output_dir / f'{Mode.PREDICT}.npy', predict_volume)

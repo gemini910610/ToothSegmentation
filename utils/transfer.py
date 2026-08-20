@@ -159,7 +159,7 @@ class SFTPTransfer:
         return False
 
 def get_env():
-    if not Path('.env').exists():
+    if not Path('.env').is_file():
         raise FileNotFoundError(
             '.env file not found.\033[0m\n'
             'This file is required for SFTP connection.\n\n'

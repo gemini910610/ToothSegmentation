@@ -15,11 +15,11 @@ class ResNet18(nn.Module):
 if __name__ == '__main__':
     import torch
 
-    model = ResNet18(1, 2).cuda()
+    keypoints_model = ResNet18(1, 2).cuda()
 
     images = torch.zeros(32, 1, 224, 224, device='cuda')
 
     with torch.autocast('cuda'):
-        predicts = model(images)
+        predicts = keypoints_model(images)
 
-    print(f'{tuple(images.shape)} --{model.__class__.__name__}-> {tuple(predicts.shape)}')
+    print(f'{tuple(images.shape)} --{keypoints_model.__class__.__name__}-> {tuple(predicts.shape)}')

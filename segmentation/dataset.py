@@ -11,7 +11,7 @@ def find_datasets():
     return sorted(
         dataset.name
         for dataset in Path('datasets').iterdir()
-        if (dataset / 'mask').exists()
+        if (dataset / 'mask').is_dir()
     )
 
 def get_fold(split_file_path, fold_id):

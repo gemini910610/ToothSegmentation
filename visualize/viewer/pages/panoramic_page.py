@@ -73,7 +73,7 @@ class PanoramicPage(QWidget):
         self.image_path = image_path
         self.prediction_path = self.working_dir / patient / PREDICTION_FILENAME
 
-        if self.prediction_path.exists():
+        if self.prediction_path.is_file():
             self._display()
         else:
             image = cv2.imread(str(self.image_path))
@@ -94,7 +94,7 @@ class PanoramicPage(QWidget):
         self.image_view.update_image(bgr_to_pixmap(image))
 
     def _on_next(self):
-        if self.prediction_path is None or not self.prediction_path.exists():
+        if self.prediction_path is None or not self.prediction_path.is_file():
             return
 
         self.next_requested.emit(self.patient)

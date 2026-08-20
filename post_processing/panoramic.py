@@ -243,7 +243,7 @@ def merge_box(tooth_data, threshold=0.9):
 
 def find_panoramic_image(working_dir, patient):
     panoramic_dir = working_dir / patient / 'panoramic'
-    if not panoramic_dir.exists():
+    if not panoramic_dir.is_dir():
         return None
 
     for file in sorted(panoramic_dir.iterdir()):
@@ -267,7 +267,7 @@ def find_panoramic_paths(dataset, patient):
 
         image_path = files[0]
         prediction_path = Path('pano_predict') / f'{image_path.stem}.txt'
-        if not prediction_path.exists():
+        if not prediction_path.is_file():
             return None
 
         return image_path, prediction_path
@@ -360,19 +360,19 @@ if __name__ == '__main__':
         if args is None:
             sys.exit()
 
-        experiment_name = args['experiment_name']
+        segmentation_experiment_name = args['experiment_name']
         datasets = args['datasets']
     else:
         parser = ArgumentParser()
-        parser.add_argument('exp', type=str)
+        parser.add_argument('segmentation_exp', type=str)
         parser.add_argument('datasets', nargs='+', type=str)
         args = parser.parse_args()
 
-        experiment_name = args.exp
+        segmentation_experiment_name = args.segmentation_exp
         datasets = args.datasets
 
     patients = []
-    for dataset, patient in iterate_datasets(experiment_name, datasets):
+    for dataset, patient in iterate_datasets(segmentation_experiment_name, datasets):
         paths = find_panoramic_paths(dataset, patient)
         if paths is not None:
             patients.append((dataset, patient, paths))
@@ -382,7 +382,7 @@ if __name__ == '__main__':
         image, tooth_data = load_panoramic(image_path, prediction_path, merge=False)
         image = cv2.cvtColor(image, cv2.COLOR_GRAY2RGB)
 
-        output_folder = Path('pano_crop') / experiment_name / dataset / patient
+        output_folder = Path('pano_crop') / segmentation_experiment_name / dataset / patient
         output_folder.mkdir(parents=True, exist_ok=True)
 
         fdi_counts = Counter(tooth['FDI'][0] for tooth in tooth_data)

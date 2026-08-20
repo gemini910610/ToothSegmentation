@@ -79,7 +79,7 @@ class ExcludePage(QWidget):
         patient_dir = self.working_dir / patient
         untruncated_path = patient_dir / f'{Mode.UNTRUNCATED}.npy'
         bone_path = patient_dir / f'{Mode.BONE_CONNECTED_COMPONENT}.npy'
-        if not (untruncated_path.exists() and bone_path.exists()):
+        if not (untruncated_path.is_file() and bone_path.is_file()):
             return
 
         self.volume = numpy.load(untruncated_path)

@@ -97,7 +97,7 @@ class FDIPage(QWidget):
         relabeled_path = patient_dir / f'{Mode.RELABELED}.npy'
         bone_path = patient_dir / f'{Mode.BONE_FILLED}.npy'
         prediction_path = patient_dir / PREDICTION_FILENAME
-        if not (image_path.exists() and relabeled_path.exists() and bone_path.exists() and prediction_path.exists()):
+        if not (image_path.is_file() and relabeled_path.is_file() and bone_path.is_file() and prediction_path.is_file()):
             return
 
         panoramic_image_path = find_panoramic_image(self.working_dir, patient)

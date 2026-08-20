@@ -86,25 +86,25 @@ if __name__ == '__main__':
         if args is None:
             sys.exit()
 
-        experiment_name = args['experiment_name']
+        segmentation_experiment_name = args['experiment_name']
         datasets = args['datasets']
         target = Label.TOOTH if args['target'] == 'tooth' else Label.BONE
         voxel_threshold = args['threshold']
     else:
         parser = ArgumentParser()
-        parser.add_argument('exp', type=str)
+        parser.add_argument('segmentation_exp', type=str)
         parser.add_argument('datasets', nargs='+', type=str)
         parser.add_argument('target', type=int)
         parser.add_argument('threshold', type=int)
         args = parser.parse_args()
 
-        experiment_name = args.exp
+        segmentation_experiment_name = args.segmentation_exp
         datasets = args.datasets
         target = args.target
         voxel_threshold = args.threshold
 
-    for dataset, patient in iterate_datasets(experiment_name, datasets):
-        volume_path = Path('outputs') / experiment_name / dataset / patient / f'{Mode.PREDICT}.npy'
+    for dataset, patient in iterate_datasets(segmentation_experiment_name, datasets):
+        volume_path = Path('outputs') / segmentation_experiment_name / dataset / patient / f'{Mode.PREDICT}.npy'
         volume = numpy.load(volume_path)
 
         volume = volume == target

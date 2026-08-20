@@ -199,7 +199,7 @@ class BoneLossPage(QWidget):
         fdi_path = patient_dir / f'{Mode.FDI}.npy'
         bone_path = patient_dir / f'{Mode.BONE_FILLED}.npy'
         image_path = patient_dir / f'{Mode.IMAGE}.npy'
-        if not (fdi_path.exists() and bone_path.exists() and image_path.exists()):
+        if not (fdi_path.is_file() and bone_path.is_file() and image_path.is_file()):
             return
 
         fdi_volume = numpy.load(fdi_path)
@@ -208,7 +208,7 @@ class BoneLossPage(QWidget):
 
         panoramic_image_path = find_panoramic_image(self.working_dir, patient)
         prediction_path = patient_dir / PREDICTION_FILENAME
-        if panoramic_image_path is not None and prediction_path.exists():
+        if panoramic_image_path is not None and prediction_path.is_file():
             panoramic_image, tooth_data = load_panoramic(panoramic_image_path, prediction_path)
             self.panoramic_image = cv2.cvtColor(panoramic_image, cv2.COLOR_GRAY2RGB)
             for tooth in tooth_data:

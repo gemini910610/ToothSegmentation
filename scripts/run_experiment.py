@@ -26,7 +26,7 @@ config = load_config(config_path)
 
 log_dir = Path('logs') / config.experiment
 
-if log_dir.exists():
+if log_dir.is_dir():
     raise FileExistsError(f'experiment "{config.experiment}" already exists')
 
 log_dir.mkdir(parents=True)

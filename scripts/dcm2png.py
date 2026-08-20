@@ -36,7 +36,7 @@ else:
     max_value = args.max
     new_spacing = args.spacing
 
-if output_dir.exists():
+if output_dir.is_dir():
     raise FileExistsError(f'folder "{output_dir}" already exists')
 
 with Table(['Patient', 'DCM Count', 'Image Count', 'Slice Thickness', 'Pixel Spacing', 'Origin Image Size', 'Image Size']) as table:
