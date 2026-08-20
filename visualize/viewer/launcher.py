@@ -240,20 +240,20 @@ if __name__ == '__main__':
     from keypoints.predict import CEJFinder
     from panoramic.predict import PanoramicModels
     from segmentation.models import load_model
-    from tui.apps import SegmentationPredictApp
+    from tui.apps import LauncherApp
     from utils.config import load_config
     from visualize.utils import run_app
 
-    args = SegmentationPredictApp().run()
+    args = LauncherApp().run()
     if args is None:
         sys.exit()
 
-    experiment_name = args['experiment_name']
-    fold = args['fold']
+    segmentation_experiment_name = args['segmentation_experiment_name']
+    segmentation_fold = args['segmentation_fold']
     keypoint_experiment_name = args['keypoint_experiment_name']
     keypoint_fold = args['keypoint_fold']
 
-    config = load_config(Path('logs') / experiment_name / 'segmentation.toml', fold=fold)
+    config = load_config(Path('logs') / segmentation_experiment_name / 'segmentation.toml', fold=segmentation_fold)
     model = load_model(config)
 
     keypoint_config = load_config(Path('logs') / keypoint_experiment_name / 'keypoints.toml', fold=keypoint_fold)

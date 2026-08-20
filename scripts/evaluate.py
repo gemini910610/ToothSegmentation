@@ -1,7 +1,6 @@
 from pathlib import Path
 
 from utils.config import load_config
-from utils.console import Table
 
 
 def evaluate(task, experiment_name):
@@ -13,12 +12,6 @@ def evaluate(task, experiment_name):
         case 'keypoints':
             from keypoints.evaluate import Evaluator
 
-    Table(
-        ['Argument', 'Value'],
-        ['task', task],
-        ['exp', experiment_name]
-    ).display()
-
     evaluator = Evaluator(config)
     logs = evaluator.evaluate()
 
@@ -26,14 +19,26 @@ def evaluate(task, experiment_name):
     table.display()
 
 if __name__ == '__main__':
-    from argparse import ArgumentParser
+    import sys
 
-    parser = ArgumentParser()
-    parser.add_argument('task', type=str, choices=['segmentation', 'keypoints'])
-    parser.add_argument('exp', type=str)
-    args = parser.parse_args()
+    if len(sys.argv) == 1:
+        from tui.apps import EvaluateApp
 
-    task = args.task
-    experiment_name = args.exp
+        args = EvaluateApp().run()
+        if args is None:
+            sys.exit()
+
+        task = args['task']
+        experiment_name = args['experiment_name']
+    else:
+        from argparse import ArgumentParser
+
+        parser = ArgumentParser()
+        parser.add_argument('task', type=str, choices=['segmentation', 'keypoints'])
+        parser.add_argument('exp', type=str)
+        args = parser.parse_args()
+
+        task = args.task
+        experiment_name = args.exp
 
     evaluate(task, experiment_name)

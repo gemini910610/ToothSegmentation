@@ -32,22 +32,35 @@ def calculate_icc(targets, predicts):
 
 if __name__ == '__main__':
     import json
-    from argparse import ArgumentParser
+    import sys
 
     import pandas
 
     from utils.console import Table
     from utils.excel import load_excel
 
-    parser = ArgumentParser()
-    parser.add_argument('exp', type=str)
-    parser.add_argument('--exclude', type=str, choices=['slice', 'tooth'])
-    parser.add_argument('--single-only', action='store_true')
-    args = parser.parse_args()
+    if len(sys.argv) == 1:
+        from tui.apps import CorrelationApp
 
-    experiment_name = args.exp
-    exclude = args.exclude
-    single_only = args.single_only
+        args = CorrelationApp().run()
+        if args is None:
+            sys.exit()
+
+        experiment_name = args['experiment_name']
+        exclude = args['exclude']
+        single_only = args['single_only']
+    else:
+        from argparse import ArgumentParser
+
+        parser = ArgumentParser()
+        parser.add_argument('exp', type=str)
+        parser.add_argument('--exclude', type=str, choices=['slice', 'tooth'])
+        parser.add_argument('--single-only', action='store_true')
+        args = parser.parse_args()
+
+        experiment_name = args.exp
+        exclude = args.exclude
+        single_only = args.single_only
 
     excel = load_excel(f'bone_loss/{experiment_name}.xlsx')
     if 'extra' in excel.columns:

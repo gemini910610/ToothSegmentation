@@ -12,10 +12,11 @@ class BaseSwitch(Switch):
         self.styles.background = 'transparent'
 
 class LabelSwitch(BaseHorizontal):
-    def __init__(self, left_text, right_text):
+    def __init__(self, left_text, right_text, callback=None):
         super().__init__()
         self.left_text = left_text
         self.right_text = right_text
+        self.callback = callback
 
         self.styles.width = 'auto'
 
@@ -24,6 +25,10 @@ class LabelSwitch(BaseHorizontal):
         self.switch = BaseSwitch()
         yield self.switch
         yield BaseLabel(self.right_text)
+
+    async def on_switch_changed(self, event):
+        if self.callback is not None:
+            await self.callback(self.selected)
 
     @property
     def selected(self):

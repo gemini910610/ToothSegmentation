@@ -23,14 +23,26 @@ def train(task, fold):
     trainer.fit(config.num_epochs)
 
 if __name__ == '__main__':
-    from argparse import ArgumentParser
+    import sys
 
-    parser = ArgumentParser()
-    parser.add_argument('task', type=str, choices=['segmentation', 'keypoints'])
-    parser.add_argument('fold', type=int)
-    args = parser.parse_args()
+    if len(sys.argv) == 1:
+        from tui.apps import TrainApp
 
-    task = args.task
-    fold = args.fold
+        args = TrainApp().run()
+        if args is None:
+            sys.exit()
+
+        task = args['task']
+        fold = args['fold']
+    else:
+        from argparse import ArgumentParser
+
+        parser = ArgumentParser()
+        parser.add_argument('task', type=str, choices=['segmentation', 'keypoints'])
+        parser.add_argument('fold', type=int)
+        args = parser.parse_args()
+
+        task = args.task
+        fold = args.fold
 
     train(task, fold)

@@ -1,3 +1,5 @@
+from asyncio import iscoroutine
+
 from textual.widgets import Button
 
 from tui.containers import BaseHorizontal
@@ -8,9 +10,13 @@ class BaseButton(Button):
         super().__init__(label, variant)
         self.callback = callback
 
-    def on_button_pressed(self):
-        if self.callback is not None:
-            self.callback()
+    async def on_button_pressed(self):
+        if self.callback is None:
+            return
+
+        result = self.callback()
+        if iscoroutine(result):
+            await result
 
 class ActionButtons(BaseHorizontal):
     def __init__(self, *button_parameters):

@@ -2,8 +2,8 @@ from textual.widgets import Input
 
 
 class BaseInput(Input):
-    def __init__(self, label):
-        super().__init__(type='integer')
+    def __init__(self, label, type='integer'):
+        super().__init__(type=type)
         self.border_title = label
 
         color = self.app.get_css_variables()['primary']
@@ -12,5 +12,13 @@ class BaseInput(Input):
 
     def get_value(self):
         value = super().value
+        if value == '':
+            return None
 
-        return None if value == '' else int(super().value)
+        match self.type:
+            case 'integer':
+                return int(value)
+            case 'number':
+                return float(value)
+            case _:
+                return value

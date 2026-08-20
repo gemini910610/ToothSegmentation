@@ -23,7 +23,7 @@ def bgr_to_pixmap(image):
 
 class AutoFitImage(QLabel):
     def __init__(self, pixmap=None):
-        super().__init__(scaledContents=True)
+        super().__init__()
         self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
         self.origin_pixmap = pixmap
         if pixmap is not None:
