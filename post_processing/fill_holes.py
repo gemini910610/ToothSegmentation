@@ -4,7 +4,7 @@ from scipy import ndimage
 from post_processing.utils import ROIVolume
 
 
-def fill_background_holes(mask):
+def _fill_background_holes(mask):
     background = ~mask
     labels, _ = ndimage.label(background)
 
@@ -30,8 +30,8 @@ def fill_holes(tooth_volume, bone_volume):
         roi[mask] = label
 
     roi = ROIVolume(bone_volume.astype(bool) | (tooth_volume > 0))
-    filled = fill_background_holes(roi.volume)
-    tooth_filled = fill_background_holes(tooth_volume[roi.slices] > 0)
+    filled = _fill_background_holes(roi.volume)
+    tooth_filled = _fill_background_holes(tooth_volume[roi.slices] > 0)
     holes = filled & ~roi.volume & ~tooth_filled
 
     bone_volume[roi.slices][holes] = 1
@@ -39,29 +39,15 @@ def fill_holes(tooth_volume, bone_volume):
     return tooth_volume, bone_volume
 
 if __name__ == '__main__':
-    import sys
-    from argparse import ArgumentParser
     from pathlib import Path
 
     from constants.mode import Mode
     from post_processing.utils import iterate_datasets
-    from tui.apps import BaseApp
+    from tui.apps import parse_segmentation_args
 
-    if len(sys.argv) == 1:
-        args = BaseApp().run()
-        if args is None:
-            sys.exit()
-
-        segmentation_experiment_name = args['experiment_name']
-        datasets = args['datasets']
-    else:
-        parser = ArgumentParser()
-        parser.add_argument('segmentation_exp', type=str)
-        parser.add_argument('datasets', nargs='+', type=str)
-        args = parser.parse_args()
-
-        segmentation_experiment_name = args.segmentation_exp
-        datasets = args.datasets
+    args = parse_segmentation_args()
+    segmentation_experiment_name = args['segmentation_exp']
+    datasets = args['datasets']
 
     for dataset, patient in iterate_datasets(segmentation_experiment_name, datasets):
         tooth_path = Path('outputs') / segmentation_experiment_name / dataset / patient / f'{Mode.CLEANED}.npy'

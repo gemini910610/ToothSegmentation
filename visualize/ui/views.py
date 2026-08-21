@@ -31,7 +31,7 @@ class SyncView(QtInteractor):
         self.enable_mesh_picking(callback, show=False, show_message=False, use_actor=True)
 
     @staticmethod
-    def _color_setting(*, color, **kwargs):
+    def color_setting(*, color, **kwargs):
         return {
             'color': tuple(c / 255 for c in color),
             **kwargs
@@ -39,18 +39,18 @@ class SyncView(QtInteractor):
 
     @staticmethod
     def get_settings(include_labels=False, num_colors=None):
-        bone_setting = SyncView._color_setting(name='bone', color=Color.BONE, opacity=0.5)
+        bone_setting = SyncView.color_setting(name='bone', color=Color.BONE, opacity=0.5)
 
         if not include_labels:
             return {
                 Label.BONE: bone_setting,
-                Label.TOOTH: SyncView._color_setting(name='tooth', color=Color.TOOTH)
+                Label.TOOTH: SyncView.color_setting(name='tooth', color=Color.TOOTH)
             }
 
         return {
             1: bone_setting,
             **{
-                label: SyncView._color_setting(name=f'label {label}', color=GLASBEY_PALETTE[label])
+                label: SyncView.color_setting(name=f'label {label}', color=GLASBEY_PALETTE[label])
                 for label in range(2, num_colors + 1)
             }
         }

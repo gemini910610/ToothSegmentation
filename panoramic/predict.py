@@ -231,28 +231,17 @@ def find_panoramic_images(datasets):
                         yield image_path
 
 if __name__ == '__main__':
-    import sys
-    from argparse import ArgumentParser
-
+    from tui.apps import DatasetsApp, parse_args
     from utils.console import track
 
     weights_dir = Path('panoramic/weights')
     output_dir = Path('pano_predict_test')
 
-    if len(sys.argv) == 1:
-        from tui.apps import PanoramicPredictApp
-
-        args = PanoramicPredictApp().run()
-        if args is None:
-            sys.exit()
-
-        datasets = args['datasets']
-    else:
-        parser = ArgumentParser()
+    def configure_parser(parser):
         parser.add_argument('datasets', nargs='+', type=str)
-        args = parser.parse_args()
 
-        datasets = args.datasets
+    args = parse_args(DatasetsApp, configure_parser)
+    datasets = args['datasets']
 
     output_dir.mkdir(parents=True, exist_ok=True)
 

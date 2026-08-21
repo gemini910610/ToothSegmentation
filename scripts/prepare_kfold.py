@@ -1,29 +1,20 @@
 import json
-import sys
 from collections import defaultdict
 from pathlib import Path
 
 from sklearn.model_selection import GroupKFold
 
+from tui.apps import TaskApp, parse_args
 from utils.config import load_config
 from utils.console import Table
 
-if len(sys.argv) == 1:
-    from tui.apps import RunExperimentApp
 
-    args = RunExperimentApp().run()
-    if args is None:
-        sys.exit()
-
-    task = args['task']
-else:
-    from argparse import ArgumentParser
-
-    parser = ArgumentParser()
+def configure_parser(parser):
     parser.add_argument('task', type=str, choices=['segmentation', 'keypoints'])
-    args = parser.parse_args()
 
-    task = args.task
+args = parse_args(TaskApp, configure_parser)
+
+task = args['task']
 
 match task:
     case 'segmentation':

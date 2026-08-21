@@ -1,4 +1,3 @@
-import sys
 from collections import defaultdict
 from pathlib import Path
 
@@ -25,35 +24,24 @@ from post_processing.tooth_slice import (
     normalize_slice,
 )
 from post_processing.utils import iterate_datasets
+from tui.apps import DualExperimentFoldApp, parse_args
 from utils.config import load_config
 from utils.console import track
 from utils.excel import ExcelWriter
 
-if len(sys.argv) == 1:
-    from tui.apps import BoneLossApp
 
-    args = BoneLossApp().run()
-    if args is None:
-        sys.exit()
-
-    segmentation_experiment_name = args['segmentation_experiment_name']
-    keypoints_experiment_name = args['keypoints_experiment_name']
-    datasets = args['datasets']
-    keypoints_fold = args['keypoints_fold']
-else:
-    from argparse import ArgumentParser
-
-    parser = ArgumentParser()
+def configure_parser(parser):
     parser.add_argument('segmentation_exp', type=str)
     parser.add_argument('keypoints_exp', type=str)
     parser.add_argument('datasets', nargs='+', type=str)
     parser.add_argument('--keypoints-fold', type=int, default=1)
-    args = parser.parse_args()
 
-    segmentation_experiment_name = args.segmentation_exp
-    keypoints_experiment_name = args.keypoints_exp
-    datasets = args.datasets
-    keypoints_fold = args.keypoints_fold
+args = parse_args(DualExperimentFoldApp, configure_parser)
+
+segmentation_experiment_name = args['segmentation_exp']
+keypoints_experiment_name = args['keypoints_exp']
+datasets = args['datasets']
+keypoints_fold = args['keypoints_fold']
 
 config = load_config(Path('logs') / keypoints_experiment_name / 'keypoints.toml', fold=keypoints_fold)
 keypoints_model = load_model(config)
@@ -68,10 +56,10 @@ patients = [
 ]
 
 for dataset, patient in track(patients):
-    patient_folder = Path('outputs') / segmentation_experiment_name / dataset / patient
-    fdi_volume = numpy.load(patient_folder / f'{Mode.FDI}.npy')
-    bone_volume = numpy.load(patient_folder / f'{Mode.BONE_FILLED}.npy')
-    image_volume = numpy.load(patient_folder / f'{Mode.IMAGE}.npy')
+    patient_dir = Path('outputs') / segmentation_experiment_name / dataset / patient
+    fdi_volume = numpy.load(patient_dir / f'{Mode.FDI}.npy')
+    bone_volume = numpy.load(patient_dir / f'{Mode.BONE_FILLED}.npy')
+    image_volume = numpy.load(patient_dir / f'{Mode.IMAGE}.npy')
 
     bone_mask = bone_volume > 0
     segmentation_volume = fdi_volume + bone_mask
@@ -131,8 +119,8 @@ for dataset, patient in track(patients):
         segmentation_bone_loss = volume_bone_loss(filtered_tooth_volume, filtered_bone_volume, aligned_points, is_upper, transform_meta)
         segmentation_bone_losses[label] = segmentation_bone_loss
 
-    xray_folder = Path('datasets') / dataset.replace('bone_tooth_mask', 'xray') / patient
-    for folder in xray_folder.iterdir():
+    xray_dir = Path('datasets') / dataset.replace('bone_tooth_mask', 'xray') / patient
+    for folder in xray_dir.iterdir():
         if folder.name.endswith('Pano'):
             for file in folder.iterdir():
                 filename = file.stem

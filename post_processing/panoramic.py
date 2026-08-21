@@ -11,7 +11,7 @@ from constants.label import Label
 from post_processing.relabel import split_teeth_jaw
 
 
-def synthetic_tooth(tooth_list, volume_width):
+def _synthetic_tooth(tooth_list, volume_width):
     if len(tooth_list) == 1:
         x, y, z = tooth_list[0]['center']
         fake_tooth = tooth_list[0] | {'center': (volume_width - x, y, z)}
@@ -34,9 +34,9 @@ def synthetic_tooth(tooth_list, volume_width):
 
     return tooth_list
 
-def extract_curve(tooth_list, volume_width, base_width=400, padding=40):
+def _extract_curve(tooth_list, volume_width, base_width=400, padding=40):
     if len(tooth_list) < 4:
-        tooth_list = synthetic_tooth(tooth_list, volume_width)
+        tooth_list = _synthetic_tooth(tooth_list, volume_width)
 
     points = numpy.array([tooth['center'][:2] for tooth in tooth_list])
     curve, _ = make_splprep(points.T)
@@ -70,8 +70,8 @@ def extract_curve(tooth_list, volume_width, base_width=400, padding=40):
 
     return curve_points, normals, radius
 
-def sample_panoramic(image_volume, segmentation_volume, tooth_list):
-    curve_points, normals, radius = extract_curve(tooth_list, segmentation_volume.shape[0])
+def _sample_panoramic(image_volume, segmentation_volume, tooth_list):
+    curve_points, normals, radius = _extract_curve(tooth_list, segmentation_volume.shape[0])
 
     min_z = min(tooth['slices'][2].start for tooth in tooth_list)
     max_z = max(tooth['slices'][2].stop for tooth in tooth_list)
@@ -134,7 +134,7 @@ def get_panoramic(image_volume, segmentation_volume):
         jaw_mask = numpy.isin(segmentation_volume, labels)
         jaw_image_volume = numpy.where(jaw_mask, image_volume, 0)
         jaw_segmentation_volume = numpy.where(jaw_mask, segmentation_volume, 0)
-        image_panoramic, segmentation_panoramic = sample_panoramic(jaw_image_volume, jaw_segmentation_volume, tooth_list)
+        image_panoramic, segmentation_panoramic = _sample_panoramic(jaw_image_volume, jaw_segmentation_volume, tooth_list)
 
         jaw_labels.append(labels)
         jaw_image_panoramic.append(image_panoramic)
@@ -176,7 +176,7 @@ def draw_label(image_panoramic, segmentation_panoramic):
 
     return image_panoramic
 
-def IoU(data_a, data_b):
+def _IoU(data_a, data_b):
     a_center_x, a_center_y = data_a['center']
     a_width, a_height = data_a['box_size']
     a_area = a_width * a_height
@@ -202,7 +202,7 @@ def IoU(data_a, data_b):
     union = a_area + b_area - intersection
     return intersection / union
 
-def merge_box(tooth_data, threshold=0.9):
+def _merge_box(tooth_data, threshold=0.9):
     box_count = len(tooth_data)
     overlaps = {
         index: []
@@ -210,7 +210,7 @@ def merge_box(tooth_data, threshold=0.9):
     }
     for i in range(box_count - 1):
         for j in range(i + 1, box_count):
-            iou = IoU(tooth_data[i], tooth_data[j])
+            iou = _IoU(tooth_data[i], tooth_data[j])
             if iou > threshold:
                 overlaps[i].append(j)
                 overlaps[j].append(i)
@@ -253,11 +253,11 @@ def find_panoramic_image(working_dir, patient):
     return None
 
 def find_panoramic_paths(dataset, patient):
-    xray_folder = Path('datasets') / dataset.replace('bone_tooth_mask', 'xray') / patient
-    if not xray_folder.is_dir():
+    xray_dir = Path('datasets') / dataset.replace('bone_tooth_mask', 'xray') / patient
+    if not xray_dir.is_dir():
         return None
 
-    for folder in xray_folder.iterdir():
+    for folder in xray_dir.iterdir():
         if not folder.name.endswith('Pano'):
             continue
 
@@ -296,7 +296,7 @@ def load_panoramic(image_path, prediction_path, merge=True):
             'bone_loss': int(bone_loss)
         })
     if merge:
-        tooth_data = merge_box(tooth_data)
+        tooth_data = _merge_box(tooth_data)
 
     return image, tooth_data
 
@@ -348,28 +348,14 @@ def draw_panoramic(image, tooth_data, draw_keypoints=False):
     return image
 
 if __name__ == '__main__':
-    import sys
-    from argparse import ArgumentParser
     from collections import Counter, defaultdict
 
     from post_processing.utils import iterate_datasets
-    from tui.apps import BaseApp
+    from tui.apps import parse_segmentation_args
 
-    if len(sys.argv) == 1:
-        args = BaseApp().run()
-        if args is None:
-            sys.exit()
-
-        segmentation_experiment_name = args['experiment_name']
-        datasets = args['datasets']
-    else:
-        parser = ArgumentParser()
-        parser.add_argument('segmentation_exp', type=str)
-        parser.add_argument('datasets', nargs='+', type=str)
-        args = parser.parse_args()
-
-        segmentation_experiment_name = args.segmentation_exp
-        datasets = args.datasets
+    args = parse_segmentation_args()
+    segmentation_experiment_name = args['segmentation_exp']
+    datasets = args['datasets']
 
     patients = []
     for dataset, patient in iterate_datasets(segmentation_experiment_name, datasets):
@@ -382,8 +368,8 @@ if __name__ == '__main__':
         image, tooth_data = load_panoramic(image_path, prediction_path, merge=False)
         image = cv2.cvtColor(image, cv2.COLOR_GRAY2RGB)
 
-        output_folder = Path('pano_crop') / segmentation_experiment_name / dataset / patient
-        output_folder.mkdir(parents=True, exist_ok=True)
+        output_dir = Path('pano_crop') / segmentation_experiment_name / dataset / patient
+        output_dir.mkdir(parents=True, exist_ok=True)
 
         fdi_counts = Counter(tooth['FDI'][0] for tooth in tooth_data)
 
@@ -397,4 +383,4 @@ if __name__ == '__main__':
             else:
                 indices[fdi] += 1
                 filename = f'{fdi}_{indices[fdi]}.png'
-            cv2.imwrite(str(output_folder / filename), crop)
+            cv2.imwrite(str(output_dir / filename), crop)

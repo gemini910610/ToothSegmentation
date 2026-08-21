@@ -23,29 +23,15 @@ def relabel_fdi(volume, fdi_mapping):
 
 if __name__ == '__main__':
     import json
-    import sys
-    from argparse import ArgumentParser
     from pathlib import Path
 
     from constants.mode import Mode
     from post_processing.utils import iterate_datasets
-    from tui.apps import BaseApp
+    from tui.apps import parse_segmentation_args
 
-    if len(sys.argv) == 1:
-        args = BaseApp().run()
-        if args is None:
-            sys.exit()
-
-        segmentation_experiment_name = args['experiment_name']
-        datasets = args['datasets']
-    else:
-        parser = ArgumentParser()
-        parser.add_argument('segmentation_exp', type=str)
-        parser.add_argument('datasets', nargs='+', type=str)
-        args = parser.parse_args()
-
-        segmentation_experiment_name = args.segmentation_exp
-        datasets = args.datasets
+    args = parse_segmentation_args()
+    segmentation_experiment_name = args['segmentation_exp']
+    datasets = args['datasets']
 
     with (Path('fdi') / f'{segmentation_experiment_name}.json').open() as file:
         fdi_mapping = json.load(file)

@@ -179,7 +179,7 @@ if __name__ == '__main__':
     if args is None:
         sys.exit()
 
-    segmentation_experiment_name = args['experiment_name']
+    segmentation_experiment_name = args['exp']
     datasets = args['datasets']
 
     panoramic_paths = {}

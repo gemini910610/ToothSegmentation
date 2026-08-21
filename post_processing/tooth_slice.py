@@ -73,7 +73,7 @@ def align_crop_tooth(segmentation_volume, image_coefficients, transform_meta):
 
     return aligned_segmentation, aligned_image
 
-def oblique_slice(segmentation_volume, image_coefficients, grid, theta, offset=90):
+def _oblique_slice(segmentation_volume, image_coefficients, grid, theta, offset=90):
     center = grid['center']
     hh = grid['hh']
     vv = grid['vv']
@@ -119,7 +119,7 @@ def get_slices(segmentation_volume, image_volume, count=8, reverse=False, offset
     for theta in numpy.linspace(0, 360, count, endpoint=False):
         if reverse:
             theta *= -1
-        segmentation_slice, image_slice = oblique_slice(segmentation_volume, image_coefficients, grid, theta, offset)
+        segmentation_slice, image_slice = _oblique_slice(segmentation_volume, image_coefficients, grid, theta, offset)
         slices.append((segmentation_slice, image_slice))
 
     return slices
@@ -165,31 +165,17 @@ def find_normal_vectors(segmentation_volume):
     return normal_vectors
 
 if __name__ == '__main__':
-    import sys
-    from argparse import ArgumentParser
     from pathlib import Path
 
     import cv2
 
     from constants.mode import Mode
     from post_processing.utils import iterate_datasets
-    from tui.apps import BaseApp
+    from tui.apps import parse_segmentation_args
 
-    if len(sys.argv) == 1:
-        args = BaseApp().run()
-        if args is None:
-            sys.exit()
-
-        segmentation_experiment_name = args['experiment_name']
-        datasets = args['datasets']
-    else:
-        parser = ArgumentParser()
-        parser.add_argument('segmentation_exp', type=str)
-        parser.add_argument('datasets', nargs='+', type=str)
-        args = parser.parse_args()
-
-        segmentation_experiment_name = args.segmentation_exp
-        datasets = args.datasets
+    args = parse_segmentation_args()
+    segmentation_experiment_name = args['segmentation_exp']
+    datasets = args['datasets']
 
     output_dir = Path('output_slices') / segmentation_experiment_name
     if output_dir.is_dir():

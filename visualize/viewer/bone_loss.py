@@ -201,7 +201,7 @@ class MainWindow(BaseWindow):
         filtered_segmentation[*root_volume.T] = 3
         render_settings = SyncView.get_settings()
         render_settings[Label.BONE]['opacity'] = self.bone_opacity_slider.value()
-        render_settings[3] = SyncView._color_setting(name='surface', color=(255, 0, 0), opacity=1)
+        render_settings[3] = SyncView.color_setting(name='surface', color=(255, 0, 0), opacity=1)
         self.volume_viewer.views[1].update_volume(filtered_segmentation, reset=False, render_settings=render_settings)
 
         self._on_slice_changed(self.slice_selector.checked_title())
@@ -251,16 +251,16 @@ if __name__ == '__main__':
     from keypoints.models import load_model as load_keypoints_model
     from keypoints.predict import CEJFinder
     from post_processing.utils import iterate_datasets
-    from tui.apps import BoneLossApp
+    from tui.apps import DualExperimentFoldApp
     from utils.config import load_config
     from visualize.utils import DataManager, run_app
 
-    args = BoneLossApp().run()
+    args = DualExperimentFoldApp().run()
     if args is None:
         sys.exit()
 
-    segmentation_experiment_name = args['segmentation_experiment_name']
-    keypoints_experiment_name = args['keypoints_experiment_name']
+    segmentation_experiment_name = args['segmentation_exp']
+    keypoints_experiment_name = args['keypoints_exp']
     datasets = args['datasets']
     keypoints_fold = args['keypoints_fold']
 

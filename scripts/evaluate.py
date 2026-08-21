@@ -19,26 +19,15 @@ def evaluate(task, experiment_name):
     table.display()
 
 if __name__ == '__main__':
-    import sys
+    from tui.apps import TaskExperimentApp, parse_args
 
-    if len(sys.argv) == 1:
-        from tui.apps import EvaluateApp
-
-        args = EvaluateApp().run()
-        if args is None:
-            sys.exit()
-
-        task = args['task']
-        experiment_name = args['experiment_name']
-    else:
-        from argparse import ArgumentParser
-
-        parser = ArgumentParser()
+    def configure_parser(parser):
         parser.add_argument('task', type=str, choices=['segmentation', 'keypoints'])
         parser.add_argument('exp', type=str)
-        args = parser.parse_args()
 
-        task = args.task
-        experiment_name = args.exp
+    args = parse_args(TaskExperimentApp, configure_parser)
+
+    task = args['task']
+    experiment_name = args['exp']
 
     evaluate(task, experiment_name)

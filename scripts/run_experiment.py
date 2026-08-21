@@ -1,25 +1,18 @@
 import shutil
 import subprocess
 import sys
-from argparse import ArgumentParser
 from pathlib import Path
 
+from tui.apps import TaskApp, parse_args
 from utils.config import load_config
 
-if len(sys.argv) == 1:
-    from tui.apps import RunExperimentApp
 
-    args = RunExperimentApp().run()
-    if args is None:
-        sys.exit()
-
-    task = args['task']
-else:
-    parser = ArgumentParser()
+def configure_parser(parser):
     parser.add_argument('task', type=str, choices=['segmentation', 'keypoints'])
-    args = parser.parse_args()
 
-    task = args.task
+args = parse_args(TaskApp, configure_parser)
+
+task = args['task']
 
 config_path = Path('configs') / f'{task}.toml'
 config = load_config(config_path)

@@ -13,7 +13,7 @@ class ExcelWriter:
         self._init_header()
 
     @staticmethod
-    def column_names():
+    def _column_names():
         return [
             'Dataset', 'Patient', 'FDI', '3D', '2D',
             *[
@@ -64,7 +64,7 @@ class ExcelWriter:
 def load_excel(filename):
     excel = pandas.read_excel(filename, header=None, skiprows=2)
     key_columns = ['Dataset', 'Patient', 'FDI']
-    columns = ExcelWriter.column_names()
+    columns = ExcelWriter._column_names()
 
     if len(excel.columns) - len(columns) == 1:
         columns.append('extra')

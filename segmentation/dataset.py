@@ -43,8 +43,8 @@ class CBCTDataset(Dataset):
 
         self.filenames = []
         for patient in patients:
-            folder_path = self.dataset_dir / ('mask' if return_mask else 'image') / patient
-            file_paths = folder_path.iterdir()
+            patient_dir = self.dataset_dir / ('mask' if return_mask else 'image') / patient
+            file_paths = patient_dir.iterdir()
             file_paths = sorted(file_paths, key=lambda x: int(x.stem))
             self.filenames.extend([Path(patient) / file_path.name for file_path in file_paths])
 
@@ -62,7 +62,7 @@ class CBCTDataset(Dataset):
             return image
 
         mask_path = self.dataset_dir / 'mask' / filename
-        mask = CBCTDataset.load_mask(mask_path)
+        mask = CBCTDataset._load_mask(mask_path)
 
         return image, mask
 
@@ -76,7 +76,7 @@ class CBCTDataset(Dataset):
         return image
 
     @staticmethod
-    def load_mask(mask_path):
+    def _load_mask(mask_path):
         mask = cv2.imread(mask_path, cv2.IMREAD_GRAYSCALE)
         mask = torch.from_numpy(mask)
         mask = mask.long()

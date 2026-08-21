@@ -96,7 +96,7 @@ class BoneLossSummary(QWidget):
         layout.addWidget(self.max_area_label)
         layout.addStretch()
 
-    def update_summary(self, crop_pixmaps, volume_bone_loss, mean_contour, mean_area, max_contour, max_area, keypoint_bone_losses):
+    def _update_summary(self, crop_pixmaps, volume_bone_loss, mean_contour, mean_area, max_contour, max_area, keypoint_bone_losses):
         while self.crop_layout.count():
             item = self.crop_layout.takeAt(0)
             widget = item.widget()
@@ -319,7 +319,7 @@ class BoneLossPage(QWidget):
         keypoint_bone_losses = [tooth['bone_loss'] for tooth in teeth]
         crop_pixmaps = [] if self.panoramic_image is None else [bgr_to_pixmap(crop_panoramic(self.panoramic_image, tooth)) for tooth in teeth]
 
-        self.summary.update_summary(
+        self.summary._update_summary(
             crop_pixmaps,
             tooth_volume_bone_loss,
             sum(contour_bone_losses) / len(contour_bone_losses),
@@ -332,7 +332,7 @@ class BoneLossPage(QWidget):
         filtered_segmentation[*root_volume.T] = 3
         render_settings = SyncView.get_settings()
         render_settings[Label.BONE]['opacity'] = self.bone_opacity_slider.value()
-        render_settings[3] = SyncView._color_setting(name='surface', color=(255, 0, 0), opacity=1)
+        render_settings[3] = SyncView.color_setting(name='surface', color=(255, 0, 0), opacity=1)
         self.volume_viewer.views[1].update_volume(filtered_segmentation, reset=False, render_settings=render_settings)
 
         self._on_slice_changed(self.slice_selector.checked_title())

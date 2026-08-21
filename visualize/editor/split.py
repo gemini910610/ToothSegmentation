@@ -126,7 +126,7 @@ if __name__ == '__main__':
     if args is None:
         sys.exit()
 
-    segmentation_experiment_name = args['experiment_name']
+    segmentation_experiment_name = args['exp']
     datasets = args['datasets']
 
     patients = [f'{dataset}/{patient}' for dataset, patient in iterate_datasets(segmentation_experiment_name, datasets)]

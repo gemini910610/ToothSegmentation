@@ -1,3 +1,5 @@
+import sys
+from argparse import ArgumentParser
 from pathlib import Path
 
 from textual import work
@@ -18,6 +20,28 @@ from tui.switches import LabelSwitch
 from utils.config import load_config
 
 
+def parse_args(app_class, configure_parser, rename=None):
+    if len(sys.argv) == 1:
+        args = app_class().run()
+        if args is None:
+            sys.exit()
+    else:
+        parser = ArgumentParser()
+        configure_parser(parser)
+        args = vars(parser.parse_args())
+
+    if rename:
+        args = {rename.get(key, key): value for key, value in args.items()}
+
+    return args
+
+def parse_segmentation_args():
+    def configure_parser(parser):
+        parser.add_argument('segmentation_exp', type=str)
+        parser.add_argument('datasets', nargs='+', type=str)
+
+    return parse_args(BaseApp, configure_parser, rename={'exp': 'segmentation_exp'})
+
 def _folds(task):
     config = load_config(Path('configs') / f'{task}.toml')
 
@@ -26,11 +50,11 @@ def _folds(task):
 class BaseApp(App):
     def compose(self):
         with BaseContainer(width='80%'):
-            widgets = self.selectors()
+            widgets = self._selectors()
             with BaseGrid(rows=1, columns=len(widgets)):
                 yield from widgets
 
-            yield from self.extra_widgets()
+            yield from self._extra_widgets()
 
             yield HorizontalRule()
 
@@ -39,17 +63,17 @@ class BaseApp(App):
                 ('continue', self._on_continue, 'success')
             )
 
-    def selectors(self):
+    def _selectors(self):
         self.experiment_selector = DirectorySelector(Path('outputs'), 'experiment', self._on_experiment_change)
         self.dataset_selector = DirectoryMultiSelector(title='datasets')
         return [self.experiment_selector, self.dataset_selector]
 
-    def extra_widgets(self):
+    def _extra_widgets(self):
         yield from ()
 
-    def collect_data(self):
+    def _collect_data(self):
         return {
-            'experiment_name': self.experiment_selector.selected,
+            'exp': self.experiment_selector.selected,
             'datasets': self.dataset_selector.selected
         }
 
@@ -63,70 +87,70 @@ class BaseApp(App):
         self.exit(None)
 
     def _on_continue(self):
-        data = self.collect_data()
+        data = self._collect_data()
         self.exit(data)
 
-class BoneLossApp(BaseApp):
-    def selectors(self):
+class DualExperimentFoldApp(BaseApp):
+    def _selectors(self):
         self.segmentation_experiment_selector = DirectorySelector(Path('outputs'), 'segmentation experiment', self._on_experiment_change)
         self.keypoints_experiment_selector = DirectorySelector(Path('logs'), 'keypoints experiment', task='keypoints')
         self.dataset_selector = DirectoryMultiSelector(title='datasets')
         return [self.segmentation_experiment_selector, self.keypoints_experiment_selector, self.dataset_selector]
 
-    def extra_widgets(self):
+    def _extra_widgets(self):
         yield HorizontalRule()
 
         self.keypoints_fold_selector = OptionSelector(_folds('keypoints'), 'keypoints fold')
         yield self.keypoints_fold_selector
 
-    def collect_data(self):
+    def _collect_data(self):
         return {
-            'segmentation_experiment_name': self.segmentation_experiment_selector.selected,
-            'keypoints_experiment_name': self.keypoints_experiment_selector.selected,
+            'segmentation_exp': self.segmentation_experiment_selector.selected,
+            'keypoints_exp': self.keypoints_experiment_selector.selected,
             'datasets': self.dataset_selector.selected,
             'keypoints_fold': int(self.keypoints_fold_selector.selected)
         }
 
-class LauncherApp(BaseApp):
-    def selectors(self):
+class DualExperimentDualFoldApp(BaseApp):
+    def _selectors(self):
         self.segmentation_experiment_selector = DirectorySelector(Path('logs'), 'segmentation experiment', task='segmentation')
         self.keypoints_experiment_selector = DirectorySelector(Path('logs'), 'keypoints experiment', task='keypoints')
         return [self.segmentation_experiment_selector, self.keypoints_experiment_selector]
 
-    def extra_widgets(self):
+    def _extra_widgets(self):
         yield HorizontalRule()
 
         with BaseHorizontal():
             segmentation_folds = _folds('segmentation')
-            self.segmentation_fold_selector = OptionSelector(segmentation_folds, 'segmentation fold', default=segmentation_folds[-1])
+            self.segmentation_fold_selector = OptionSelector(segmentation_folds, 'segmentation fold', default='4')
             yield self.segmentation_fold_selector
 
             self.keypoints_fold_selector = OptionSelector(_folds('keypoints'), 'keypoints fold')
             yield self.keypoints_fold_selector
 
-    def collect_data(self):
+    def _collect_data(self):
         return {
-            'segmentation_experiment_name': self.segmentation_experiment_selector.selected,
+            'segmentation_exp': self.segmentation_experiment_selector.selected,
             'segmentation_fold': int(self.segmentation_fold_selector.selected),
-            'keypoints_experiment_name': self.keypoints_experiment_selector.selected,
+            'keypoints_exp': self.keypoints_experiment_selector.selected,
             'keypoints_fold': int(self.keypoints_fold_selector.selected)
         }
 
-class PanoramicPredictApp(BaseApp):
-    def selectors(self):
+class DatasetsApp(BaseApp):
+    def _selectors(self):
         self.dataset_selector = DirectoryMultiSelector(Path('datasets'), 'xray datasets')
         return [self.dataset_selector]
 
-    def collect_data(self):
+    def _collect_data(self):
         return {
             'datasets': self.dataset_selector.selected
         }
 
-class DCM2PNGApp(BaseApp):
-    def selectors(self):
+class PathsAndNumbersApp(BaseApp):
+    def _selectors(self):
         return []
 
-    def extra_widgets(self):
+    def _extra_widgets(self):
         with BaseHorizontal():
             self.dcm_root_input = BaseInput('dcm root', type='text')
             self.dcm_root_input.styles.width = '1fr'
@@ -171,7 +195,7 @@ class DCM2PNGApp(BaseApp):
         if path is not None:
             self.output_dir_input.value = str(path)
 
-    def collect_data(self):
+    def _collect_data(self):
         return {
             'dcm_root': self.dcm_root_input.get_value(),
             'output_dir': self.output_dir_input.get_value(),
@@ -180,25 +204,25 @@ class DCM2PNGApp(BaseApp):
             'spacing': self.spacing_input.get_value()
         }
 
-class RunExperimentApp(BaseApp):
-    def selectors(self):
+class TaskApp(BaseApp):
+    def _selectors(self):
         return []
 
-    def extra_widgets(self):
+    def _extra_widgets(self):
         with BaseHorizontal():
             self.task_switch = LabelSwitch('segmentation', 'keypoints')
             yield self.task_switch
 
-    def collect_data(self):
+    def _collect_data(self):
         return {
             'task': self.task_switch.selected
         }
 
-class TrainApp(BaseApp):
-    def selectors(self):
+class TaskFoldApp(BaseApp):
+    def _selectors(self):
         return []
 
-    def extra_widgets(self):
+    def _extra_widgets(self):
         with BaseHorizontal():
             self.task_switch = LabelSwitch('segmentation', 'keypoints', self._on_task_changed)
             yield self.task_switch
@@ -211,18 +235,18 @@ class TrainApp(BaseApp):
     async def _on_task_changed(self, task):
         await self.fold_selector.update(_folds(task))
 
-    def collect_data(self):
+    def _collect_data(self):
         return {
             'task': self.task_switch.selected,
             'fold': int(self.fold_selector.selected)
         }
 
-class CorrelationApp(BaseApp):
-    def selectors(self):
+class FileOptionSwitchApp(BaseApp):
+    def _selectors(self):
         self.experiment_selector = FileSelector(Path('bone_loss'), 'experiment', suffix='.xlsx')
         return [self.experiment_selector]
 
-    def extra_widgets(self):
+    def _extra_widgets(self):
         yield HorizontalRule()
 
         with BaseHorizontal():
@@ -233,20 +257,20 @@ class CorrelationApp(BaseApp):
             self.single_only_switch = LabelSwitch('all teeth', 'single only')
             yield self.single_only_switch
 
-    def collect_data(self):
+    def _collect_data(self):
         exclude = self.exclude_selector.selected
 
         return {
-            'experiment_name': self.experiment_selector.selected,
+            'exp': self.experiment_selector.selected,
             'exclude': None if exclude == 'none' else exclude,
             'single_only': self.single_only_switch.selected == 'single only'
         }
 
-class EvaluateApp(BaseApp):
-    def selectors(self):
+class TaskExperimentApp(BaseApp):
+    def _selectors(self):
         return []
 
-    def extra_widgets(self):
+    def _extra_widgets(self):
         with BaseHorizontal():
             self.task_switch = LabelSwitch('segmentation', 'keypoints', self._on_task_changed)
             yield self.task_switch
@@ -259,34 +283,34 @@ class EvaluateApp(BaseApp):
     async def _on_task_changed(self, task):
         await self.experiment_selector.set_task(task)
 
-    def collect_data(self):
+    def _collect_data(self):
         return {
             'task': self.task_switch.selected,
-            'experiment_name': self.experiment_selector.selected
+            'exp': self.experiment_selector.selected
         }
 
-class SegmentApp(BaseApp):
-    def selectors(self):
+class ExperimentFoldDatasetsApp(BaseApp):
+    def _selectors(self):
         self.experiment_selector = DirectorySelector(Path('logs'), 'segmentation experiment name', task='segmentation')
         self.dataset_selector = DirectoryMultiSelector(Path('datasets'), 'datasets')
         return [self.experiment_selector, self.dataset_selector]
 
-    def extra_widgets(self):
+    def _extra_widgets(self):
         yield HorizontalRule()
 
         folds = _folds('segmentation')
-        self.fold_selector = OptionSelector(folds, 'segmentation fold', default=folds[-1])
+        self.fold_selector = OptionSelector(folds, 'segmentation fold', default='4')
         yield self.fold_selector
 
-    def collect_data(self):
+    def _collect_data(self):
         return {
-            'segmentation_experiment_name': self.experiment_selector.selected,
+            'segmentation_exp': self.experiment_selector.selected,
             'segmentation_fold': int(self.fold_selector.selected),
             'datasets': self.dataset_selector.selected
         }
 
-class ConnectedComponentApp(BaseApp):
-    def extra_widgets(self):
+class SwitchThresholdApp(BaseApp):
+    def _extra_widgets(self):
         yield HorizontalRule()
 
         with BaseHorizontal():
@@ -297,9 +321,9 @@ class ConnectedComponentApp(BaseApp):
             yield self.label_switch
             yield self.threshold_input
 
-    def collect_data(self):
+    def _collect_data(self):
         return {
-            'experiment_name': self.experiment_selector.selected,
+            'exp': self.experiment_selector.selected,
             'datasets': self.dataset_selector.selected,
             'target': self.label_switch.selected,
             'threshold': self.threshold_input.get_value()

@@ -68,9 +68,9 @@ class BottomLayout(HorizontalLayout):
         ]
 
 class MainWindow(BaseWindow):
-    def __init__(self, experiment_name, slice_folder, annotation_path, patients):
+    def __init__(self, experiment_name, slice_dir, annotation_path, patients):
         super().__init__(TopLayout, BottomLayout)
-        self.slice_folder = slice_folder
+        self.slice_dir = slice_dir
         self.annotation_path = annotation_path
 
         self.setWindowTitle(experiment_name)
@@ -91,7 +91,7 @@ class MainWindow(BaseWindow):
 
     def _on_patient_changed(self, index):
         patient = self.patient_selector.currentText()
-        labels = sorted((path.name for path in (self.slice_folder / patient).iterdir()), key=int)
+        labels = sorted((path.name for path in (self.slice_dir / patient).iterdir()), key=int)
 
         self.label_selector.update_items(labels)
         self.label_selector.setCurrentIndex(0)
@@ -99,13 +99,13 @@ class MainWindow(BaseWindow):
     def _on_label_changed(self, index):
         patient = self.patient_selector.currentText()
         label = self.label_selector.currentData()
-        image_folder = self.slice_folder / patient / str(label)
+        image_dir = self.slice_dir / patient / str(label)
 
         slices = []
         for degree in range(0, 180, 45):
-            image_path = image_folder / f'image_{degree}.png'
+            image_path = image_dir / f'image_{degree}.png'
             image = cv2.imread(str(image_path), cv2.IMREAD_GRAYSCALE)
-            segmentation_path = image_folder / f'segmentation_{degree}.png'
+            segmentation_path = image_dir / f'segmentation_{degree}.png'
             mask = cv2.imread(str(segmentation_path), cv2.IMREAD_GRAYSCALE)
 
             foreground = image[mask == 127]
@@ -133,8 +133,8 @@ class MainWindow(BaseWindow):
         if patient == '' or label is None:
             return
 
-        source_folder = self.slice_folder / patient / str(label)
-        destination_folder = self.annotation_path.parent / patient / str(label)
+        source_dir = self.slice_dir / patient / str(label)
+        destination_dir = self.annotation_path.parent / patient / str(label)
 
         with JsonHandler(self.annotation_path, KeypointDataHandler) as handler:
             for image, degree in zip(self.image_grid.images, range(0, 180, 45)):
@@ -144,16 +144,16 @@ class MainWindow(BaseWindow):
                 if left_point is None or right_point is None:
                     handler.remove_data(patient, str(label), str(degree))
                     for filename in filenames:
-                        (destination_folder / filename).unlink(missing_ok=True)
+                        (destination_dir / filename).unlink(missing_ok=True)
                     continue
 
                 left_point = [point / size for point, size in zip(left_point, image.size)]
                 right_point = [point / size for point, size in zip(right_point, image.size)]
                 handler.set_data(patient, str(label), str(degree), left_point, right_point)
 
-                destination_folder.mkdir(parents=True, exist_ok=True)
+                destination_dir.mkdir(parents=True, exist_ok=True)
                 for filename in filenames:
-                    shutil.copy2(source_folder / filename, destination_folder / filename)
+                    shutil.copy2(source_dir / filename, destination_dir / filename)
 
     def _on_label_step(self, step):
         self._on_save()
@@ -177,15 +177,15 @@ if __name__ == '__main__':
     if args is None:
         sys.exit()
 
-    segmentation_experiment_name = args['experiment_name']
+    segmentation_experiment_name = args['exp']
     datasets = args['datasets']
 
-    slice_folder = Path('output_slices') / segmentation_experiment_name
+    slice_dir = Path('output_slices') / segmentation_experiment_name
 
     patients = [
         f'{dataset}/{patient}'
         for dataset, patient in iterate_datasets(segmentation_experiment_name, datasets)
-        if (slice_folder / dataset / patient).is_dir()
+        if (slice_dir / dataset / patient).is_dir()
     ]
 
-    run_app(MainWindow, segmentation_experiment_name, slice_folder, Path('datasets') / 'slices' / 'keypoints.json', patients)
+    run_app(MainWindow, segmentation_experiment_name, slice_dir, Path('datasets') / 'slices' / 'keypoints.json', patients)

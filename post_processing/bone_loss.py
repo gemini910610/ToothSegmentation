@@ -61,7 +61,7 @@ def restore_coordinates(points, aligned_shape, transform_meta, offset=90):
 
     return points, aligned_points
 
-def get_bone_loss(cej, bone):
+def _get_bone_loss(cej, bone):
     bone_loss = 0 if cej == 0 else (cej - bone) / cej
     bone_loss = round(bone_loss * 100)
 
@@ -97,11 +97,11 @@ def slice_contour_bone_loss(tooth_surface, bone_surface, point, is_upper):
 
     cej_count = left_surface.sum() + right_surface.sum()
     bone_count = bone_surface.sum()
-    bone_loss = get_bone_loss(cej_count, bone_count)
+    bone_loss = _get_bone_loss(cej_count, bone_count)
 
     return bone_loss
 
-def split_area(coordinates, left_point, right_point, is_upper):
+def _split_area(coordinates, left_point, right_point, is_upper):
     xy = coordinates[:, [1, 0]]
     vector = right_point - left_point
     side = numpy.cross(xy - left_point, vector)
@@ -149,13 +149,13 @@ def slice_area_bone_loss(tooth_slice, bone_surface, point, is_upper):
 
     coordinates = numpy.argwhere(tooth_slice)
 
-    cej_mask = split_area(coordinates, left_cej, right_cej, is_upper)
+    cej_mask = _split_area(coordinates, left_cej, right_cej, is_upper)
     cej_area = cej_mask.sum()
 
-    bone_mask = split_area(coordinates, left_bone, right_bone, is_upper)
+    bone_mask = _split_area(coordinates, left_bone, right_bone, is_upper)
     bone_area = bone_mask.sum()
 
-    bone_loss = get_bone_loss(cej_area, bone_area)
+    bone_loss = _get_bone_loss(cej_area, bone_area)
 
     area_mask[*coordinates[cej_mask].T] = 1
     area_mask[*coordinates[bone_mask].T] = 2
@@ -171,6 +171,6 @@ def volume_bone_loss(filtered_tooth_volume, filtered_bone_volume, aligned_points
     cej_surface_count = len(cej_surface)
     bone_surface_count = bone_surface.sum()
 
-    bone_loss = get_bone_loss(cej_surface_count, bone_surface_count)
+    bone_loss = _get_bone_loss(cej_surface_count, bone_surface_count)
 
     return bone_loss

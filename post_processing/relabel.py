@@ -51,13 +51,13 @@ def split_teeth_jaw(tooth_volume, bone_volume):
         })
 
     if upper_tooth:
-        upper_tooth = sort_angle(upper_tooth)
+        upper_tooth = _sort_angle(upper_tooth)
     if lower_tooth:
-        lower_tooth = sort_angle(lower_tooth)
+        lower_tooth = _sort_angle(lower_tooth)
 
     return upper_tooth, lower_tooth
 
-def sort_angle(tooth_list, center=None):
+def _sort_angle(tooth_list, center=None):
     def get_value(tooth):
         if 'center' in tooth:
             tooth = tooth['center']
@@ -73,7 +73,7 @@ def sort_angle(tooth_list, center=None):
     order = numpy.argsort(angles)
     return [tooth_list[index] for index in order]
 
-def estimate_missing_points(points):
+def _estimate_missing_points(points):
     if len(points) < 4:
         return []
 
@@ -97,11 +97,11 @@ def estimate_missing_points(points):
 
     return missing_tooth_list
 
-def split_left_right(points, default):
+def _split_left_right(points, default):
     if len(points) == 0:
         return default, []
 
-    missing_tooth_list = estimate_missing_points(points)
+    missing_tooth_list = _estimate_missing_points(points)
     if missing_tooth_list:
         missing_coordinates = numpy.array([tooth['center'] for tooth in missing_tooth_list])
         points = numpy.concatenate([points, missing_coordinates])
@@ -116,7 +116,7 @@ def split_left_right(points, default):
     center = numpy.median(points[:, 0])
     return center, missing_tooth_list
 
-def get_quadrant(is_lower, is_left):
+def _get_quadrant(is_lower, is_left):
     if not is_lower and is_left:
         return 1
 
@@ -140,13 +140,13 @@ def relabel_volume(tooth_volume, bone_volume):
 
     for is_lower, tooth_list in enumerate((upper_tooth, lower_tooth)):
         points = numpy.array([tooth['center'][:2] for tooth in tooth_list])
-        center, missing_tooth_list = split_left_right(points, tooth_volume.shape[0] / 2)
+        center, missing_tooth_list = _split_left_right(points, tooth_volume.shape[0] / 2)
 
         for teeth in (tooth_list, missing_tooth_list):
             for tooth in teeth:
                 x = tooth['center'][0]
                 is_left = x < center
-                quadrant = get_quadrant(is_lower, is_left)
+                quadrant = _get_quadrant(is_lower, is_left)
                 quadrants[quadrant].append(tooth)
 
     volume = numpy.zeros_like(tooth_volume, dtype=numpy.uint8)
@@ -155,7 +155,7 @@ def relabel_volume(tooth_volume, bone_volume):
         if not tooth_list:
             continue
 
-        tooth_list = sort_angle(tooth_list, center)
+        tooth_list = _sort_angle(tooth_list, center)
         if quadrant in {2, 3}:
             tooth_list = tooth_list[::-1]
 
@@ -179,29 +179,15 @@ def relabel_volume(tooth_volume, bone_volume):
     return volume
 
 if __name__ == '__main__':
-    import sys
-    from argparse import ArgumentParser
     from pathlib import Path
 
     from constants.mode import Mode
     from post_processing.utils import iterate_datasets
-    from tui.apps import BaseApp
+    from tui.apps import parse_segmentation_args
 
-    if len(sys.argv) == 1:
-        args = BaseApp().run()
-        if args is None:
-            sys.exit()
-
-        segmentation_experiment_name = args['experiment_name']
-        datasets = args['datasets']
-    else:
-        parser = ArgumentParser()
-        parser.add_argument('segmentation_exp', type=str)
-        parser.add_argument('datasets', nargs='+', type=str)
-        args = parser.parse_args()
-
-        segmentation_experiment_name = args.segmentation_exp
-        datasets = args.datasets
+    args = parse_segmentation_args()
+    segmentation_experiment_name = args['segmentation_exp']
+    datasets = args['datasets']
 
     for dataset, patient in iterate_datasets(segmentation_experiment_name, datasets):
         tooth_path = Path('outputs') / segmentation_experiment_name / dataset / patient / f'{Mode.TOOTH_FILLED}.npy'

@@ -14,35 +14,22 @@ def predict_patient(model, dataset, patient, config):
     return predict_volumes(model, loader, config, desc=patient)
 
 if __name__ == '__main__':
-    import sys
-
     from constants.mode import Mode
     from segmentation.dataset import get_fold
     from segmentation.models import load_model
+    from tui.apps import ExperimentFoldDatasetsApp, parse_args
     from utils.config import load_config
 
-    if len(sys.argv) == 1:
-        from tui.apps import SegmentApp
-
-        args = SegmentApp().run()
-        if args is None:
-            sys.exit()
-
-        segmentation_experiment_name = args['segmentation_experiment_name']
-        segmentation_fold = args['segmentation_fold']
-        datasets = args['datasets']
-    else:
-        from argparse import ArgumentParser
-
-        parser = ArgumentParser()
+    def configure_parser(parser):
         parser.add_argument('segmentation_exp', type=str)
         parser.add_argument('datasets', nargs='+', type=str)
         parser.add_argument('--segmentation-fold', type=int, default=4)
-        args = parser.parse_args()
 
-        segmentation_experiment_name = args.segmentation_exp
-        segmentation_fold = args.segmentation_fold
-        datasets = args.datasets
+    args = parse_args(ExperimentFoldDatasetsApp, configure_parser)
+
+    segmentation_experiment_name = args['segmentation_exp']
+    segmentation_fold = args['segmentation_fold']
+    datasets = args['datasets']
 
     config = load_config(Path('logs') / segmentation_experiment_name / 'segmentation.toml')
 

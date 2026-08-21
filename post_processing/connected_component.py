@@ -18,7 +18,7 @@ def relabel(volume):
 
     return volume
 
-def remove_outlier(volume):
+def _remove_outlier(volume):
     objects = ndimage.find_objects(volume)
 
     valid_labels = []
@@ -65,43 +65,34 @@ def filter_connected_component(volume, is_bone=False, voxel_threshold=0):
         roi.volume = relabel(volume)
     else:
         volume = relabel(components)
-        roi.volume = remove_outlier(volume)
+        roi.volume = _remove_outlier(volume)
 
     volume = roi.restore()
 
     return volume
 
 if __name__ == '__main__':
-    import sys
-    from argparse import ArgumentParser
     from pathlib import Path
 
     from constants.label import Label
     from constants.mode import Mode
     from post_processing.utils import iterate_datasets
-    from tui.apps import ConnectedComponentApp
+    from tui.apps import SwitchThresholdApp, parse_args
 
-    if len(sys.argv) == 1:
-        args = ConnectedComponentApp().run()
-        if args is None:
-            sys.exit()
-
-        segmentation_experiment_name = args['experiment_name']
-        datasets = args['datasets']
-        target = Label.TOOTH if args['target'] == 'tooth' else Label.BONE
-        voxel_threshold = args['threshold']
-    else:
-        parser = ArgumentParser()
+    def configure_parser(parser):
         parser.add_argument('segmentation_exp', type=str)
         parser.add_argument('datasets', nargs='+', type=str)
-        parser.add_argument('target', type=int)
+        parser.add_argument('target', choices=['tooth', 'bone'])
         parser.add_argument('threshold', type=int)
-        args = parser.parse_args()
 
-        segmentation_experiment_name = args.segmentation_exp
-        datasets = args.datasets
-        target = args.target
-        voxel_threshold = args.threshold
+    args = parse_args(SwitchThresholdApp, configure_parser, rename={'exp': 'segmentation_exp'})
+
+    segmentation_experiment_name = args['segmentation_exp']
+    datasets = args['datasets']
+    target_name = args['target']
+    voxel_threshold = args['threshold']
+
+    target = Label.TOOTH if target_name == 'tooth' else Label.BONE
 
     for dataset, patient in iterate_datasets(segmentation_experiment_name, datasets):
         volume_path = Path('outputs') / segmentation_experiment_name / dataset / patient / f'{Mode.PREDICT}.npy'

@@ -1,7 +1,7 @@
 from sklearn.metrics import r2_score
 
 
-def calculate_icc(targets, predicts):
+def _calculate_icc(targets, predicts):
     n = len(targets)
     k = 2 # Raters = 2 (Targets vs Predicts)
 
@@ -32,35 +32,23 @@ def calculate_icc(targets, predicts):
 
 if __name__ == '__main__':
     import json
-    import sys
 
     import pandas
 
+    from tui.apps import FileOptionSwitchApp, parse_args
     from utils.console import Table
     from utils.excel import load_excel
 
-    if len(sys.argv) == 1:
-        from tui.apps import CorrelationApp
-
-        args = CorrelationApp().run()
-        if args is None:
-            sys.exit()
-
-        segmentation_experiment_name = args['experiment_name']
-        exclude = args['exclude']
-        single_only = args['single_only']
-    else:
-        from argparse import ArgumentParser
-
-        parser = ArgumentParser()
+    def configure_parser(parser):
         parser.add_argument('segmentation_exp', type=str)
         parser.add_argument('--exclude', type=str, choices=['slice', 'tooth'])
         parser.add_argument('--single-only', action='store_true')
-        args = parser.parse_args()
 
-        segmentation_experiment_name = args.segmentation_exp
-        exclude = args.exclude
-        single_only = args.single_only
+    args = parse_args(FileOptionSwitchApp, configure_parser, rename={'exp': 'segmentation_exp'})
+
+    segmentation_experiment_name = args['segmentation_exp']
+    exclude = args['exclude']
+    single_only = args['single_only']
 
     excel = load_excel(f'bone_loss/{segmentation_experiment_name}.xlsx')
     if 'extra' in excel.columns:
@@ -120,7 +108,7 @@ if __name__ == '__main__':
 
     for column in excel.columns.drop('3D'):
         r2 = r2_score(excel['3D'], excel[column])
-        icc = calculate_icc(excel['3D'], excel[column])
+        icc = _calculate_icc(excel['3D'], excel[column])
         correlations['R² Score'].append(r2)
         correlations['ICC'].append(icc)
 

@@ -2,13 +2,13 @@ import numpy
 import SimpleITK
 
 
-def normalize_volume(volume, min_value=-1000, max_value=4500):
+def _normalize_volume(volume, min_value=-1000, max_value=4500):
     volume = SimpleITK.IntensityWindowing(volume, min_value, max_value) # [min_value, max_value] -> [0, 255]
     volume = SimpleITK.Cast(volume, SimpleITK.sitkUInt8)
 
     return volume
 
-def resample_volume(volume, new_spacing=None):
+def _resample_volume(volume, new_spacing=None):
     if new_spacing is None:
         new_spacing = 0.25
 
@@ -34,7 +34,7 @@ def resample_volume(volume, new_spacing=None):
     return volume
 
 def process_volume(volume, min_value=-1000, max_value=4500, new_spacing=None):
-    volume = normalize_volume(volume, min_value, max_value)
-    volume = resample_volume(volume, new_spacing)
+    volume = _normalize_volume(volume, min_value, max_value)
+    volume = _resample_volume(volume, new_spacing)
 
     return volume
