@@ -1,4 +1,4 @@
-# Periodontal Bone Loss Evaluation using Deep Learning-Based Image Segmentation
+# 3D Periodontal Bone Loss Evaluation on CBCT via Image Segmentation and Keypoint Detection
 
 ## 📦 Project Structure
 
@@ -231,7 +231,7 @@ uv run -m scripts.segment <segmentation_exp> <dataset...> [--segmentation-fold 4
 
 | Order | Command | Manual editor | Output |
 |---|---|---|---|
-| 1 | `uv run -m post_processing.connected_component <segmentation_exp> <dataset...> <target> <threshold>`<br>`target`: `1`=tooth, `2`=bone | — | `tooth_cc.npy` / `bone_cc.npy` |
+| 1 | `uv run -m post_processing.connected_component <segmentation_exp> <dataset...> <target> <threshold>`<br>`target`: `tooth` or `bone` | — | `tooth_cc.npy` / `bone_cc.npy` |
 | 2 | `uv run -m post_processing.watershed <segmentation_exp> <dataset...>` | — | `watershed.npy` |
 | 3 | `uv run -m post_processing.refine_split <segmentation_exp> <dataset...>` | `uv run -m visualize.editor.split <segmentation_exp> <dataset...>` → `split/<segmentation_exp>.json` | `refine_split.npy` |
 | 4 | `uv run -m post_processing.refine_merge <segmentation_exp> <dataset...>` | `uv run -m visualize.editor.merge <segmentation_exp> <dataset...>` → `merge/<segmentation_exp>.json` | `refine_merge.npy` |
