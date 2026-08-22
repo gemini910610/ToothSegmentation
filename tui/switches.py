@@ -33,3 +33,24 @@ class LabelSwitch(BaseHorizontal):
     @property
     def selected(self):
         return self.right_text if self.switch.value else self.left_text
+
+class ToggleSwitch(BaseHorizontal):
+    def __init__(self, text, callback=None):
+        super().__init__()
+        self.text = text
+        self.callback = callback
+
+        self.styles.width = 'auto'
+
+    def compose(self):
+        self.switch = BaseSwitch()
+        yield self.switch
+        yield BaseLabel(self.text)
+
+    async def on_switch_changed(self, event):
+        if self.callback is not None:
+            await self.callback(self.selected)
+
+    @property
+    def selected(self):
+        return self.switch.value

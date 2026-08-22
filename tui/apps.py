@@ -16,7 +16,7 @@ from tui.selectors import (
     FileSelector,
     OptionSelector,
 )
-from tui.switches import LabelSwitch
+from tui.switches import LabelSwitch, ToggleSwitch
 from utils.config import load_config
 
 
@@ -216,6 +216,25 @@ class TaskApp(BaseApp):
     def _collect_data(self):
         return {
             'task': self.task_switch.selected
+        }
+
+class TaskMaximizeApp(BaseApp):
+    def _selectors(self):
+        return []
+
+    def _extra_widgets(self):
+        with BaseHorizontal():
+            self.task_switch = LabelSwitch('segmentation', 'keypoints')
+            self.task_switch.styles.margin = (0, 10, 0, 0)
+            yield self.task_switch
+
+            self.maximize_switch = ToggleSwitch('maximize')
+            yield self.maximize_switch
+
+    def _collect_data(self):
+        return {
+            'task': self.task_switch.selected,
+            'maximize': self.maximize_switch.selected
         }
 
 class TaskFoldApp(BaseApp):

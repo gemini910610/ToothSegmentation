@@ -1,6 +1,5 @@
 # System and Experiment
 experiment = "Segmentation"
-seed = 42
 num_workers = 4
 
 # Data Configuration

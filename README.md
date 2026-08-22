@@ -139,7 +139,6 @@ Writes `splits/<split_filename>.json`:
 
 ```toml
 experiment = "Segmentation"
-seed = 42
 num_workers = 4
 
 split_filename = "segmentation"
@@ -173,6 +172,12 @@ num_classes = 3
 ## 🏋️ Train Models
 
 `<task>` = `segmentation | keypoints`.
+
+**Find the largest batch size that fits in GPU memory**
+```
+uv run -m scripts.optimize_batch_size <task> [--maximize]
+```
+* `--maximize`: keep doubling until CUDA OOM; otherwise just confirm the configured `batch_size` fits, halving until it does.
 
 **Train a single fold**
 ```
