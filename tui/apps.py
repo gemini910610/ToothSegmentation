@@ -204,6 +204,29 @@ class PathsAndNumbersApp(BaseApp):
             'spacing': self.spacing_input.get_value()
         }
 
+class DirectoryApp(BaseApp):
+    def _selectors(self):
+        return []
+
+    def _extra_widgets(self):
+        with BaseHorizontal():
+            self.directory_input = BaseInput('directory', type='text')
+            self.directory_input.styles.width = '1fr'
+            yield self.directory_input
+
+            yield BaseButton('browse', self._on_browse)
+
+    @work
+    async def _on_browse(self):
+        path = await self.push_screen_wait(DirectoryBrowserScreen(self.directory_input.value))
+        if path is not None:
+            self.directory_input.value = str(path)
+
+    def _collect_data(self):
+        return {
+            'directory': self.directory_input.get_value()
+        }
+
 class TaskApp(BaseApp):
     def _selectors(self):
         return []

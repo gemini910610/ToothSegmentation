@@ -74,6 +74,12 @@ uv run -m <module.path> [args...]
 
 ## 📁 Dataset Preparation
 
+### Validate Raw Data Folder Structure
+
+```
+uv run -m scripts.check_data <data_dir>
+```
+
 ### DICOM → PNG
 
 ```
