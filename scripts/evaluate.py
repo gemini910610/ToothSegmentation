@@ -1,10 +1,12 @@
 from pathlib import Path
 
+from scripts.optimize_batch_size import get_optimal_batch_size
 from utils.config import load_config
 
 
 def evaluate(task, experiment_name):
     config = load_config(Path('logs') / experiment_name / f'{task}.toml')
+    config.batch_size = get_optimal_batch_size(task, is_train=False)
 
     match task:
         case 'segmentation':

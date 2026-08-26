@@ -251,12 +251,17 @@ class TaskMaximizeApp(BaseApp):
             self.task_switch.styles.margin = (0, 10, 0, 0)
             yield self.task_switch
 
+            self.mode_switch = LabelSwitch('train', 'valid')
+            self.mode_switch.styles.margin = (0, 10, 0, 0)
+            yield self.mode_switch
+
             self.maximize_switch = ToggleSwitch('maximize')
             yield self.maximize_switch
 
     def _collect_data(self):
         return {
             'task': self.task_switch.selected,
+            'is_train': self.mode_switch.selected == 'train',
             'maximize': self.maximize_switch.selected
         }
 

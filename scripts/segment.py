@@ -15,6 +15,7 @@ def predict_patient(model, dataset, patient, config):
 
 if __name__ == '__main__':
     from constants.mode import Mode
+    from scripts.optimize_batch_size import get_optimal_batch_size
     from segmentation.dataset import get_fold
     from segmentation.models import load_model
     from tui.apps import ExperimentFoldDatasetsApp, parse_args
@@ -32,6 +33,7 @@ if __name__ == '__main__':
     datasets = args['datasets']
 
     config = load_config(Path('logs') / segmentation_experiment_name / 'segmentation.toml')
+    config.batch_size = get_optimal_batch_size('segmentation', is_train=False)
 
     processed_patients = set()
 

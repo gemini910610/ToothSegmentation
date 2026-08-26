@@ -239,6 +239,7 @@ if __name__ == '__main__':
     from keypoints.models import load_model as load_keypoints_model
     from keypoints.predict import CEJFinder
     from panoramic.predict import PanoramicModels
+    from scripts.optimize_batch_size import get_optimal_batch_size
     from segmentation.models import load_model as load_segmentation_model
     from tui.apps import DualExperimentDualFoldApp
     from utils.config import load_config
@@ -254,6 +255,7 @@ if __name__ == '__main__':
     keypoints_fold = args['keypoints_fold']
 
     config = load_config(Path('logs') / segmentation_experiment_name / 'segmentation.toml', fold=segmentation_fold)
+    config.batch_size = get_optimal_batch_size('segmentation', is_train=False)
     segmentation_model = load_segmentation_model(config)
 
     keypoints_config = load_config(Path('logs') / keypoints_experiment_name / 'keypoints.toml', fold=keypoints_fold)

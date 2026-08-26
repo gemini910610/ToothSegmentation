@@ -181,8 +181,9 @@ num_classes = 3
 
 **Find the largest batch size that fits in GPU memory**
 ```
-uv run -m scripts.optimize_batch_size <task> [--maximize]
+uv run -m scripts.optimize_batch_size <task> [--is-train] [--maximize]
 ```
+* `--is-train`: profile forward + backward; otherwise profile forward-only.
 * `--maximize`: keep doubling until CUDA OOM; otherwise just confirm the configured `batch_size` fits, halving until it does.
 
 **Train a single fold**

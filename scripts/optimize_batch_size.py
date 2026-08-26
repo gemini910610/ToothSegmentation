@@ -12,12 +12,14 @@ from utils.config import load_config
 
 def configure_parser(parser):
     parser.add_argument('task', type=str, choices=['segmentation', 'keypoints'])
+    parser.add_argument('--is-train', action='store_true')
     parser.add_argument('--maximize', action='store_true')
 
 def _optimize_batch_size():
     args = parse_args(TaskMaximizeApp, configure_parser)
 
     task = args['task']
+    is_train = args['is_train']
     maximize = args['maximize']
 
     config_path = Path('configs') / f'{task}.toml'
@@ -33,8 +35,12 @@ def _optimize_batch_size():
             from keypoints.trainer import Trainer
 
     trainer = Trainer(config)
-    trainer.model.train()
     trainer.train_loader.pin_memory = False
+
+    if is_train:
+        trainer.model.train()
+    else:
+        trainer.model.eval()
 
     batch_size = config.batch_size
     config.batch_size = 1
@@ -52,6 +58,8 @@ def _optimize_batch_size():
     torch.backends.cudnn.benchmark = False
     torch.backends.cudnn.deterministic = True
 
+    grad_fn = torch.enable_grad if is_train else torch.inference_mode
+
     success_batch_size = 0
     while True:
         print(f'batch size {config.batch_size}', end='', flush=True)
@@ -61,11 +69,12 @@ def _optimize_batch_size():
                 for item in single_batch
             )
 
-            with torch.autocast(device):
+            with grad_fn(), torch.autocast(device):
                 _, loss = trainer._forward(batch)
 
-            trainer.optimizer.zero_grad(set_to_none=True)
-            trainer.grad_scaler.scale(loss).backward()
+            if is_train:
+                trainer.optimizer.zero_grad(set_to_none=True)
+                trainer.grad_scaler.scale(loss).backward()
 
             success_batch_size = config.batch_size
 
@@ -96,9 +105,11 @@ def _optimize_batch_size():
         'batch_size': success_batch_size
     }))
 
-def get_optimal_batch_size(task, maximize=False):
+def get_optimal_batch_size(task, is_train=True, maximize=False):
     try:
         command = [sys.executable, '-m', 'scripts.optimize_batch_size', task]
+        if is_train:
+            command.append('--is-train')
         if maximize:
             command.append('--maximize')
         result = subprocess.run(command, capture_output=True, check=True, text=True)
