@@ -1,3 +1,5 @@
+import unicodedata
+
 import torch
 from rich.progress import (
     BarColumn,
@@ -96,6 +98,23 @@ class Table:
 
         return data
 
+    def _get_width(self, text):
+        return sum(
+            2 if unicodedata.east_asian_width(c) in 'WF' else 1
+            for c in text
+        )
+
+    def _padding_text(self, text, width, align_center=False):
+        text_width = self._get_width(text)
+        padding = width - text_width
+
+        if align_center:
+            left = padding // 2
+            right = padding - left
+            return ' ' * left + text + ' ' * right
+
+        return text + ' ' * padding
+
     def _display_line(self, tokens, widths):
         left, line, center, right = tokens
         left = left + line
@@ -104,15 +123,14 @@ class Table:
         print(f'{left}{center.join(line * width for width in widths)}{right}')
 
     def _display_rows(self, row, widths, align_center=False):
-        align = '^' if align_center else '<'
-        print(f'│ {" │ ".join(f"{data:{align}{width}}" for data, width in zip(row, widths))} │')
+        print(f'│ {" │ ".join(self._padding_text(data, width, align_center) for data, width in zip(row, widths))} │')
 
     def display(self):
         columns = zip(*self.rows) if self.headers is None else zip(self.headers, *self.rows)
-        widths = [max(len(data) for data in column) for column in columns]
+        widths = [max(self._get_width(data) for data in column) for column in columns]
         self._display_line('┌─┬┐', widths)
         if self.headers is not None:
-            self._display_rows(self.headers, widths, '^')
+            self._display_rows(self.headers, widths, align_center=True)
             self._display_line('├─┼┤', widths)
         for row in self.rows:
             self._display_rows(row, widths)
