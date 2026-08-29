@@ -6,6 +6,7 @@ import numpy
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QKeySequence, QShortcut
 
+from utils.image import imread
 from visualize.ui.grids import ImageCell, PointImageGrid
 from visualize.ui.layouts import HorizontalLayout
 from visualize.ui.selectors import LabelSelector, PatientSelector
@@ -104,9 +105,9 @@ class MainWindow(BaseWindow):
         slices = []
         for degree in range(0, 180, 45):
             image_path = image_dir / f'image_{degree}.png'
-            image = cv2.imread(str(image_path), cv2.IMREAD_GRAYSCALE)
+            image = imread(image_path)
             segmentation_path = image_dir / f'segmentation_{degree}.png'
-            mask = cv2.imread(str(segmentation_path), cv2.IMREAD_GRAYSCALE)
+            mask = imread(segmentation_path)
 
             foreground = image[mask == 127]
             foreground = foreground[foreground > 0]

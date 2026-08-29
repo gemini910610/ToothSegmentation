@@ -9,6 +9,7 @@ from scipy.interpolate import make_splprep
 from constants.color import GLASBEY_PALETTE
 from constants.label import Label
 from post_processing.relabel import split_teeth_jaw
+from utils.image import imread, imwrite
 
 
 def _synthetic_tooth(tooth_list, volume_width):
@@ -275,7 +276,7 @@ def find_panoramic_paths(dataset, patient):
     return None
 
 def load_panoramic(image_path, prediction_path, merge=True):
-    image = cv2.imread(str(image_path), cv2.IMREAD_GRAYSCALE)
+    image = imread(image_path)
 
     with open(prediction_path) as file:
         data = file.read().strip()
@@ -383,4 +384,4 @@ if __name__ == '__main__':
             else:
                 indices[fdi] += 1
                 filename = f'{fdi}_{indices[fdi]}.png'
-            cv2.imwrite(str(output_dir / filename), crop)
+            imwrite(output_dir / filename, crop)

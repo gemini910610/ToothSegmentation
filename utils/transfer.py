@@ -103,9 +103,9 @@ class SFTPTransfer:
         if self.is_remote_dir(remote_path):
             files, _ = self._walk_remote(remote_path, ignore_files=ignore_files)
             for source_path, relative_path in files:
-                destination = local_path / str(relative_path)
+                destination = local_path / relative_path
                 destination.parent.mkdir(parents=True, exist_ok=True)
-                self.sftp.get(str(source_path), str(destination))
+                self.sftp.get(str(source_path), destination)
                 if callback is not None:
                     callback(relative_path)
             return True
@@ -114,7 +114,7 @@ class SFTPTransfer:
             return False
 
         local_path.parent.mkdir(parents=True, exist_ok=True)
-        self.sftp.get(str(remote_path), str(local_path))
+        self.sftp.get(str(remote_path), local_path)
         if callback is not None:
             callback(local_path.name)
         return True
@@ -130,7 +130,7 @@ class SFTPTransfer:
             for source_path, relative_path in files:
                 destination = remote_path.joinpath(*relative_path.parts)
                 self._mkdir_remote_p(destination.parent)
-                self.sftp.put(str(source_path), str(destination))
+                self.sftp.put(source_path, str(destination))
                 if callback is not None:
                     callback(relative_path)
             return True
@@ -139,7 +139,7 @@ class SFTPTransfer:
             return False
 
         self._mkdir_remote_p(remote_path.parent)
-        self.sftp.put(str(local_path), str(remote_path))
+        self.sftp.put(local_path, str(remote_path))
         if callback is not None:
             callback(local_path.name)
         return True

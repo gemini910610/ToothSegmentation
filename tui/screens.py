@@ -61,7 +61,7 @@ class UpDirectoryTree(DirectoryTree):
         node.expand()
 
     def navigate(self, node, path):
-        if str(node.label) == '..' and path.parent == path:
+        if str(node.label) == '..' and self.path.parent == self.path:
             self.show_drive_picker = True
         else:
             self.show_drive_picker = False
@@ -93,7 +93,7 @@ class DirectoryBrowserScreen(ModalScreen):
 
     def compose(self):
         with BaseContainer(width='80%', height='80%'):
-            self.directory_tree = UpDirectoryTree(str(self.root))
+            self.directory_tree = UpDirectoryTree(self.root)
             self.directory_tree.styles.height = '1fr'
             yield self.directory_tree
 

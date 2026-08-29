@@ -6,6 +6,8 @@ import torch
 from torch.utils.data import DataLoader, Dataset
 from torchvision import transforms
 
+from utils.image import imread
+
 
 def get_fold(split_file_path, fold_id):
     with open(split_file_path, encoding='utf-8') as file:
@@ -62,8 +64,8 @@ class KeypointDataset(Dataset):
 
     @staticmethod
     def load_image(folder, degree):
-        image = cv2.imread(folder / f'image_{degree}.png', cv2.IMREAD_GRAYSCALE)
-        segmentation = cv2.imread(folder / f'segmentation_{degree}.png', cv2.IMREAD_GRAYSCALE)
+        image = imread(folder / f'image_{degree}.png')
+        segmentation = imread(folder / f'segmentation_{degree}.png')
 
         image = image * (segmentation == 127)
         image = torch.from_numpy(image)

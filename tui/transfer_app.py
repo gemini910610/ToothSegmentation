@@ -21,7 +21,7 @@ class SFTPDirectoryTree(DirectoryTree):
 
     def __init__(self, sftp, root):
         self.sftp = sftp
-        super().__init__(str(root))
+        super().__init__(root)
 
     def _safe_is_dir(self, path):
         try:
@@ -107,7 +107,7 @@ class TransferBrowserApp(App):
         self.remote_new_folder_input.display = False
 
         local_root = Path.cwd()
-        self.local_tree = UpDirectoryTree(str(local_root))
+        self.local_tree = UpDirectoryTree(local_root)
         self.local_tree.styles.width = '1fr'
         self.local_tree.border_title = 'Local'
 

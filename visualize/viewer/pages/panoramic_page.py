@@ -10,6 +10,7 @@ from post_processing.panoramic import (
     find_panoramic_image,
     load_panoramic,
 )
+from utils.image import imread
 from visualize.ui.images import AutoFitImage, bgr_to_pixmap
 from visualize.ui.layouts import HorizontalLayout
 
@@ -76,7 +77,8 @@ class PanoramicPage(QWidget):
         if self.prediction_path.is_file():
             self._display()
         else:
-            image = cv2.imread(str(self.image_path))
+            image = imread(self.image_path)
+            image = cv2.cvtColor(image, cv2.COLOR_GRAY2BGR)
             self.image_view.update_image(bgr_to_pixmap(image))
 
     def _on_predict(self):

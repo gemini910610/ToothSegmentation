@@ -1,6 +1,8 @@
 import cv2
 import SimpleITK
 
+from utils.image import imwrite
+
 
 def save_volume(volume, output_dir):
     output_dir.mkdir(parents=True)
@@ -11,4 +13,4 @@ def save_volume(volume, output_dir):
             continue
 
         image_path = output_dir / f'{index}.png'
-        cv2.imwrite(image_path, image, [cv2.IMWRITE_PNG_COMPRESSION, 0])
+        imwrite(image_path, image)

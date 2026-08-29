@@ -6,6 +6,8 @@ import cv2
 import torch
 from torch.utils.data import ConcatDataset, DataLoader, Dataset
 
+from utils.image import imread
+
 
 def find_datasets():
     return sorted(
@@ -68,7 +70,7 @@ class CBCTDataset(Dataset):
 
     @staticmethod
     def load_image(image_path):
-        image = cv2.imread(image_path, cv2.IMREAD_GRAYSCALE)
+        image = imread(image_path)
         image = torch.from_numpy(image)
         image = image / 255
         image = image.unsqueeze(0)
@@ -77,7 +79,7 @@ class CBCTDataset(Dataset):
 
     @staticmethod
     def _load_mask(mask_path):
-        mask = cv2.imread(mask_path, cv2.IMREAD_GRAYSCALE)
+        mask = imread(mask_path)
         mask = torch.from_numpy(mask)
         mask = mask.long()
 

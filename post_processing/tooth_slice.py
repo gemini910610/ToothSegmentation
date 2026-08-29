@@ -4,6 +4,7 @@ from scipy.interpolate import make_splprep
 
 from constants.label import Label
 from post_processing.relabel import split_teeth_jaw
+from utils.image import imwrite
 
 
 def extract_single_tooth(tooth_mask, bone_mask, bone_coordinates, normal_vector, padding=25):
@@ -219,6 +220,6 @@ if __name__ == '__main__':
                 segmentation_slice, image_slice = normalize_slice(segmentation_slice, image_slice)
 
                 segmentation_path = slice_dir / f'segmentation_{degree}.png'
-                cv2.imwrite(segmentation_path, segmentation_slice)
+                imwrite(segmentation_path, segmentation_slice)
                 image_path = segmentation_path.parent / f'image_{degree}.png'
-                cv2.imwrite(image_path, image_slice)
+                imwrite(image_path, image_slice)

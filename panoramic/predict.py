@@ -22,6 +22,7 @@ from panoramic.vendor.utils.general import (
     set_logging,
     xyxy2xywh,
 )
+from utils.image import imread
 
 
 class _CheckpointUnpickler(pickle.Unpickler):
@@ -195,7 +196,8 @@ class PanoramicModels:
         self.double_root_model = load_keypoint_model(6, transpose_6p_weights, device)
 
 def predict_panoramic(image_path, models, output_path):
-    image = cv2.imread(str(image_path))
+    image = imread(image_path)
+    image = cv2.cvtColor(image, cv2.COLOR_GRAY2BGR)
 
     boxes = detect_teeth(image_path, models.yolo_model, models.yolo_stride, models.yolo_img_size, models.device)
 
