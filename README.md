@@ -15,7 +15,7 @@
 ├── 📂 annotator        # keypoints.py — manual CEJ annotation GUI for training data
 └── 📂 viewer           # launcher.py — end-to-end single-patient GUI; bone_loss.py — bone-loss inspector
 📁 tui                  # Textual TUI building blocks + the argument-collection form for every script
-📁 utils                # Config loading, console tables, Excel writer, SFTP transfer, base trainer
+📁 utils                # Config loading, console tables, Unicode-safe image I/O, Excel writer, SFTP transfer, base trainer
 📁 scripts              # CLI entry points, one per pipeline step
 📁 configs              # segmentation.toml / keypoints.toml — per-task hyperparameters
 ```
@@ -79,20 +79,23 @@ uv run -m <module.path> [args...]
 ```
 uv run -m scripts.check_data <data_dir>
 ```
+Validates raw folder naming against embedded DICOM/X-ray metadata and records each `<group>`'s patients into `datasets/data.xlsx`.
 
 ### DICOM → PNG
 
 ```
-uv run -m scripts.dcm2png <DICOM_DIR> datasets/<DATASET_NAME>/image [--min -1000] [--max 4500] [--spacing 0.25]
+uv run -m scripts.dcm2png <RAW_DATA_DIR> [--min -1000] [--max 4500] [--spacing 0.25]
 ```
+* `<RAW_DATA_DIR>`: raw data root shaped like `<group>/<patient>/<date> CBCT` (see [§ Validate Raw Data Folder Structure](#validate-raw-data-folder-structure)).
 * `--min`/`--max`: HU intensity window used before normalization.
 * `--spacing`: target voxel spacing (mm) used to resample the volume.
 
 ```
-📁 datasets/<DATASET_NAME>/image
-└── 📂 data_<PatientID>
-    ├── 📄 1.png
-    └── 📄 ...
+📁 datasets/<GROUP_NAME>
+└── 📂 <PatientID>_<CBCTDate>
+    └── 📂 image
+        ├── 📄 1.png
+        └── 📄 ...
 ```
 
 ### Segmentation dataset layout
@@ -100,10 +103,10 @@ uv run -m scripts.dcm2png <DICOM_DIR> datasets/<DATASET_NAME>/image [--min -1000
 ```
 📁 datasets/<DATASET_NAME>
 ├── 📂 image
-│   ├── 📂 data_1/91.png ...
+│   ├── 📂 <patient>_<date>/91.png ...
 │   └── 📂 ...
 └── 📂 mask
-    ├── 📂 data_1/91.png ...
+    ├── 📂 <patient>_<date>/91.png ...
     └── 📂 ...
 ```
 * Image and mask folders/filenames must match exactly.
@@ -113,7 +116,7 @@ uv run -m scripts.dcm2png <DICOM_DIR> datasets/<DATASET_NAME>/image [--min -1000
 ### Keypoints dataset layout
 
 ```
-📁 datasets/slices/<DATASET_NAME>/data_<ID>/<LABEL>/{image,segmentation}_<DEGREE>.png
+📁 datasets/slices/<DATASET_NAME>/<patient>_<date>/<LABEL>/{image,segmentation}_<DEGREE>.png
 📄 datasets/slices/keypoints.json      # ground-truth CEJ points, produced by the annotator GUI
 ```
 Produced by `post_processing.tooth_slice` and `visualize.annotator.keypoints` — see [§ Post-processing Pipeline](#-post-processing-pipeline).
@@ -133,7 +136,7 @@ uv run -m scripts.prepare_kfold <segmentation|keypoints>
 Writes `splits/<split_filename>.json`:
 ```json
 {
-    "1": { "<DATASET_NAME_1>": ["data_1", "..."], "<DATASET_NAME_2>": ["..."] },
+    "1": { "<DATASET_NAME_1>": ["<patient>_<date>", "..."], "<DATASET_NAME_2>": ["..."] },
     "2": {}, "3": {}, "4": {}
 }
 ```
