@@ -158,13 +158,6 @@ class PathsAndNumbersApp(BaseApp):
 
             yield BaseButton('browse', self._on_browse_dcm_root)
 
-        with BaseHorizontal():
-            self.output_dir_input = BaseInput('output dir', type='text')
-            self.output_dir_input.styles.width = '1fr'
-            yield self.output_dir_input
-
-            yield BaseButton('browse', self._on_browse_output_dir)
-
         yield HorizontalRule()
 
         with BaseHorizontal():
@@ -189,16 +182,9 @@ class PathsAndNumbersApp(BaseApp):
         if path is not None:
             self.dcm_root_input.value = str(path)
 
-    @work
-    async def _on_browse_output_dir(self):
-        path = await self.push_screen_wait(DirectoryBrowserScreen(self.output_dir_input.value, allow_new_folder=True))
-        if path is not None:
-            self.output_dir_input.value = str(path)
-
     def _collect_data(self):
         return {
             'dcm_root': self.dcm_root_input.get_value(),
-            'output_dir': self.output_dir_input.get_value(),
             'min': self.min_input.get_value(),
             'max': self.max_input.get_value(),
             'spacing': self.spacing_input.get_value()

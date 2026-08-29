@@ -1,7 +1,9 @@
 from collections import defaultdict
 from pathlib import Path
 
+import pandas
 import pydicom
+from pandas import DataFrame, ExcelWriter
 
 from tui.apps import DirectoryApp, parse_args
 from utils.console import Table, track
@@ -59,11 +61,13 @@ patient_mismatches = set()
 date_mismatches = set()
 need_renames = set()
 
+sheets = defaultdict(list)
+
 for folder in data_dir.iterdir():
     if not folder.is_dir():
         continue
 
-    for patient_folder in track(list(folder.iterdir()), desc=folder.name):
+    for patient_folder in track(folder.iterdir(), desc=folder.name):
         for image_folder in patient_folder.iterdir():
             image_types = defaultdict(set)
             for image in image_folder.iterdir():
@@ -93,6 +97,32 @@ for folder in data_dir.iterdir():
             except NeedRenameError as exception:
                 need_renames.add((exception.folder, exception.value))
 
+        cbct_folders = patient_folder.glob('* CBCT', case_sensitive=True)
+        pano_folders = patient_folder.glob('* Pano', case_sensitive=True)
+        pa_folders = patient_folder.glob('* PA', case_sensitive=True)
+
+        pano_date = ', '.join(pano_folder.name[:8] for pano_folder in pano_folders)
+        if not pano_date:
+            pano_date = None
+        elif ', ' not in pano_date:
+            pano_date = int(pano_date)
+
+        pa_date = ', '.join(pa_folder.name[:8] for pa_folder in pa_folders)
+        if not pa_date:
+            pa_date = None
+        elif ', ' not in pa_date:
+            pa_date = int(pa_date)
+
+        sheets[folder.name].extend(
+            {
+                'Patient': int(patient_folder.name),
+                'CBCT Date': int(cbct_folder.name[:8]),
+                'Pano Date': pano_date,
+                'PA Date': pa_date
+            }
+            for cbct_folder in cbct_folders
+        )
+
 if patient_mismatches:
     Table(
         ['Patient Mismatch', 'Got'],
@@ -118,5 +148,19 @@ if need_renames:
             folder.rename(rename)
             table.add_row([folder.relative_to(data_dir), rename.relative_to(data_dir)])
 
+excel_path = Path('datasets') / 'data.xlsx'
+excel_path.parent.mkdir(parents=True, exist_ok=True)
 if not patient_mismatches and not date_mismatches and not need_renames:
-    print('\033[92mOK\033[0m')
+    for sheet_name, sheet in sheets.items():
+        sheet = DataFrame(sheet)
+
+        try:
+            origin_sheet = pandas.read_excel(excel_path, sheet_name=sheet_name, engine='openpyxl')
+            sheet = pandas.concat([origin_sheet, sheet], ignore_index=True)
+            sheet = sheet.drop_duplicates(subset=['Patient', 'CBCT Date'])
+        except (FileNotFoundError, ValueError):
+            pass
+
+        file_exists = excel_path.is_file()
+        with ExcelWriter(excel_path, engine='openpyxl', mode='a' if file_exists else 'w', if_sheet_exists='replace' if file_exists else None) as writer:
+            sheet.to_excel(writer, sheet_name=sheet_name, index=False)

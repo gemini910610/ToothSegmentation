@@ -1,4 +1,5 @@
 import unicodedata
+from collections.abc import Sized
 
 import torch
 from rich.progress import (
@@ -68,6 +69,9 @@ class IterationProgress(Progress):
         )
 
 def track(sequence, desc=''):
+    if not isinstance(sequence, Sized):
+        sequence = list(sequence)
+
     with IterationProgress() as progress:
         task = progress.add_task(desc, total=len(sequence))
         for item in sequence:

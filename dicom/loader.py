@@ -2,23 +2,6 @@ import pydicom
 import SimpleITK
 
 
-def collect_patients(root_dir):
-    patients = {}
-    for file in root_dir.rglob('*.dcm'):
-        parent = file.parent
-        if parent in patients:
-            continue
-
-        try:
-            dcm = pydicom.dcmread(file, stop_before_pixels=True)
-            patient_id = dcm.PatientID
-        except pydicom.errors.InvalidDicomError:
-            continue
-
-        patients[parent] = patient_id
-
-    return patients
-
 def read_patient_id(dicom_dir):
     for file in dicom_dir.glob('*.dcm'):
         try:
