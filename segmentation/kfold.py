@@ -10,8 +10,8 @@ def group_data(config=None):
     for dataset in find_datasets():
         folders = [
             folder
-            for folder in (Path('datasets') / dataset / 'mask').iterdir()
-            if folder.is_dir()
+            for folder in (Path('datasets') / dataset).iterdir()
+            if (folder / 'mask').is_dir()
         ]
         folders.sort()
 
@@ -19,7 +19,7 @@ def group_data(config=None):
             patients.append(folder.name)
             images = [
                 image
-                for image in folder.iterdir()
+                for image in (folder / 'mask').iterdir()
                 if image.suffix == '.png'
             ]
             groups.extend([Path(dataset) / folder.name] * len(images))

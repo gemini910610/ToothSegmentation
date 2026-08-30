@@ -13,7 +13,7 @@ def find_datasets():
     return sorted(
         dataset.name
         for dataset in Path('datasets').iterdir()
-        if (dataset / 'mask').is_dir()
+        if dataset.is_dir() and any((patient / 'mask').is_dir() for patient in dataset.iterdir())
     )
 
 def get_fold(split_file_path, fold_id):
@@ -45,7 +45,7 @@ class CBCTDataset(Dataset):
 
         self.filenames = []
         for patient in patients:
-            patient_dir = self.dataset_dir / ('mask' if return_mask else 'image') / patient
+            patient_dir = self.dataset_dir / patient / ('mask' if return_mask else 'image')
             file_paths = patient_dir.iterdir()
             file_paths = sorted(file_paths, key=lambda x: int(x.stem))
             self.filenames.extend([Path(patient) / file_path.name for file_path in file_paths])
@@ -57,13 +57,15 @@ class CBCTDataset(Dataset):
 
     def __getitem__(self, index):
         filename = self.filenames[index]
-        image_path = self.dataset_dir / 'image' / filename
+        patient, filename = filename.parent, filename.name
+
+        image_path = self.dataset_dir / patient / 'image' / filename
         image = CBCTDataset.load_image(image_path)
 
         if not self.return_mask:
             return image
 
-        mask_path = self.dataset_dir / 'mask' / filename
+        mask_path = self.dataset_dir / patient / 'mask' / filename
         mask = CBCTDataset._load_mask(mask_path)
 
         return image, mask
