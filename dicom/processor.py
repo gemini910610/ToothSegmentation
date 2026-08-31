@@ -20,8 +20,6 @@ def _resample_volume(volume, new_spacing=None):
     new_size = [int(size) for size in new_size]
     new_spacing = [float(spacing) for spacing in new_spacing]
 
-    volume = SimpleITK.Flip(volume, [False, False, True])
-
     resample = SimpleITK.ResampleImageFilter()
     resample.SetReferenceImage(volume)
     resample.SetOutputSpacing(new_spacing)
@@ -29,7 +27,6 @@ def _resample_volume(volume, new_spacing=None):
     resample.SetInterpolator(SimpleITK.sitkLinear)
 
     volume = resample.Execute(volume)
-    volume = SimpleITK.Flip(volume, [False, False, True])
 
     return volume
 

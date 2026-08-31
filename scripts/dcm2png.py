@@ -25,7 +25,7 @@ min_value = args['min']
 max_value = args['max']
 new_spacing = args['spacing']
 
-output_dir = Path('test_datasets')
+output_dir = Path('datasets')
 excel_path = output_dir / 'data.xlsx'
 
 with Table(['Dataset', 'Patient', 'CBCT Date', 'DCM Count', 'Image Count', 'Slice Thickness', 'Pixel Spacing', 'Origin Image Size', 'Image Size']) as table:
@@ -39,19 +39,19 @@ with Table(['Dataset', 'Patient', 'CBCT Date', 'DCM Count', 'Image Count', 'Slic
             cbct_folders = patient_folder.glob('* CBCT', case_sensitive=True)
             for cbct_folder in cbct_folders:
                 origin_volume = load_volume(cbct_folder)
-                volume = process_volume(origin_volume, min_value, max_value, new_spacing)
-                patient_date = f'{patient_folder.name}_{cbct_folder.name[:8]}'
-
                 origin_info = get_info(origin_volume)
-                info = get_info(volume)
 
-                output_image_dir = output_dir / folder.name / patient_date / 'image'
+                output_image_dir = output_dir / folder.name / f'{patient_folder.name}_{cbct_folder.name[:8]}' / 'image'
                 dir_exists = output_image_dir.is_dir()
                 if dir_exists:
                     images = list(output_image_dir.iterdir())
-                    info['count'] = len(images)
-                    info['size'] = imread(images[0]).shape[0]
+                    info = {
+                        'count': len(images),
+                        'size': imread(images[0]).shape[0]
+                    }
                 else:
+                    volume = process_volume(origin_volume, min_value, max_value, new_spacing)
+                    info = get_info(volume)
                     save_volume(volume, output_image_dir)
 
                 table.add_row([folder.name, patient_folder.name, cbct_folder.name[:8], origin_info['count'], info['count'], origin_info['slice_thickness'], origin_info['pixel_spacing'], origin_info['size'], info['size']])
