@@ -24,7 +24,7 @@ if __name__ == '__main__':
     def configure_parser(parser):
         parser.add_argument('segmentation_exp', type=str)
         parser.add_argument('datasets', nargs='+', type=str)
-        parser.add_argument('--segmentation-fold', type=int, default=4)
+        parser.add_argument('--segmentation-fold', type=int, default=3)
 
     args = parse_args(ExperimentFoldDatasetsApp, configure_parser)
 

@@ -122,7 +122,7 @@ class DualExperimentDualFoldApp(BaseApp):
 
         with BaseHorizontal():
             segmentation_folds = _folds('segmentation')
-            self.segmentation_fold_selector = OptionSelector(segmentation_folds, 'segmentation fold', default='4')
+            self.segmentation_fold_selector = OptionSelector(segmentation_folds, 'segmentation fold', default='3')
             yield self.segmentation_fold_selector
 
             self.keypoints_fold_selector = OptionSelector(_folds('keypoints'), 'keypoints fold')
@@ -332,7 +332,7 @@ class ExperimentFoldDatasetsApp(BaseApp):
         yield HorizontalRule()
 
         folds = _folds('segmentation')
-        self.fold_selector = OptionSelector(folds, 'segmentation fold', default='4')
+        self.fold_selector = OptionSelector(folds, 'segmentation fold', default='3')
         yield self.fold_selector
 
     def _collect_data(self):

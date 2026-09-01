@@ -232,7 +232,7 @@ uv run -m scripts.evaluate <task> <experiment>
 ## 🔍 Batch Segmentation Inference
 
 ```
-uv run -m scripts.segment <segmentation_exp> <dataset...> [--segmentation-fold 4]
+uv run -m scripts.segment <segmentation_exp> <dataset...> [--segmentation-fold FOLD]
 ```
 * `--segmentation-fold`: checkpoint used for patients outside the split (e.g. unlabeled datasets).
 
@@ -325,9 +325,9 @@ uv run -m panoramic.predict <dataset...>
 ## 📈 Bone Loss Computation & Statistical Comparison
 
 ```
-uv run -m scripts.compare_bone_loss <segmentation_exp> <keypoints_exp> <dataset...> [--keypoints-fold 1]
+uv run -m scripts.compare_bone_loss <segmentation_exp> <keypoints_exp> <dataset...> [--keypoints-fold FOLD]
 ```
-* `--keypoints-fold`: fold of the keypoints model to load (default `1`).
+* `--keypoints-fold`: fold of the keypoints model to load.
 * Runs over patients with `fdi.npy` (post-processing completed).
 
 ```
