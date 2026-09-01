@@ -63,7 +63,7 @@ class TopLayout(HorizontalLayout):
             PatientSelector(),
             IconLabelSelector(),
             None,
-            RadioGroup(['Normal Tooth', 'Unerupted Tooth', 'Residual Root', 'Fake Tooth']),
+            RadioGroup(['Normal Tooth', 'Unerupted Tooth', 'Residual Root', 'Fake Tooth', 'Noise']),
             QPushButton('Save')
         ]
 
@@ -134,7 +134,7 @@ class MainWindow(BaseWindow):
         with JsonHandler(Path('edit') / self.data_manager.experiment_name / 'exclude.json', ExcludeDataHandler) as handler:
             if exclude_type == 'Normal Tooth':
                 handler.remove_data(patient, label)
-            else: # Unerupted Tooth, Residual Root, Fake Tooth
+            else: # Unerupted Tooth, Residual Root, Fake Tooth, Noise
                 handler.set_data(patient, exclude_type, label)
 
     def _on_picked(self, actor):

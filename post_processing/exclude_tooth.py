@@ -12,6 +12,10 @@ def exclude_tooth(volume, exclude_labels):
 
     lookup_table = numpy.arange(volume.max() + 1, dtype=numpy.uint8)
     for exclude_type, labels in exclude_labels.items():
+        if exclude_type == 'Noise':
+            lookup_table[labels] = Label.BACKGROUND
+            continue
+
         start_label = exclude_types[exclude_type]
         lookup_table[labels] = numpy.arange(start_label, start_label + len(labels), dtype=numpy.uint8)
 
