@@ -33,7 +33,7 @@ if __name__ == '__main__':
     segmentation_experiment_name = args['segmentation_exp']
     datasets = args['datasets']
 
-    with (Path('fdi') / f'{segmentation_experiment_name}.json').open() as file:
+    with (Path('edit') / segmentation_experiment_name / 'fdi.json').open() as file:
         fdi_mapping = json.load(file)
 
     patients = [

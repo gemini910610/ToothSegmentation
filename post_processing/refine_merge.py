@@ -22,7 +22,7 @@ if __name__ == '__main__':
     segmentation_experiment_name = args['segmentation_exp']
     datasets = args['datasets']
 
-    with (Path('merge') / f'{segmentation_experiment_name}.json').open() as file:
+    with (Path('edit') / segmentation_experiment_name / 'merge.json').open() as file:
         merge_components = json.load(file)
 
     for dataset, patient in iterate_datasets(segmentation_experiment_name, datasets):

@@ -109,7 +109,7 @@ class MainWindow(BaseWindow):
         if len(labels) < 2:
             return
 
-        with JsonHandler(Path('merge') / f'{self.data_manager.experiment_name}.json', MergeDataHandler) as handler:
+        with JsonHandler(Path('edit') / self.data_manager.experiment_name / 'merge.json', MergeDataHandler) as handler:
             handler.set_data(patient, labels)
 
     def _on_picked(self, actor):

@@ -113,7 +113,7 @@ class MainWindow(BaseWindow):
             for label in labels:
                 segmentation_labels[label//10-1].append(label)
 
-        with JsonHandler(Path('fdi') / f'{self.data_manager.experiment_name}.json', FDIDataHandler) as handler:
+        with JsonHandler(Path('edit') / self.data_manager.experiment_name / 'fdi.json', FDIDataHandler) as handler:
             data = handler.data.get(patient_key)
 
         if data is not None:
@@ -165,7 +165,7 @@ class MainWindow(BaseWindow):
 
         patient = self.patient_selector.currentText()
 
-        with JsonHandler(Path('fdi') / f'{self.data_manager.experiment_name}.json', FDIDataHandler) as handler:
+        with JsonHandler(Path('edit') / self.data_manager.experiment_name / 'fdi.json', FDIDataHandler) as handler:
             handler.set_data(patient, data)
 
 if __name__ == '__main__':
