@@ -2,7 +2,6 @@ import json
 from collections import defaultdict
 from pathlib import Path
 
-import cv2
 import torch
 from torch.utils.data import ConcatDataset, DataLoader, Dataset
 

@@ -4,6 +4,10 @@ import subprocess
 import sys
 from pathlib import Path
 
+if __name__ == '__main__':
+    import os
+    os.environ['TORCH_CPP_LOG_LEVEL'] = 'ERROR'
+
 import torch
 
 from tui.apps import TaskMaximizeApp, parse_args

@@ -12,7 +12,10 @@ def load_config(config_path, fold=MISSING):
     config = OmegaConf.create(content)
 
     config.fold = fold
-    config.split_file_path = Path('splits') / f'{config.split_filename}.json'
+    split_file_path = config_path.parent / f'{config.split_filename}.json'
+    if not split_file_path.is_file():
+        split_file_path = Path('splits') / f'{config.split_filename}.json'
+    config.split_file_path = split_file_path
     config.device = 'cuda' if torch.cuda.is_available() else 'cpu'
 
     OmegaConf.set_struct(config, True)
