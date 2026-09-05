@@ -1,3 +1,4 @@
+import cc3d
 import numpy
 
 from constants.label import Label
@@ -10,6 +11,8 @@ def exclude_truncated(volume):
     lookup_table = numpy.arange(volume.max() + 1, dtype=numpy.uint8)
     lookup_table[truncated_labels] = numpy.arange(Label.TRUNCATED, Label.TRUNCATED + len(truncated_labels), dtype=numpy.uint8)
     volume = lookup_table[volume]
+
+    volume = cc3d.dust(volume, 1000, connectivity=6, precomputed_ccl=True)
 
     return volume
 
