@@ -11,10 +11,8 @@ exclude/
 fdi/
 logs/
 merge/
-output_slices/
 outputs/
 pano_crop/
-pano_predict/
 panoramic/weights/
 pyproject.toml
 refine/

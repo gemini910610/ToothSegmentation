@@ -122,7 +122,7 @@ for dataset, patient in track(patients):
     panoramic_dir = Path('datasets') / dataset / patient / 'panoramic'
     for file in panoramic_dir.iterdir():
         break
-    pano_predict_data = (Path('outputs/Panoramic') / dataset / patient / f'{file.stem}.txt').read_text().strip()
+    pano_predict_data = (Path('outputs') / 'Panoramic' / dataset / patient / f'{file.stem}.txt').read_text().strip()
 
     keypoint_bone_losses = {}
     for line in pano_predict_data.split('\n'):

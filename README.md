@@ -286,7 +286,7 @@ uv run -m scripts.segment <segmentation_exp> <dataset...> [--segmentation-fold F
 uv run -m post_processing.tooth_slice <segmentation_exp> <dataset...>
 ```
 ```
-📁 output_slices/<segmentation_exp>/<dataset>/<patient>/<label>
+📁 outputs/Slice/<segmentation_exp>/<dataset>/<patient>/<label>
 ├── 📄 image_0.png
 ├── 📄 segmentation_0.png
 ├── 📄 image_45.png

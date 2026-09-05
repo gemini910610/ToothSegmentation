@@ -239,8 +239,8 @@ if __name__ == '__main__':
     from tui.apps import DatasetsApp, parse_args
     from utils.console import track
 
-    weights_dir = Path('panoramic/weights')
-    output_dir = Path('outputs/Panoramic')
+    weights_dir = Path('panoramic') / 'weights'
+    output_dir = Path('outputs') / 'Panoramic'
 
     def configure_parser(parser):
         parser.add_argument('datasets', nargs='+', type=str)

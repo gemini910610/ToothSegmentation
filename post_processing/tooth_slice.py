@@ -178,7 +178,7 @@ if __name__ == '__main__':
     segmentation_experiment_name = args['segmentation_exp']
     datasets = args['datasets']
 
-    output_dir = Path('output_slices') / segmentation_experiment_name
+    output_dir = Path('outputs') / 'Slice' / segmentation_experiment_name
     if output_dir.is_dir():
         raise FileExistsError(f'folder "{output_dir}" already exists')
 

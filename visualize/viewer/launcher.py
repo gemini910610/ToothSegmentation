@@ -262,7 +262,7 @@ if __name__ == '__main__':
     keypoints_model = load_keypoints_model(keypoints_config)
     cej_finder = CEJFinder(keypoints_model, keypoints_config.device)
 
-    panoramic_weights_dir = Path('panoramic/weights')
+    panoramic_weights_dir = Path('panoramic') / 'weights'
     panoramic_models = PanoramicModels(
         panoramic_weights_dir / 'pano_best32type_nolr.pt',
         panoramic_weights_dir / 'pano_transpose_v2_5p.pkl',

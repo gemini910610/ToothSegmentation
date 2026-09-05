@@ -260,7 +260,7 @@ def find_panoramic_paths(dataset, patient):
 
     for image_path in panoramic_dir.iterdir():
         break
-    prediction_path = Path('outputs/Panoramic') / dataset / patient / f'{image_path.stem}.txt'
+    prediction_path = Path('outputs') / 'Panoramic' / dataset / patient / f'{image_path.stem}.txt'
 
     return image_path, prediction_path
 

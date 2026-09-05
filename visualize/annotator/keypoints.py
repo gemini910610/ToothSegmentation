@@ -181,7 +181,7 @@ if __name__ == '__main__':
     segmentation_experiment_name = args['exp']
     datasets = args['datasets']
 
-    slice_dir = Path('output_slices') / segmentation_experiment_name
+    slice_dir = Path('outputs') / 'Slice' / segmentation_experiment_name
 
     patients = [
         f'{dataset}/{patient}'
