@@ -227,10 +227,13 @@ def find_panoramic_images(datasets):
             if not patient_dir.is_dir():
                 continue
 
-            for pano_dir in sorted(patient_dir.glob('* Pano')):
-                for image_path in sorted(pano_dir.iterdir()):
-                    if image_path.suffix.lower() in IMAGE_SUFFIXES:
-                        yield dataset, patient_dir.name, image_path
+            panoramic_dir = patient_dir / 'panoramic'
+            if not panoramic_dir.is_dir():
+                continue
+
+            for image_path in sorted(panoramic_dir.iterdir()):
+                if image_path.suffix.lower() in IMAGE_SUFFIXES:
+                    yield dataset, patient_dir.name, image_path
 
 if __name__ == '__main__':
     from tui.apps import DatasetsApp, parse_args

@@ -254,26 +254,15 @@ def find_panoramic_image(working_dir, patient):
     return None
 
 def find_panoramic_paths(dataset, patient):
-    patient_dir = Path('datasets') / dataset / patient
-    if not patient_dir.is_dir():
+    panoramic_dir = Path('datasets') / dataset / patient / 'panoramic'
+    if not panoramic_dir.is_dir():
         return None
 
-    for folder in patient_dir.iterdir():
-        if not folder.name.endswith('Pano'):
-            continue
+    for image_path in panoramic_dir.iterdir():
+        break
+    prediction_path = Path('outputs/Panoramic') / dataset / patient / f'{image_path.stem}.txt'
 
-        files = list(folder.iterdir())
-        if not files:
-            return None
-
-        image_path = files[0]
-        prediction_path = Path('outputs/Panoramic') / dataset / patient / f'{image_path.stem}.txt'
-        if not prediction_path.is_file():
-            return None
-
-        return image_path, prediction_path
-
-    return None
+    return image_path, prediction_path
 
 def load_panoramic(image_path, prediction_path, merge=True):
     image = imread(image_path)

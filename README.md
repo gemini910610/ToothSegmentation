@@ -124,9 +124,9 @@ Produced by `post_processing.tooth_slice` and `visualize.annotator.keypoints` �
 ### Panoramic X-ray layout (baseline comparison)
 
 ```
-📁 datasets/<DATASET_NAME>/<patient>/<date> Pano/*.jpg
+📁 datasets/<DATASET_NAME>/<patient>_<date>/panoramic/*.jpg
 ```
-Collected from raw data via `uv run -m scripts.collect_panoramic <raw_root>` — matched to the segmentation dataset of the same `<DATASET_NAME>`.
+Collected from raw data via `uv run -m scripts.collect_panoramic <raw_root>` — placed alongside `image`/`mask` under the same `<patient>_<date>` folder as the segmentation dataset.
 
 ### Generate K-Fold Split
 

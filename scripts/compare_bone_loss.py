@@ -119,13 +119,10 @@ for dataset, patient in track(patients):
         segmentation_bone_loss = volume_bone_loss(filtered_tooth_volume, filtered_bone_volume, aligned_points, is_upper, transform_meta)
         segmentation_bone_losses[label] = segmentation_bone_loss
 
-    patient_dir = Path('datasets') / dataset / patient
-    for folder in patient_dir.iterdir():
-        if folder.name.endswith('Pano'):
-            for file in folder.iterdir():
-                filename = file.stem
-                break
-    pano_predict_data = (Path('outputs/Panoramic') / dataset / patient / f'{filename}.txt').read_text().strip()
+    panoramic_dir = Path('datasets') / dataset / patient / 'panoramic'
+    for file in panoramic_dir.iterdir():
+        break
+    pano_predict_data = (Path('outputs/Panoramic') / dataset / patient / f'{file.stem}.txt').read_text().strip()
 
     keypoint_bone_losses = {}
     for line in pano_predict_data.split('\n'):
