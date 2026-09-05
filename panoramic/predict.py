@@ -230,14 +230,14 @@ def find_panoramic_images(datasets):
             for pano_dir in sorted(patient_dir.glob('* Pano')):
                 for image_path in sorted(pano_dir.iterdir()):
                     if image_path.suffix.lower() in IMAGE_SUFFIXES:
-                        yield image_path
+                        yield dataset, patient_dir.name, image_path
 
 if __name__ == '__main__':
     from tui.apps import DatasetsApp, parse_args
     from utils.console import track
 
     weights_dir = Path('panoramic/weights')
-    output_dir = Path('pano_predict_test')
+    output_dir = Path('outputs/Panoramic')
 
     def configure_parser(parser):
         parser.add_argument('datasets', nargs='+', type=str)
@@ -245,14 +245,14 @@ if __name__ == '__main__':
     args = parse_args(DatasetsApp, configure_parser)
     datasets = args['datasets']
 
-    output_dir.mkdir(parents=True, exist_ok=True)
-
     models = PanoramicModels(
         weights_dir / 'pano_best32type_nolr.pt',
         weights_dir / 'pano_transpose_v2_5p.pkl',
         weights_dir / 'pano_transpose_v2_6p.pkl',
     )
 
-    image_paths = list(find_panoramic_images(datasets))
-    for image_path in track(image_paths, desc='panoramic predict'):
-        predict_panoramic(image_path, models, output_dir / f'{image_path.stem}.txt')
+    images = list(find_panoramic_images(datasets))
+    for dataset, patient, image_path in track(images):
+        patient_output_dir = output_dir / dataset / patient
+        patient_output_dir.mkdir(parents=True, exist_ok=True)
+        predict_panoramic(image_path, models, patient_output_dir / f'{image_path.stem}.txt')

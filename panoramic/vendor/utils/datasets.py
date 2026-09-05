@@ -30,6 +30,8 @@ from .general import check_requirements, xyxy2xywh, xywh2xyxy, xywhn2xyxy, xyn2x
     resample_segments, clean_str
 from .torch_utils import torch_distributed_zero_first
 
+from utils.image import imread
+
 # Parameters
 help_url = 'https://github.com/ultralytics/yolov5/wiki/Train-Custom-Data'
 img_formats = ['bmp', 'jpg', 'jpeg', 'png', 'tif', 'tiff', 'dng', 'webp', 'mpo']  # acceptable image suffixes
@@ -183,8 +185,9 @@ class LoadImages:  # for inference
         else:
             # Read image
             self.count += 1
-            img0 = cv2.imread(path)  # BGR
+            img0 = imread(path)  # grayscale
             assert img0 is not None, 'Image Not Found ' + path
+            img0 = cv2.cvtColor(img0, cv2.COLOR_GRAY2BGR)
             #print(f'image {self.count}/{self.nf} {path}: ', end='')
 
         # Padded resize

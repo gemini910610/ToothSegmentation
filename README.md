@@ -124,9 +124,9 @@ Produced by `post_processing.tooth_slice` and `visualize.annotator.keypoints` �
 ### Panoramic X-ray layout (baseline comparison)
 
 ```
-📁 datasets/xray_<SUFFIX>/<patient>/<date> Pano/*.png
+📁 datasets/<DATASET_NAME>/<patient>/<date> Pano/*.jpg
 ```
-Matched to a segmentation dataset by name (`bone_tooth_mask_<SUFFIX>` ↔ `xray_<SUFFIX>`).
+Collected from raw data via `uv run -m scripts.collect_panoramic <raw_root>` — matched to the segmentation dataset of the same `<DATASET_NAME>`.
 
 ### Generate K-Fold Split
 
@@ -317,9 +317,9 @@ uv run -m post_processing.panoramic <segmentation_exp> <dataset...>
 uv run -m panoramic.predict <dataset...>
 ```
 ```
-📁 pano_predict
-├── 📄 <image_stem_1>.txt
-└── 📄 ...
+📁 outputs/Panoramic/<DATASET_NAME>
+└── 📂 <patient>
+    └── 📄 <image_stem>.txt
 ```
 
 ## 📈 Bone Loss Computation & Statistical Comparison

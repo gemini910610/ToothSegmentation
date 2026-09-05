@@ -254,11 +254,11 @@ def find_panoramic_image(working_dir, patient):
     return None
 
 def find_panoramic_paths(dataset, patient):
-    xray_dir = Path('datasets') / dataset.replace('bone_tooth_mask', 'xray') / patient
-    if not xray_dir.is_dir():
+    patient_dir = Path('datasets') / dataset / patient
+    if not patient_dir.is_dir():
         return None
 
-    for folder in xray_dir.iterdir():
+    for folder in patient_dir.iterdir():
         if not folder.name.endswith('Pano'):
             continue
 
@@ -267,7 +267,7 @@ def find_panoramic_paths(dataset, patient):
             return None
 
         image_path = files[0]
-        prediction_path = Path('pano_predict') / f'{image_path.stem}.txt'
+        prediction_path = Path('outputs/Panoramic') / dataset / patient / f'{image_path.stem}.txt'
         if not prediction_path.is_file():
             return None
 
