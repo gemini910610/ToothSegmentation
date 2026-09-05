@@ -4,7 +4,7 @@ import numpy as np
 import torch
 import yaml
 from scipy.cluster.vq import kmeans
-from tqdm import tqdm
+# from tqdm import tqdm
 
 from .general import colorstr
 

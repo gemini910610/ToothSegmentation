@@ -18,7 +18,7 @@ import torch
 import torch.nn.functional as F
 from PIL import Image, ExifTags
 from torch.utils.data import Dataset
-from tqdm import tqdm
+# from tqdm import tqdm
 
 import pickle
 from copy import deepcopy
