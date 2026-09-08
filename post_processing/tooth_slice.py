@@ -168,17 +168,16 @@ def find_normal_vectors(segmentation_volume):
 if __name__ == '__main__':
     from pathlib import Path
 
-    import cv2
-
     from constants.mode import Mode
     from post_processing.utils import iterate_datasets
     from tui.apps import parse_segmentation_args
+    from utils.console import track
 
     args = parse_segmentation_args()
     segmentation_experiment_name = args['segmentation_exp']
     datasets = args['datasets']
 
-    output_dir = Path('outputs') / 'Slice' / segmentation_experiment_name
+    output_dir = Path('outputs') / 'Slice'
     if output_dir.is_dir():
         raise FileExistsError(f'folder "{output_dir}" already exists')
 
@@ -188,7 +187,7 @@ if __name__ == '__main__':
         if (Path('outputs') / segmentation_experiment_name / dataset / patient / f'{Mode.FDI}.npy').is_file()
     ]
 
-    for dataset, patient in patients:
+    for dataset, patient in track(patients):
         fdi_volume_path = Path('outputs') / segmentation_experiment_name / dataset / patient / f'{Mode.FDI}.npy'
         fdi_volume = numpy.load(fdi_volume_path)
         bone_volume_path = fdi_volume_path.parent / f'{Mode.BONE_FILLED}.npy'
@@ -206,7 +205,7 @@ if __name__ == '__main__':
         labels = numpy.unique(segmentation_volume)
         labels = labels[(labels > 1) & (labels < Label.TRUNCATED)] # exclude background, bone and removed teeth
 
-        for label in labels:
+        for label in track(labels, desc=f'{dataset}/{patient}'):
             slice_dir = output_dir / dataset / patient / str(label)
             slice_dir.mkdir(parents=True)
 
