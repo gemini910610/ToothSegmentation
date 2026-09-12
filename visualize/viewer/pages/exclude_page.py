@@ -14,7 +14,7 @@ from visualize.ui.layouts import HorizontalLayout
 from visualize.ui.selectors import IconLabelSelector
 from visualize.ui.views import VolumeViewer
 
-EXCLUDE_TYPES = ['Normal Tooth', 'Unerupted Tooth', 'Residual Root', 'Fake Tooth']
+EXCLUDE_TYPES = ['Normal Tooth', 'Unerupted Tooth', 'Residual Root', 'Fake Tooth', 'Noise']
 
 
 class ExcludeControls(HorizontalLayout):

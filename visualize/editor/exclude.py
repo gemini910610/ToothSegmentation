@@ -121,7 +121,14 @@ class MainWindow(BaseWindow):
         volume = volume * Label.TOOTH
         self.volume_viewer.views[1].update_volume(volume, reset=False)
 
-        self.exclude_selector.select_first()
+        patient = self.patient_selector.currentText()
+        with JsonHandler(Path('edit') / self.data_manager.experiment_name / 'exclude.json', ExcludeDataHandler) as handler:
+            exclude_type = handler.find(patient, label)
+
+        if exclude_type is None:
+            self.exclude_selector.select_first()
+        else:
+            self.exclude_selector.select_title(exclude_type)
 
     def _on_save(self):
         if self.volume is None:
