@@ -35,22 +35,24 @@ if __name__ == '__main__':
 
     import pandas
 
-    from tui.apps import FileOptionSwitchApp, parse_args
+    from tui.apps import DualExperimentOptionSwitchApp, parse_args
     from utils.console import Table
     from utils.excel import load_excel
 
     def configure_parser(parser):
         parser.add_argument('segmentation_exp', type=str)
+        parser.add_argument('keypoints_exp', type=str)
         parser.add_argument('--exclude', type=str, choices=['slice', 'tooth'])
         parser.add_argument('--single-only', action='store_true')
 
-    args = parse_args(FileOptionSwitchApp, configure_parser, rename={'exp': 'segmentation_exp'})
+    args = parse_args(DualExperimentOptionSwitchApp, configure_parser)
 
     segmentation_experiment_name = args['segmentation_exp']
+    keypoints_experiment_name = args['keypoints_exp']
     exclude = args['exclude']
     single_only = args['single_only']
 
-    excel = load_excel(f'bone_loss/{segmentation_experiment_name}.xlsx')
+    excel = load_excel(f'outputs/BoneLoss/{segmentation_experiment_name}_{keypoints_experiment_name}.xlsx')
     if 'extra' in excel.columns:
         excel = excel.drop(excel[~excel['extra'].isna()].index)
         excel = excel.drop(columns='extra')

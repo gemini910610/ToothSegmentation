@@ -47,7 +47,7 @@ config = load_config(Path('logs') / keypoints_experiment_name / 'keypoints.toml'
 keypoints_model = load_model(config)
 cej_finder = CEJFinder(keypoints_model, config.device)
 
-writer = ExcelWriter(Path('bone_loss') / f'{segmentation_experiment_name}.xlsx')
+writer = ExcelWriter(Path('outputs') / 'BoneLoss' / f'{segmentation_experiment_name}_{keypoints_experiment_name}.xlsx')
 
 patients = [
     (dataset, patient)

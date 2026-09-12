@@ -13,7 +13,6 @@ from tui.screens import DirectoryBrowserScreen
 from tui.selectors import (
     DirectoryMultiSelector,
     DirectorySelector,
-    FileSelector,
     OptionSelector,
 )
 from tui.switches import LabelSwitch, ToggleSwitch
@@ -274,10 +273,11 @@ class TaskFoldApp(BaseApp):
             'fold': int(self.fold_selector.selected)
         }
 
-class FileOptionSwitchApp(BaseApp):
+class DualExperimentOptionSwitchApp(BaseApp):
     def _selectors(self):
-        self.experiment_selector = FileSelector(Path('bone_loss'), 'experiment', suffix='.xlsx')
-        return [self.experiment_selector]
+        self.segmentation_experiment_selector = DirectorySelector(Path('outputs'), 'segmentation experiment')
+        self.keypoints_experiment_selector = DirectorySelector(Path('logs'), 'keypoints experiment', task='keypoints')
+        return [self.segmentation_experiment_selector, self.keypoints_experiment_selector]
 
     def _extra_widgets(self):
         yield HorizontalRule()
@@ -294,7 +294,8 @@ class FileOptionSwitchApp(BaseApp):
         exclude = self.exclude_selector.selected
 
         return {
-            'exp': self.experiment_selector.selected,
+            'segmentation_exp': self.segmentation_experiment_selector.selected,
+            'keypoints_exp': self.keypoints_experiment_selector.selected,
             'exclude': None if exclude == 'none' else exclude,
             'single_only': self.single_only_switch.selected == 'single only'
         }

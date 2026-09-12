@@ -49,39 +49,6 @@ class DirectorySelector(RadioSet):
         self._task_name = task
         await self.update(self.directory)
 
-class FileSelector(RadioSet):
-    def __init__(self, directory=None, title=None, suffix=''):
-        super().__init__()
-        self.directory = directory
-        self.border_title = title
-        self.suffix = suffix
-
-        color = self.app.get_css_variables()['primary']
-        self.styles.border = ('solid', color)
-        self.styles.background = 'transparent'
-
-    async def on_mount(self):
-        if self.directory is not None:
-            await self.update(self.directory)
-
-    @property
-    def selected(self):
-        button = self.pressed_button
-
-        return None if button is None else str(button.label)
-
-    async def update(self, directory):
-        await self.remove_children()
-
-        files = sorted(path.stem for path in directory.iterdir() if path.suffix == self.suffix)
-
-        buttons = [RadioButton(file) for file in files]
-        for button in buttons:
-            button.can_focus = False
-
-        await self.mount(*buttons)
-        self.directory = directory
-
         self._selected = 0
         self.children[0].value = True
 

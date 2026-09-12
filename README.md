@@ -333,14 +333,14 @@ uv run -m scripts.compare_bone_loss <segmentation_exp> <keypoints_exp> <dataset.
 * Runs over patients with `fdi.npy` (post-processing completed).
 
 ```
-📁 bone_loss
-└── 📄 <segmentation_exp>.xlsx
+📁 outputs/BoneLoss
+└── 📄 <segmentation_exp>_<keypoints_exp>.xlsx
 ```
 
 ```
-uv run -m scripts.correlation <segmentation_exp> [--exclude slice|tooth] [--single-only]
+uv run -m scripts.correlation <segmentation_exp> <keypoints_exp> [--exclude slice|tooth] [--single-only]
 ```
-* `<segmentation_exp>`: the segmentation experiment name the target spreadsheet is named after (`bone_loss/<segmentation_exp>.xlsx`).
+* `<segmentation_exp>`/`<keypoints_exp>`: name the target spreadsheet the comparison reads (`outputs/BoneLoss/<segmentation_exp>_<keypoints_exp>.xlsx`).
 * `--exclude slice|tooth`: drop specific angles (`slice`) or whole teeth (`tooth`) listed in `exclude/<segmentation_exp>.json` before recomputing the mean/max bone loss.
 * `--single-only`: restrict the comparison to single-rooted teeth (excludes molars).
 
