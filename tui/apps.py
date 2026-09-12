@@ -100,7 +100,7 @@ class DualExperimentFoldApp(BaseApp):
     def _extra_widgets(self):
         yield HorizontalRule()
 
-        self.keypoints_fold_selector = OptionSelector(_folds('keypoints'), 'keypoints fold')
+        self.keypoints_fold_selector = OptionSelector(_folds('keypoints'), 'keypoints fold', default='3')
         yield self.keypoints_fold_selector
 
     def _collect_data(self):
@@ -125,7 +125,7 @@ class DualExperimentDualFoldApp(BaseApp):
             self.segmentation_fold_selector = OptionSelector(segmentation_folds, 'segmentation fold', default='4')
             yield self.segmentation_fold_selector
 
-            self.keypoints_fold_selector = OptionSelector(_folds('keypoints'), 'keypoints fold')
+            self.keypoints_fold_selector = OptionSelector(_folds('keypoints'), 'keypoints fold', default='3')
             yield self.keypoints_fold_selector
 
     def _collect_data(self):
