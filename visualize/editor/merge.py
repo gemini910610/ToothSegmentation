@@ -1,7 +1,7 @@
 from pathlib import Path
 
 import numpy
-from PySide6.QtWidgets import QPushButton
+from PySide6.QtWidgets import QMessageBox, QPushButton
 
 from constants.label import Label
 from constants.mode import Mode
@@ -110,7 +110,10 @@ class MainWindow(BaseWindow):
             return
 
         with JsonHandler(Path('edit') / self.data_manager.experiment_name / 'merge.json', MergeDataHandler) as handler:
-            handler.set_data(patient, labels)
+            try:
+                handler.set_data(patient, labels)
+            except ValueError as error:
+                QMessageBox.warning(self, 'Merge Failed', str(error))
 
     def _on_picked(self, actor):
         label = actor._label
