@@ -3,7 +3,7 @@ from pathlib import Path
 
 
 def group_data(config):
-    with open(Path('datasets') / 'slices' / 'keypoints.json', encoding='utf-8') as file:
+    with open(Path('datasets') / 'Slice' / 'keypoints.json', encoding='utf-8') as file:
         data = json.load(file)
 
     patients = []

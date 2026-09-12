@@ -1,7 +1,6 @@
 import shutil
 from pathlib import Path
 
-import cv2
 import numpy
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QKeySequence, QShortcut
@@ -181,7 +180,7 @@ if __name__ == '__main__':
     segmentation_experiment_name = args['exp']
     datasets = args['datasets']
 
-    slice_dir = Path('outputs') / 'Slice' / segmentation_experiment_name
+    slice_dir = Path('outputs') / 'Slice'
 
     patients = [
         f'{dataset}/{patient}'
@@ -189,4 +188,4 @@ if __name__ == '__main__':
         if (slice_dir / dataset / patient).is_dir()
     ]
 
-    run_app(MainWindow, segmentation_experiment_name, slice_dir, Path('datasets') / 'slices' / 'keypoints.json', patients)
+    run_app(MainWindow, segmentation_experiment_name, slice_dir, Path('datasets') / 'Slice' / 'keypoints.json', patients)

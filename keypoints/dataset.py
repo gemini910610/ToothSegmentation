@@ -1,7 +1,6 @@
 import json
 from pathlib import Path
 
-import cv2
 import torch
 from torch.utils.data import DataLoader, Dataset
 from torchvision import transforms
@@ -77,7 +76,7 @@ class KeypointDataset(Dataset):
 def get_loader(config):
     train_patients, valid_patients = get_fold(config.split_file_path, config.fold)
 
-    dataset_dir = Path('datasets') / 'slices'
+    dataset_dir = Path('datasets') / 'Slice'
 
     train_dataset = KeypointDataset(dataset_dir, train_patients)
     valid_dataset = KeypointDataset(dataset_dir, valid_patients)

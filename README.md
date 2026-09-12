@@ -116,8 +116,8 @@ uv run -m scripts.dcm2png <RAW_DATA_DIR> [--min -1000] [--max 4500] [--spacing 0
 ### Keypoints dataset layout
 
 ```
-📁 datasets/slices/<DATASET_NAME>/<patient>_<date>/<LABEL>/{image,segmentation}_<DEGREE>.png
-📄 datasets/slices/keypoints.json      # ground-truth CEJ points, produced by the annotator GUI
+📁 datasets/Slice/<DATASET_NAME>/<patient>_<date>/<LABEL>/{image,segmentation}_<DEGREE>.png
+📄 datasets/Slice/keypoints.json      # ground-truth CEJ points, produced by the annotator GUI
 ```
 Produced by `post_processing.tooth_slice` and `visualize.annotator.keypoints` — see [§ Post-processing Pipeline](#-post-processing-pipeline).
 
@@ -298,7 +298,7 @@ uv run -m post_processing.tooth_slice <segmentation_exp> <dataset...>
 ```
 uv run -m visualize.annotator.keypoints <segmentation_exp> <dataset...>
 ```
-Writes/updates `datasets/slices/keypoints.json` (same layout as in [§ Dataset Preparation](#-dataset-preparation)).
+Writes/updates `datasets/Slice/keypoints.json` (same layout as in [§ Dataset Preparation](#-dataset-preparation)).
 
 **Crop panoramic X-ray per tooth**
 ```
