@@ -269,4 +269,6 @@ if __name__ == '__main__':
         panoramic_weights_dir / 'pano_transpose_v2_6p.pkl',
     )
 
-    run_app(MainWindow, segmentation_model, config, cej_finder, panoramic_models)
+    working_dir = Path('working') / f'{segmentation_experiment_name}_{keypoints_experiment_name}'
+
+    run_app(MainWindow, segmentation_model, config, cej_finder, panoramic_models, working_dir)

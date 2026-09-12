@@ -288,7 +288,7 @@ uv run -m scripts.segment <segmentation_exp> <dataset...> [--segmentation-fold F
 uv run -m post_processing.tooth_slice <segmentation_exp> <dataset...>
 ```
 ```
-📁 outputs/Slice/<dataset>/<patient>/<label>
+📁 outputs/Slice/<segmentation_exp>/<dataset>/<patient>/<label>
 ├── 📄 image_0.png
 ├── 📄 segmentation_0.png
 ├── 📄 image_45.png
@@ -349,7 +349,7 @@ uv run -m scripts.correlation <segmentation_exp> <keypoints_exp> [--exclude slic
 ```
 uv run -m visualize.viewer.launcher
 ```
-The launch form collects **"segmentation experiment"**/**"segmentation fold"** and **"keypoints experiment"**/**"keypoints fold"** before opening the per-patient, tab-by-tab GUI (backed by `working/<patient_id>/`):
+The launch form collects **"segmentation experiment"**/**"segmentation fold"** and **"keypoints experiment"**/**"keypoints fold"** before opening the per-patient, tab-by-tab GUI (backed by `working/<segmentation_exp>_<keypoints_exp>/<patient_id>/`):
 
 1. **Import** — bring in a new patient's DICOM series and panoramic photo.
 2. **Predict** — run the segmentation model over the CBCT slices.
@@ -361,7 +361,7 @@ The launch form collects **"segmentation experiment"**/**"segmentation fold"** a
 8. **Bone Loss** — per-tooth CEJ detection and contour/area bone-loss inspection.
 
 ```
-📁 working/<patient_id>
+📁 working/<segmentation_exp>_<keypoints_exp>/<patient_id>
 ├── 📂 image/*.png              # 1. Import — imported CBCT slices
 ├── 📂 panoramic/*.jpg          # 1. Import — imported panoramic photo
 ├── 📄 image.npy                # 2. Predict
