@@ -49,13 +49,13 @@ def _folds(task):
 
     return [str(fold) for fold in range(1, config.num_folds + 1)]
 
-def _has_toml(task):
+def has_toml(task):
     def predicate(folder):
         return (folder / f'{task}.toml').is_file()
 
     return predicate
 
-def _has_npy(mode, depth):
+def has_npy(mode, depth):
     def predicate(folder):
         pattern = '/'.join(['*'] * depth + [f'{mode}.npy'])
         return next(folder.glob(pattern), None) is not None
@@ -83,7 +83,7 @@ class BaseApp(App):
             )
 
     def _selectors(self):
-        predicate = None if self.required_mode is None else _has_npy(self.required_mode, depth=2)
+        predicate = None if self.required_mode is None else has_npy(self.required_mode, depth=2)
         self.experiment_selector = DirectorySelector(Path('outputs'), 'experiment', self._on_experiment_change, predicate=predicate)
         self.dataset_selector = DirectoryMultiSelector(title='datasets')
         return [self.experiment_selector, self.dataset_selector]
@@ -101,7 +101,7 @@ class BaseApp(App):
         self.screen.styles.align = ('center', 'middle')
 
     def _on_experiment_change(self, experiment_name):
-        predicate = None if self.required_mode is None else _has_npy(self.required_mode, depth=1)
+        predicate = None if self.required_mode is None else has_npy(self.required_mode, depth=1)
         self.dataset_selector.update(Path('outputs') / experiment_name, predicate=predicate)
 
     def _on_cancel(self):
@@ -122,9 +122,9 @@ class SliceApp(BaseApp):
 
 class DualExperimentFoldApp(BaseApp):
     def _selectors(self):
-        predicate = None if self.required_mode is None else _has_npy(self.required_mode, depth=2)
+        predicate = None if self.required_mode is None else has_npy(self.required_mode, depth=2)
         self.segmentation_experiment_selector = DirectorySelector(Path('outputs'), 'segmentation experiment', self._on_experiment_change, predicate=predicate)
-        self.keypoints_experiment_selector = DirectorySelector(Path('logs'), 'keypoints experiment', predicate=_has_toml('keypoints'))
+        self.keypoints_experiment_selector = DirectorySelector(Path('logs'), 'keypoints experiment', predicate=has_toml('keypoints'))
         self.dataset_selector = DirectoryMultiSelector(title='datasets')
         return [self.segmentation_experiment_selector, self.keypoints_experiment_selector, self.dataset_selector]
 
@@ -144,8 +144,8 @@ class DualExperimentFoldApp(BaseApp):
 
 class DualExperimentDualFoldApp(BaseApp):
     def _selectors(self):
-        self.segmentation_experiment_selector = DirectorySelector(Path('logs'), 'segmentation experiment', predicate=_has_toml('segmentation'))
-        self.keypoints_experiment_selector = DirectorySelector(Path('logs'), 'keypoints experiment', predicate=_has_toml('keypoints'))
+        self.segmentation_experiment_selector = DirectorySelector(Path('logs'), 'segmentation experiment', predicate=has_toml('segmentation'))
+        self.keypoints_experiment_selector = DirectorySelector(Path('logs'), 'keypoints experiment', predicate=has_toml('keypoints'))
         return [self.segmentation_experiment_selector, self.keypoints_experiment_selector]
 
     def _extra_widgets(self):
@@ -311,9 +311,9 @@ class TaskFoldApp(BaseApp):
 
 class DualExperimentOptionSwitchApp(BaseApp):
     def _selectors(self):
-        predicate = None if self.required_mode is None else _has_npy(self.required_mode, depth=2)
+        predicate = None if self.required_mode is None else has_npy(self.required_mode, depth=2)
         self.segmentation_experiment_selector = DirectorySelector(Path('outputs'), 'segmentation experiment', predicate=predicate)
-        self.keypoints_experiment_selector = DirectorySelector(Path('logs'), 'keypoints experiment', predicate=_has_toml('keypoints'))
+        self.keypoints_experiment_selector = DirectorySelector(Path('logs'), 'keypoints experiment', predicate=has_toml('keypoints'))
         return [self.segmentation_experiment_selector, self.keypoints_experiment_selector]
 
     def _extra_widgets(self):
@@ -348,11 +348,11 @@ class TaskExperimentApp(BaseApp):
 
         yield HorizontalRule()
 
-        self.experiment_selector = DirectorySelector(Path('logs'), 'experiment', predicate=_has_toml('segmentation'))
+        self.experiment_selector = DirectorySelector(Path('logs'), 'experiment', predicate=has_toml('segmentation'))
         yield self.experiment_selector
 
     async def _on_task_changed(self, task):
-        await self.experiment_selector.set_predicate(_has_toml(task))
+        await self.experiment_selector.set_predicate(has_toml(task))
 
     def _collect_data(self):
         return {
@@ -362,7 +362,7 @@ class TaskExperimentApp(BaseApp):
 
 class ExperimentFoldDatasetsApp(BaseApp):
     def _selectors(self):
-        self.experiment_selector = DirectorySelector(Path('logs'), 'segmentation experiment name', predicate=_has_toml('segmentation'))
+        self.experiment_selector = DirectorySelector(Path('logs'), 'segmentation experiment name', predicate=has_toml('segmentation'))
         self.dataset_selector = DirectoryMultiSelector(Path('datasets'), 'datasets')
         return [self.experiment_selector, self.dataset_selector]
 
