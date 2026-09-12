@@ -57,11 +57,11 @@ if __name__ == '__main__':
         excel = excel.drop(excel[~excel['extra'].isna()].index)
         excel = excel.drop(columns='extra')
 
-    with open(f'exclude/{segmentation_experiment_name}.json') as file:
-        excludes = json.load(file)
-
     indices = []
     if exclude is not None:
+        with open(f'exclude/{segmentation_experiment_name}.json') as file:
+            excludes = json.load(file)
+
         for dataset, patient, fdi, slices in excludes:
             mask = (excel['Dataset'] == dataset) & (excel['Patient'] == patient) & (excel['FDI'] == fdi)
             row = excel[mask]
