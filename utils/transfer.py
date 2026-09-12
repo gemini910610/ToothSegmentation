@@ -45,7 +45,7 @@ class SFTPTransfer:
                 size = item.st_size
                 if size is None:
                     size = 0
-                total_files.append((path, relative_path))
+                total_files.append((path, relative_path, size))
                 total_size += size
 
         return total_files, total_size
@@ -72,8 +72,9 @@ class SFTPTransfer:
                 total_files.extend(files)
                 total_size += size
             else:
-                total_files.append((item, relative_path))
-                total_size += item.stat().st_size
+                size = item.stat().st_size
+                total_files.append((item, relative_path, size))
+                total_size += size
 
         return total_files, total_size
 
@@ -101,22 +102,27 @@ class SFTPTransfer:
         ignore_files = ignore_files or []
 
         if self.is_remote_dir(remote_path):
-            files, _ = self._walk_remote(remote_path, ignore_files=ignore_files)
-            for source_path, relative_path in files:
+            files, total_size = self._walk_remote(remote_path, ignore_files=ignore_files)
+            transferred_size = 0
+            for source_path, relative_path, size in files:
                 destination = local_path / relative_path
                 destination.parent.mkdir(parents=True, exist_ok=True)
-                self.sftp.get(str(source_path), destination)
-                if callback is not None:
-                    callback(relative_path)
+
+                def file_callback(file_transferred, file_size, relative_path=relative_path, base=transferred_size):
+                    if callback is not None:
+                        callback(relative_path, base + file_transferred, total_size)
+
+                self.sftp.get(str(source_path), destination, callback=file_callback)
+                transferred_size += size
             return True
 
         if any(fnmatch.fnmatch(remote_path.name, pattern) for pattern in ignore_files):
             return False
 
         local_path.parent.mkdir(parents=True, exist_ok=True)
-        self.sftp.get(str(remote_path), local_path)
-        if callback is not None:
-            callback(local_path.name)
+        total_size = self.sftp.stat(str(remote_path)).st_size
+        file_callback = None if callback is None else (lambda transferred, size: callback(local_path.name, transferred, total_size))
+        self.sftp.get(str(remote_path), local_path, callback=file_callback)
         return True
 
     def upload(self, local_path, remote_path, ignore_files=None, callback=None):
@@ -125,23 +131,28 @@ class SFTPTransfer:
         ignore_files = ignore_files or []
 
         if local_path.is_dir():
-            files, _ = self._walk_local(local_path, ignore_files=ignore_files)
+            files, total_size = self._walk_local(local_path, ignore_files=ignore_files)
             self._mkdir_remote_p(remote_path)
-            for source_path, relative_path in files:
+            transferred_size = 0
+            for source_path, relative_path, size in files:
                 destination = remote_path.joinpath(*relative_path.parts)
                 self._mkdir_remote_p(destination.parent)
-                self.sftp.put(source_path, str(destination))
-                if callback is not None:
-                    callback(relative_path)
+
+                def file_callback(file_transferred, file_size, relative_path=relative_path, base=transferred_size):
+                    if callback is not None:
+                        callback(relative_path, base + file_transferred, total_size)
+
+                self.sftp.put(source_path, str(destination), callback=file_callback)
+                transferred_size += size
             return True
 
         if any(fnmatch.fnmatch(local_path.name, pattern) for pattern in ignore_files):
             return False
 
         self._mkdir_remote_p(remote_path.parent)
-        self.sftp.put(local_path, str(remote_path))
-        if callback is not None:
-            callback(local_path.name)
+        total_size = local_path.stat().st_size
+        file_callback = None if callback is None else (lambda transferred, size: callback(local_path.name, transferred, total_size))
+        self.sftp.put(local_path, str(remote_path), callback=file_callback)
         return True
 
     def __enter__(self):

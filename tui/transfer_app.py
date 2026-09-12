@@ -5,7 +5,7 @@ from paramiko import SSHException
 from textual import work
 from textual.app import App
 from textual.containers import Horizontal, Vertical
-from textual.widgets import DirectoryTree, Label
+from textual.widgets import DirectoryTree, Label, ProgressBar
 from textual.worker import get_current_worker
 
 from tui.buttons import BaseButton
@@ -51,6 +51,9 @@ class TransferBrowserApp(App):
         self.status_label = Label('Connecting to server...')
         yield self.status_label
 
+        self.progress_bar = ProgressBar(total=1, show_eta=False)
+        yield self.progress_bar
+
         self.panes = Horizontal()
         yield self.panes
 
@@ -75,6 +78,7 @@ class TransferBrowserApp(App):
         self.transfer = None
 
     def on_mount(self):
+        self.progress_bar.query_one('#bar').styles.width = '1fr'
         self._connect()
 
     @work(thread=True)
@@ -144,6 +148,9 @@ class TransferBrowserApp(App):
     def _set_status(self, text):
         self.status_label.update(text)
 
+    def _set_progress(self, transferred, total):
+        self.progress_bar.update(total=total, progress=transferred)
+
     async def _on_direction_changed(self, direction):
         if self.local_new_folder_input is None or self.remote_new_folder_input is None:
             return
@@ -174,13 +181,18 @@ class TransferBrowserApp(App):
 
         name = self.remote_path.name
         self.call_from_thread(self._set_status, f'Downloading {name}...')
+        self.call_from_thread(self._set_progress, 0, 1)
+
+        def on_progress(relative, transferred, total):
+            self.call_from_thread(self._set_status, f'Downloading {name}... ({relative})')
+            self.call_from_thread(self._set_progress, transferred, total)
 
         try:
             transferred = self.transfer.download(
                 self.remote_path,
                 destination_dir / name,
                 ignore_files=self._get_ignore_files(),
-                callback=lambda relative: self.call_from_thread(self._set_status, f'Downloading {name}... ({relative})')
+                callback=on_progress
             )
         except Exception as exception:
             self.call_from_thread(self._set_status, f'Download failed: {exception}')
@@ -204,13 +216,18 @@ class TransferBrowserApp(App):
 
         name = self.local_path.name
         self.call_from_thread(self._set_status, f'Uploading {name}...')
+        self.call_from_thread(self._set_progress, 0, 1)
+
+        def on_progress(relative, transferred, total):
+            self.call_from_thread(self._set_status, f'Uploading {name}... ({relative})')
+            self.call_from_thread(self._set_progress, transferred, total)
 
         try:
             transferred = self.transfer.upload(
                 self.local_path,
                 destination_dir / name,
                 ignore_files=self._get_ignore_files(),
-                callback=lambda relative: self.call_from_thread(self._set_status, f'Uploading {name}... ({relative})')
+                callback=on_progress
             )
         except Exception as exception:
             self.call_from_thread(self._set_status, f'Upload failed: {exception}')
