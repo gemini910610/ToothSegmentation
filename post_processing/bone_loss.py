@@ -104,7 +104,8 @@ def slice_contour_bone_loss(tooth_surface, bone_surface, point, is_upper):
 def _split_area(coordinates, left_point, right_point, is_upper):
     xy = coordinates[:, [1, 0]]
     vector = right_point - left_point
-    side = numpy.cross(xy - left_point, vector)
+    diff = xy - left_point
+    side = diff[:, 0] * vector[1] - diff[:, 1] * vector[0]
 
     if is_upper:
         mask = side > 0
