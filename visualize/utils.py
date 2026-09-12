@@ -37,7 +37,7 @@ class JsonHandler:
         if not path.is_file():
             return {}
 
-        with path.open() as file:
+        with path.open(encoding='utf-8') as file:
             return json.load(file)
 
     @staticmethod
@@ -45,8 +45,8 @@ class JsonHandler:
         path.parent.mkdir(parents=True, exist_ok=True)
 
         data = dict(data)
-        with path.open('w') as file:
-            json.dump(data, file, indent=4)
+        with path.open('w', encoding='utf-8') as file:
+            json.dump(data, file, indent=4, ensure_ascii=False)
 
 class DataManager:
     def __init__(self, experiment_name, patients, modes):
