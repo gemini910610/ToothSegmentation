@@ -3,21 +3,21 @@
 ## 📦 Project Structure
 
 ```
-📁 constants            # Shared enums: Mode (pipeline-stage/.npy filenames), Label (voxel values), Color
-📁 dicom                # DICOM loading, HU windowing/resampling, PNG export, patient import
-📁 segmentation         # U-Net tooth/bone segmentation: dataset, model, trainer, evaluator, predict
-📁 keypoints            # ResNet-18 CEJ keypoint regression: dataset, model, trainer, evaluator, predict (CEJFinder)
-📁 panoramic            # 2D panoramic X-ray baseline: vendored YOLOv7 + heatmap keypoint models, predict.py
-📁 post_processing      # Batch 3D post-processing stages (connected component → ... → bone loss)
+📁 constants          # Shared enums: Mode (pipeline-stage/.npy filenames), Label (voxel values), Color
+📁 dicom              # DICOM loading, HU windowing/resampling, PNG export, patient import
+📁 segmentation       # U-Net tooth/bone segmentation: dataset, model, trainer, evaluator, predict
+📁 keypoints          # ResNet-18 CEJ keypoint regression: dataset, model, trainer, evaluator, predict (CEJFinder)
+📁 panoramic          # 2D panoramic X-ray baseline: vendored YOLOv7 + heatmap keypoint models, predict.py
+📁 post_processing    # Batch 3D post-processing stages (connected component → ... → bone loss)
 📁 visualize
-├── 📂 ui               # Reusable Qt widgets (2D/3D volume viewers, selectors, etc.)
-├── 📂 editor           # Manual-correction GUIs: split.py, merge.py, exclude.py, fdi.py
-├── 📂 annotator        # keypoints.py — manual CEJ annotation GUI for training data
-└── 📂 viewer           # launcher.py — end-to-end single-patient GUI; bone_loss.py — bone-loss inspector
-📁 tui                  # Textual TUI building blocks + the argument-collection form for every script
-📁 utils                # Config loading, console tables, Unicode-safe image I/O, Excel writer, SFTP transfer, base trainer
-📁 scripts              # CLI entry points, one per pipeline step
-📁 configs              # segmentation.toml / keypoints.toml — per-task hyperparameters
+├── 📂 ui             # Reusable Qt widgets (2D/3D volume viewers, selectors, etc.)
+├── 📂 editor         # Manual-correction GUIs: split.py, merge.py, exclude.py, fdi.py
+├── 📂 annotator      # keypoints.py — manual CEJ annotation GUI for training data
+└── 📂 viewer         # launcher.py — end-to-end single-patient GUI; bone_loss.py — bone-loss inspector
+📁 tui                # Textual TUI building blocks + the argument-collection form for every script
+📁 utils              # Config loading, console tables, Unicode-safe image I/O, Excel writer, SFTP transfer, base trainer
+📁 scripts            # CLI entry points, one per pipeline step
+📁 configs            # segmentation.toml / keypoints.toml — per-task hyperparameters
 ```
 
 ## 🛠️ Setup
@@ -102,12 +102,13 @@ uv run -m scripts.dcm2png <RAW_DATA_DIR> [--min -1000] [--max 4500] [--spacing 0
 
 ```
 📁 datasets/<DATASET_NAME>
-├── 📂 image
-│   ├── 📂 <patient>_<date>/91.png ...
-│   └── 📂 ...
-└── 📂 mask
-    ├── 📂 <patient>_<date>/91.png ...
-    └── 📂 ...
+└── 📂 <patient>_<date>
+    ├── 📂 image
+    │   ├── 📄 91.png
+    │   └── 📄 ...
+    └── 📂 mask
+        ├── 📄 91.png
+        └── 📄 ...
 ```
 * Image and mask folders/filenames must match exactly.
 * Mask pixels use labels `{0=background, 1=tooth, 2=bone}`.
@@ -248,37 +249,38 @@ uv run -m scripts.segment <segmentation_exp> <dataset...> [--segmentation-fold F
 |---|---|---|---|
 | 1 | `uv run -m post_processing.connected_component <segmentation_exp> <dataset...> <target> <threshold>`<br>`target`: `tooth` or `bone` | — | `tooth_cc.npy` / `bone_cc.npy` |
 | 2 | `uv run -m post_processing.watershed <segmentation_exp> <dataset...>` | — | `watershed.npy` |
-| 3 | `uv run -m post_processing.refine_split <segmentation_exp> <dataset...>` | `uv run -m visualize.editor.split <segmentation_exp> <dataset...>` → `split/<segmentation_exp>.json` | `refine_split.npy` |
-| 4 | `uv run -m post_processing.refine_merge <segmentation_exp> <dataset...>` | `uv run -m visualize.editor.merge <segmentation_exp> <dataset...>` → `merge/<segmentation_exp>.json` | `refine_merge.npy` |
+| 3 | `uv run -m post_processing.refine_split <segmentation_exp> <dataset...>` | `uv run -m visualize.editor.split <segmentation_exp> <dataset...>` → `edit/<segmentation_exp>/split.json` | `refine_split.npy` |
+| 4 | `uv run -m post_processing.refine_merge <segmentation_exp> <dataset...>` | `uv run -m visualize.editor.merge <segmentation_exp> <dataset...>` → `edit/<segmentation_exp>/merge.json` | `refine_merge.npy` |
 | 5 | `uv run -m post_processing.exclude_truncated <segmentation_exp> <dataset...>` | — | `untruncated.npy` |
-| 6 | `uv run -m post_processing.exclude_tooth <segmentation_exp> <dataset...>` | `uv run -m visualize.editor.exclude <segmentation_exp> <dataset...>` → `exclude/<segmentation_exp>.json` | `cleaned.npy` |
+| 6 | `uv run -m post_processing.exclude_tooth <segmentation_exp> <dataset...>` | `uv run -m visualize.editor.exclude <segmentation_exp> <dataset...>` → `edit/<segmentation_exp>/exclude.json` | `cleaned.npy` |
 | 7 | `uv run -m post_processing.fill_holes <segmentation_exp> <dataset...>` | — | `tooth_filled.npy` / `bone_filled.npy` |
 | 8 | `uv run -m post_processing.relabel <segmentation_exp> <dataset...>` | — | `relabeled.npy` |
-| 9 | `uv run -m post_processing.relabel_fdi <segmentation_exp> <dataset...>` | `uv run -m visualize.editor.fdi <segmentation_exp> <dataset...>` → `fdi/<segmentation_exp>.json` | `fdi.npy` |
+| 9 | `uv run -m post_processing.relabel_fdi <segmentation_exp> <dataset...>` | `uv run -m visualize.editor.fdi <segmentation_exp> <dataset...>` → `edit/<segmentation_exp>/fdi.json` | `fdi.npy` |
 
 * `--threshold` (`connected_component`): voxel-count cutoff for the connected-component filter.
 
 ```
 📁 outputs/<segmentation_exp>/<dataset>/<patient>
-├── 📄 image.npy             # from scripts.segment
-├── 📄 predict.npy           # from scripts.segment
-├── 📄 tooth_cc.npy          # 1. connected_component
-├── 📄 bone_cc.npy           # 1. connected_component
-├── 📄 watershed.npy         # 2. watershed
-├── 📄 refine_split.npy      # 3. refine_split
-├── 📄 refine_merge.npy      # 4. refine_merge
-├── 📄 untruncated.npy       # 5. exclude_truncated
-├── 📄 cleaned.npy           # 6. exclude_tooth
-├── 📄 tooth_filled.npy      # 7. fill_holes
-├── 📄 bone_filled.npy       # 7. fill_holes
-├── 📄 relabeled.npy         # 8. relabel
-└── 📄 fdi.npy               # 9. relabel_fdi
+├── 📄 image.npy           # from scripts.segment
+├── 📄 predict.npy         # from scripts.segment
+├── 📄 tooth_cc.npy        # 1. connected_component
+├── 📄 bone_cc.npy         # 1. connected_component
+├── 📄 watershed.npy       # 2. watershed
+├── 📄 refine_split.npy    # 3. refine_split
+├── 📄 refine_merge.npy    # 4. refine_merge
+├── 📄 untruncated.npy     # 5. exclude_truncated
+├── 📄 cleaned.npy         # 6. exclude_tooth
+├── 📄 tooth_filled.npy    # 7. fill_holes
+├── 📄 bone_filled.npy     # 7. fill_holes
+├── 📄 relabeled.npy       # 8. relabel
+└── 📄 fdi.npy             # 9. relabel_fdi
 ```
 ```
-📄 split/<segmentation_exp>.json     # visualize.editor.split
-📄 merge/<segmentation_exp>.json     # visualize.editor.merge
-📄 exclude/<segmentation_exp>.json   # visualize.editor.exclude
-📄 fdi/<segmentation_exp>.json       # visualize.editor.fdi
+📁 edit/<segmentation_exp>
+├── 📄 split.json      # visualize.editor.split
+├── 📄 merge.json      # visualize.editor.merge
+├── 📄 exclude.json    # visualize.editor.exclude
+└── 📄 fdi.json        # visualize.editor.fdi
 ```
 
 **Per-tooth oblique slices**
@@ -286,7 +288,7 @@ uv run -m scripts.segment <segmentation_exp> <dataset...> [--segmentation-fold F
 uv run -m post_processing.tooth_slice <segmentation_exp> <dataset...>
 ```
 ```
-📁 outputs/Slice/<segmentation_exp>/<dataset>/<patient>/<label>
+📁 outputs/Slice/<dataset>/<patient>/<label>
 ├── 📄 image_0.png
 ├── 📄 segmentation_0.png
 ├── 📄 image_45.png
@@ -369,11 +371,11 @@ The launch form collects **"segmentation experiment"**/**"segmentation fold"** a
 ├── 📄 watershed.npy            # 3. Tooth (automatic)
 ├── 📄 refine_split.npy         # 4. Split
 ├── 📄 untruncated.npy          # 5. Merge (+ truncation check)
-├── 📄 tooth_filled.npy         # 5. Exclude
-├── 📄 bone_filled.npy          # 5. Exclude
-├── 📄 relabeled.npy            # 5. Exclude
-├── 📄 panoramic_predict.txt    # 6. Panoramic
-└── 📄 fdi.npy                  # 7. FDI
+├── 📄 tooth_filled.npy         # 6. Exclude
+├── 📄 bone_filled.npy          # 6. Exclude
+├── 📄 relabeled.npy            # 6. Exclude
+├── 📄 panoramic_predict.txt    # 7. Panoramic
+└── 📄 fdi.npy                  # 8. FDI
 ```
 
 Standalone read-only inspector — collects **"segmentation experiment"**, **"keypoints experiment"**, and **"datasets"**:
