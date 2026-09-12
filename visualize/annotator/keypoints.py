@@ -169,11 +169,10 @@ class MainWindow(BaseWindow):
 if __name__ == '__main__':
     import sys
 
-    from post_processing.utils import iterate_datasets
-    from tui.apps import BaseApp
+    from tui.apps import SliceApp
     from visualize.utils import run_app
 
-    args = BaseApp().run()
+    args = SliceApp().run()
     if args is None:
         sys.exit()
 
@@ -183,9 +182,9 @@ if __name__ == '__main__':
     slice_dir = Path('outputs') / 'Slice' / segmentation_experiment_name
 
     patients = [
-        f'{dataset}/{patient}'
-        for dataset, patient in iterate_datasets(segmentation_experiment_name, datasets)
-        if (slice_dir / dataset / patient).is_dir()
+        f'{dataset}/{patient.name}'
+        for dataset in datasets
+        for patient in (slice_dir / dataset).iterdir()
     ]
 
     run_app(MainWindow, segmentation_experiment_name, slice_dir, Path('datasets') / 'Slice' / 'keypoints.json', patients)

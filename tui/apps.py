@@ -89,6 +89,15 @@ class BaseApp(App):
         data = self._collect_data()
         self.exit(data)
 
+class SliceApp(BaseApp):
+    def _selectors(self):
+        self.experiment_selector = DirectorySelector(Path('outputs') / 'Slice', 'experiment', self._on_experiment_change)
+        self.dataset_selector = DirectoryMultiSelector(title='datasets')
+        return [self.experiment_selector, self.dataset_selector]
+
+    def _on_experiment_change(self, experiment_name):
+        self.dataset_selector.update(Path('outputs') / 'Slice' / experiment_name)
+
 class DualExperimentFoldApp(BaseApp):
     def _selectors(self):
         self.segmentation_experiment_selector = DirectorySelector(Path('outputs'), 'segmentation experiment', self._on_experiment_change)
