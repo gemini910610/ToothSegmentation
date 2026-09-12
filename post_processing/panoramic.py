@@ -340,25 +340,35 @@ def draw_panoramic(image, tooth_data, draw_keypoints=False):
 if __name__ == '__main__':
     from collections import Counter, defaultdict
 
-    from post_processing.utils import iterate_datasets
-    from tui.apps import parse_segmentation_args
+    from tui.apps import DatasetsApp, parse_args
 
-    args = parse_segmentation_args()
-    segmentation_experiment_name = args['segmentation_exp']
+    def _has_prediction(dataset_dir):
+        for patient_dir in dataset_dir.iterdir():
+            paths = find_panoramic_paths(dataset_dir.name, patient_dir.name)
+            if paths is not None and paths[1].is_file():
+                return True
+
+        return False
+
+    def configure_parser(parser):
+        parser.add_argument('datasets', nargs='+', type=str)
+
+    args = parse_args(DatasetsApp, configure_parser, app_kwargs={'predicate': _has_prediction})
     datasets = args['datasets']
 
     patients = []
-    for dataset, patient in iterate_datasets(segmentation_experiment_name, datasets):
-        paths = find_panoramic_paths(dataset, patient)
-        if paths is not None:
-            patients.append((dataset, patient, paths))
+    for dataset in datasets:
+        for patient_dir in (Path('datasets') / dataset).iterdir():
+            paths = find_panoramic_paths(dataset, patient_dir.name)
+            if paths is not None and paths[1].is_file():
+                patients.append((dataset, patient_dir.name, paths))
 
     for dataset, patient, paths in patients:
         image_path, prediction_path = paths
         image, tooth_data = load_panoramic(image_path, prediction_path, merge=False)
         image = cv2.cvtColor(image, cv2.COLOR_GRAY2RGB)
 
-        output_dir = Path('pano_crop') / segmentation_experiment_name / dataset / patient
+        output_dir = Path('pano_crop') / dataset / patient
         output_dir.mkdir(parents=True, exist_ok=True)
 
         fdi_counts = Counter(tooth['FDI'][0] for tooth in tooth_data)

@@ -85,7 +85,7 @@ if __name__ == '__main__':
         parser.add_argument('target', choices=['tooth', 'bone'])
         parser.add_argument('threshold', type=int)
 
-    args = parse_args(SwitchThresholdApp, configure_parser, rename={'exp': 'segmentation_exp'})
+    args = parse_args(SwitchThresholdApp, configure_parser, rename={'exp': 'segmentation_exp'}, app_kwargs={'required_mode': Mode.PREDICT})
 
     segmentation_experiment_name = args['segmentation_exp']
     datasets = args['datasets']

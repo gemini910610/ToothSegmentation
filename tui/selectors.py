@@ -2,12 +2,12 @@ from textual.widgets import RadioButton, RadioSet, SelectionList
 
 
 class DirectorySelector(RadioSet):
-    def __init__(self, directory=None, title=None, callback=None, task=None):
+    def __init__(self, directory=None, title=None, callback=None, predicate=None):
         super().__init__()
         self.directory = directory
         self.border_title = title
         self.callback = callback
-        self._task_name = task
+        self.predicate = predicate
 
         color = self.app.get_css_variables()['primary']
         self.styles.border = ('solid', color)
@@ -32,7 +32,7 @@ class DirectorySelector(RadioSet):
 
         folders = [
             folder for folder in directory.iterdir()
-            if self._task_name is None or (folder / f'{self._task_name}.toml').is_file()
+            if self.predicate is None or self.predicate(folder)
         ]
 
         buttons = [RadioButton(folder.name) for folder in folders]
@@ -45,8 +45,8 @@ class DirectorySelector(RadioSet):
         self._selected = 0
         self.children[0].value = True
 
-    async def set_task(self, task):
-        self._task_name = task
+    async def set_predicate(self, predicate):
+        self.predicate = predicate
         await self.update(self.directory)
 
         self._selected = 0
@@ -89,10 +89,11 @@ class OptionSelector(RadioSet):
         return None if button is None else str(button.label)
 
 class DirectoryMultiSelector(SelectionList):
-    def __init__(self, directory=None, title=None):
+    def __init__(self, directory=None, title=None, predicate=None):
         super().__init__(id='test')
         self.directory = directory
         self.border_title = title
+        self.predicate = predicate
 
         color = self.app.get_css_variables()['primary']
         self.styles.border = ('solid', color)
@@ -102,11 +103,14 @@ class DirectoryMultiSelector(SelectionList):
         if self.directory is not None:
             self.update(self.directory)
 
-    def update(self, directory):
+    def update(self, directory, predicate=None):
+        self.predicate = predicate
+
         self.clear_options()
         self.add_options([
             (folder.name, folder.name)
             for folder in directory.iterdir()
+            if self.predicate is None or self.predicate(folder)
         ])
         self.select_all()
         self.directory = directory

@@ -28,7 +28,7 @@ if __name__ == '__main__':
     from post_processing.utils import iterate_datasets
     from tui.apps import parse_segmentation_args
 
-    args = parse_segmentation_args()
+    args = parse_segmentation_args(required_mode=Mode.WATERSHED)
     segmentation_experiment_name = args['segmentation_exp']
     datasets = args['datasets']
 

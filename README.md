@@ -304,10 +304,10 @@ Writes/updates `datasets/Slice/keypoints.json` (same layout as in [§ Dataset Pr
 
 **Crop panoramic X-ray per tooth**
 ```
-uv run -m post_processing.panoramic <segmentation_exp> <dataset...>
+uv run -m post_processing.panoramic <dataset...>
 ```
 ```
-📁 pano_crop/<segmentation_exp>/<dataset>/<patient>
+📁 pano_crop/<dataset>/<patient>
 ├── 📄 11.png
 ├── 📄 12.png
 └── 📄 ...

@@ -124,7 +124,7 @@ if __name__ == '__main__':
     from tui.apps import BaseApp
     from visualize.utils import DataManager, run_app
 
-    args = BaseApp().run()
+    args = BaseApp(required_mode=Mode.REFINE_SPLIT).run()
     if args is None:
         sys.exit()
 

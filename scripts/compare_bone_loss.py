@@ -36,7 +36,7 @@ def configure_parser(parser):
     parser.add_argument('datasets', nargs='+', type=str)
     parser.add_argument('--keypoints-fold', type=int, default=3)
 
-args = parse_args(DualExperimentFoldApp, configure_parser)
+args = parse_args(DualExperimentFoldApp, configure_parser, app_kwargs={'required_mode': Mode.FDI})
 
 segmentation_experiment_name = args['segmentation_exp']
 keypoints_experiment_name = args['keypoints_exp']

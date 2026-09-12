@@ -35,6 +35,7 @@ if __name__ == '__main__':
 
     import pandas
 
+    from constants.mode import Mode
     from tui.apps import DualExperimentOptionSwitchApp, parse_args
     from utils.console import Table
     from utils.excel import load_excel
@@ -45,7 +46,7 @@ if __name__ == '__main__':
         parser.add_argument('--exclude', type=str, choices=['slice', 'tooth'])
         parser.add_argument('--single-only', action='store_true')
 
-    args = parse_args(DualExperimentOptionSwitchApp, configure_parser)
+    args = parse_args(DualExperimentOptionSwitchApp, configure_parser, app_kwargs={'required_mode': Mode.FDI})
 
     segmentation_experiment_name = args['segmentation_exp']
     keypoints_experiment_name = args['keypoints_exp']

@@ -173,7 +173,7 @@ if __name__ == '__main__':
     from tui.apps import parse_segmentation_args
     from utils.console import track
 
-    args = parse_segmentation_args()
+    args = parse_segmentation_args(required_mode=Mode.FDI)
     segmentation_experiment_name = args['segmentation_exp']
     datasets = args['datasets']
 

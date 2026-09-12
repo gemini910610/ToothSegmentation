@@ -255,7 +255,7 @@ if __name__ == '__main__':
     from utils.config import load_config
     from visualize.utils import DataManager, run_app
 
-    args = DualExperimentFoldApp().run()
+    args = DualExperimentFoldApp(required_mode=Mode.FDI).run()
     if args is None:
         sys.exit()
 
