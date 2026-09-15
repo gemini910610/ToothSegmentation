@@ -4,6 +4,7 @@ from pathlib import Path
 import numpy
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QKeySequence, QShortcut
+from PySide6.QtWidgets import QMessageBox
 
 from utils.image import imread
 from visualize.ui.grids import ImageCell, PointImageGrid
@@ -89,16 +90,79 @@ class MainWindow(BaseWindow):
         shortcut_right = QShortcut(Qt.Key.Key_Right, self)
         shortcut_right.activated.connect(lambda: self._on_label_step(1))
 
+        self.current_patient = None
+        self.current_label = None
+
+    def _has_unsaved_changes(self):
+        patient = self.current_patient
+        label = self.current_label
+        if patient is None or label is None:
+            return False
+
+        with JsonHandler(self.annotation_path, KeypointDataHandler) as handler:
+            for image, degree in zip(self.image_grid.images, range(0, 180, 45)):
+                saved_points = handler.find(patient, str(label), str(degree))
+                left_point = image.left_point
+                right_point = image.right_point
+
+                if left_point is None or right_point is None:
+                    if saved_points is not None:
+                        return True
+                    continue
+
+                if saved_points is None:
+                    return True
+
+                current_left = [point / size for point, size in zip(left_point, image.size)]
+                current_right = [point / size for point, size in zip(right_point, image.size)]
+                saved_left, saved_right = saved_points
+                if current_left != saved_left or current_right != saved_right:
+                    return True
+
+        return False
+
+    def _confirm_switch(self):
+        if not self._has_unsaved_changes():
+            return True
+
+        choice = QMessageBox.question(
+            self, 'Unsaved Changes', 'Save changes before switching?',
+            QMessageBox.StandardButton.Save | QMessageBox.StandardButton.Discard | QMessageBox.StandardButton.Cancel
+        )
+        if choice == QMessageBox.StandardButton.Cancel:
+            return False
+
+        if choice == QMessageBox.StandardButton.Save:
+            self._on_save()
+
+        return True
+
     def _on_patient_changed(self, index):
+        if not self._confirm_switch():
+            previous_index = self.patient_selector.findText(self.current_patient)
+            self.patient_selector.blockSignals(True)
+            self.patient_selector.setCurrentIndex(previous_index)
+            self.patient_selector.blockSignals(False)
+            return
+
         patient = self.patient_selector.currentText()
+        self.current_patient = patient
         labels = sorted((path.name for path in (self.slice_dir / patient).iterdir()), key=int)
 
         self.label_selector.update_items(labels)
         self.label_selector.setCurrentIndex(0)
 
     def _on_label_changed(self, index):
+        if not self._confirm_switch():
+            previous_index = self.label_selector.findData(self.current_label)
+            self.label_selector.blockSignals(True)
+            self.label_selector.setCurrentIndex(previous_index)
+            self.label_selector.blockSignals(False)
+            return
+
         patient = self.patient_selector.currentText()
         label = self.label_selector.currentData()
+        self.current_label = label
         image_dir = self.slice_dir / patient / str(label)
 
         slices = []
@@ -128,9 +192,9 @@ class MainWindow(BaseWindow):
                 image.update()
 
     def _on_save(self):
-        patient = self.patient_selector.currentText()
-        label = self.label_selector.currentData()
-        if patient == '' or label is None:
+        patient = self.current_patient
+        label = self.current_label
+        if patient is None or label is None:
             return
 
         source_dir = self.slice_dir / patient / str(label)
@@ -156,8 +220,6 @@ class MainWindow(BaseWindow):
                     shutil.copy2(source_dir / filename, destination_dir / filename)
 
     def _on_label_step(self, step):
-        self._on_save()
-
         count = self.label_selector.count()
         index = self.label_selector.currentIndex()
         if index + step < 0 or index + step >= count:
