@@ -7,6 +7,7 @@ from tui.apps import BaseApp, has_npy
 from tui.selectors import OptionSelector
 
 EDITORS = [
+    ('threshold', Mode.TOOTH_CONNECTED_COMPONENT),
     ('split', Mode.WATERSHED),
     ('merge', Mode.REFINE_SPLIT),
     ('exclude', Mode.UNTRUNCATED),

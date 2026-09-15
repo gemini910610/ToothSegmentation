@@ -5,6 +5,7 @@ from pathlib import Path
 from textual import work
 from textual.app import App
 
+from constants.mode import Mode
 from tui.buttons import ActionButtons, BaseButton
 from tui.containers import BaseContainer, BaseGrid, BaseHorizontal
 from tui.decorators import HorizontalRule
@@ -399,3 +400,20 @@ class SwitchThresholdApp(BaseApp):
             'target': self.label_switch.selected,
             'threshold': self.threshold_input.get_value()
         }
+
+class ThresholdApp(BaseApp):
+    def _extra_widgets(self):
+        yield HorizontalRule()
+
+        modes = [Mode.TOOTH_CONNECTED_COMPONENT, Mode.BONE_CONNECTED_COMPONENT, Mode.REFINE_MERGE]
+        outputs_dir = Path('outputs')
+        self.mode_titles = {Mode.get_title(mode): mode for mode in modes if has_npy(mode, depth=3)(outputs_dir)}
+
+        self.mode_selector = OptionSelector(list(self.mode_titles), 'mode')
+        yield self.mode_selector
+
+    def _collect_data(self):
+        data = super()._collect_data()
+        title = self.mode_selector.selected
+        data['mode'] = None if title is None else self.mode_titles[title]
+        return data
