@@ -159,7 +159,7 @@ class MainWindow(QMainWindow):
         try:
             name = import_dicom(dicom_dir, self.working_dir)
         except DuplicatePatientError as error:
-            QMessageBox.warning(self, 'Import Failed', f'Patient "{error.patient_id}" already exists, cannot import a duplicate\n({error.patient_dir})')
+            QMessageBox.warning(self, 'Import Failed', f'Patient "{error.patient_name}" already exists, cannot import a duplicate\n({error.patient_dir})')
             return
 
         if name is None:
@@ -169,7 +169,11 @@ class MainWindow(QMainWindow):
         patient_dir = self.working_dir / name
         import_panoramic(image_paths, patient_dir)
 
+        current_index = self.patient_selector.currentIndex()
+        self.patient_selector.blockSignals(True)
         self.patient_selector.addItem(name)
+        self.patient_selector.setCurrentIndex(current_index)
+        self.patient_selector.blockSignals(False)
 
         message = (
             f'DICOM converted to PNG: {patient_dir / "image"}\n'

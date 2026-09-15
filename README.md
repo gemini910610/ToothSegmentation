@@ -67,7 +67,7 @@ uv run -m <module.path> [args...]
 
 ## 🔀 Two Ways to Run the Pipeline
 
-* **Interactive, single patient** — `uv run -m visualize.viewer.launcher`, caching each stage's output under `working/<patient_id>/`. See [§ Interactive Viewer](#-interactive-end-to-end-viewer).
+* **Interactive, single patient** — `uv run -m visualize.viewer.launcher`, caching each stage's output under `working/<patient>_<date>/`. See [§ Interactive Viewer](#-interactive-end-to-end-viewer).
 * **Batch, many patients** — the chain below, driven by `scripts.*` and `post_processing.*`, writing per-patient `.npy` volumes under `outputs/<segmentation_exp>/<dataset>/<patient>/`.
 
 ---
@@ -349,7 +349,7 @@ uv run -m scripts.correlation <segmentation_exp> <keypoints_exp> [--exclude slic
 ```
 uv run -m visualize.viewer.launcher
 ```
-The launch form collects **"segmentation experiment"**/**"segmentation fold"** and **"keypoints experiment"**/**"keypoints fold"** before opening the per-patient, tab-by-tab GUI (backed by `working/<segmentation_exp>_<keypoints_exp>/<patient_id>/`):
+The launch form collects **"segmentation experiment"**/**"segmentation fold"** and **"keypoints experiment"**/**"keypoints fold"** before opening the per-patient, tab-by-tab GUI (backed by `working/<segmentation_exp>_<keypoints_exp>/<patient>_<date>/`):
 
 1. **Import** — bring in a new patient's DICOM series and panoramic photo.
 2. **Predict** — run the segmentation model over the CBCT slices.
@@ -361,7 +361,7 @@ The launch form collects **"segmentation experiment"**/**"segmentation fold"** a
 8. **Bone Loss** — per-tooth CEJ detection and contour/area bone-loss inspection.
 
 ```
-📁 working/<segmentation_exp>_<keypoints_exp>/<patient_id>
+📁 working/<segmentation_exp>_<keypoints_exp>/<patient>_<date>
 ├── 📂 image/*.png              # 1. Import — imported CBCT slices
 ├── 📂 panoramic/*.jpg          # 1. Import — imported panoramic photo
 ├── 📄 image.npy                # 2. Predict

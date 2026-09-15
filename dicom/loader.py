@@ -2,16 +2,22 @@ import pydicom
 import SimpleITK
 
 
-def read_patient_id(dicom_dir):
+def _read_dicom_dataset(dicom_dir):
     for file in dicom_dir.glob('*.dcm'):
         try:
-            dcm = pydicom.dcmread(file, stop_before_pixels=True)
+            return pydicom.dcmread(file, stop_before_pixels=True)
         except pydicom.errors.InvalidDicomError:
             continue
 
-        return dcm.PatientID
-
     return None
+
+def read_patient_id(dicom_dir):
+    dcm = _read_dicom_dataset(dicom_dir)
+    return None if dcm is None else dcm.PatientID
+
+def read_patient_name(dicom_dir):
+    dcm = _read_dicom_dataset(dicom_dir)
+    return None if dcm is None else f'{dcm.PatientID}_{dcm.AcquisitionDate}'
 
 def load_volume(volume_dir):
     reader = SimpleITK.ImageSeriesReader()
