@@ -56,7 +56,7 @@ class BoneLossControls(HorizontalLayout):
 class BoneLossContent(HorizontalLayout):
     def _init_widgets(self):
         return [
-            VolumeViewer(),
+            VolumeViewer(2, (512, 512)),
             PointImageGrid([
                 ImageCell('0 (B)', 0, 0),
                 ImageCell('45 (MB)', 1, 0),

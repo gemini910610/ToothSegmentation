@@ -48,7 +48,7 @@ class TopLayout(HorizontalLayout):
 class BottomLayout(HorizontalLayout):
     def _init_widgets(self):
         return [
-            VolumeViewer(2, (640, 640)),
+            VolumeViewer(2, (512, 512)),
             PointImageGrid([
                 ImageCell('0 (B)', 0, 0),
                 ImageCell('45 (MB)', 1, 0),
