@@ -9,7 +9,7 @@ from utils.trainer import BaseTrainer
 
 
 class Trainer(BaseTrainer):
-    def __init__(self, config):
+    def __init__(self, config, get_loader=get_loader):
         super().__init__(config, get_loader, get_model, get_optimizer, get_loss, get_metric)
 
     def _forward(self, batch):

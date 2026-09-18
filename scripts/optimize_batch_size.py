@@ -13,11 +13,38 @@ import torch
 from tui.apps import TaskMaximizeApp, parse_args
 from utils.config import load_config
 
+SEGMENTATION_SHAPE = (640, 640)
+KEYPOINTS_SHAPE = (224, 224)
+
 
 def configure_parser(parser):
     parser.add_argument('task', type=str, choices=['segmentation', 'keypoints'])
     parser.add_argument('--is-train', action='store_true')
     parser.add_argument('--maximize', action='store_true')
+
+def _synthetic_batch(task, config):
+    in_channels = config.model.parameters.in_channels
+
+    if task == 'segmentation':
+        num_classes = config.model.parameters.num_classes
+        height, width = SEGMENTATION_SHAPE
+        image = torch.rand(1, in_channels, height, width)
+        mask = torch.randint(0, num_classes, (1, height, width))
+        return image, mask
+
+    if task == 'keypoints':
+        height, width = KEYPOINTS_SHAPE
+        image = torch.rand(1, in_channels, height, width)
+        points = torch.rand(1, 4)
+        origin_size = torch.zeros(1, 2, dtype=torch.long)
+        return image, points, origin_size
+
+def _synthetic_get_loader(task):
+    def get_loader(config):
+        loader = [_synthetic_batch(task, config)]
+        return loader, loader
+
+    return get_loader
 
 def _optimize_batch_size():
     args = parse_args(TaskMaximizeApp, configure_parser)
@@ -32,30 +59,23 @@ def _optimize_batch_size():
 
     match task:
         case 'segmentation':
-            from segmentation.dataset import get_loader
             from segmentation.trainer import Trainer
         case 'keypoints':
-            from keypoints.dataset import get_loader
             from keypoints.trainer import Trainer
 
-    trainer = Trainer(config)
-    trainer.train_loader.pin_memory = False
+    trainer = Trainer(config, get_loader=_synthetic_get_loader(task))
 
     if is_train:
         trainer.model.train()
     else:
         trainer.model.eval()
 
-    batch_size = config.batch_size
-    config.batch_size = 1
-    loader, _ = get_loader(config)
-    for single_batch in loader:
+    for single_batch in trainer.train_loader:
         single_batch = tuple(
             item.to(config.device, non_blocking=True)
             for item in single_batch
         )
         break
-    config.batch_size = batch_size
 
     device = config.device
 
