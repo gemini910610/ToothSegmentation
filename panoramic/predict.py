@@ -22,6 +22,7 @@ from panoramic.vendor.utils.general import (
     set_logging,
     xyxy2xywh,
 )
+from post_processing.panoramic import merge_box
 from utils.image import imread
 
 
@@ -195,13 +196,13 @@ class PanoramicModels:
         self.single_root_model = load_keypoint_model(5, transpose_5p_weights, device)
         self.double_root_model = load_keypoint_model(6, transpose_6p_weights, device)
 
-def predict_panoramic(image_path, models, output_path):
+def predict_panoramic_data(image_path, models, merge=True):
     image = imread(image_path)
     image = cv2.cvtColor(image, cv2.COLOR_GRAY2BGR)
 
     boxes = detect_teeth(image_path, models.yolo_model, models.yolo_stride, models.yolo_img_size, models.device)
 
-    lines = []
+    tooth_data = []
     for fdi, x_center, y_center, width, height in boxes:
         box, crown1, bone1, root1, crown2, bone2, root2 = predict_tooth_keypoints(
             image, (x_center, y_center, width, height), models.single_root_model, models.double_root_model, models.device, fdi
@@ -209,11 +210,36 @@ def predict_panoramic(image_path, models, output_path):
         loss = bone_loss(crown1, crown2, bone1, bone2, root1, root2)
 
         x_center, y_center, width, height = box
-        lines.append(
-            f'{fdi},{x_center},{y_center},{width},{height},'
-            f'{crown1[0]},{crown1[1]},{bone1[0]},{bone1[1]},{root1[0]},{root1[1]},'
-            f'{crown2[0]},{crown2[1]},{bone2[0]},{bone2[1]},{root2[0]},{root2[1]},{loss}'
-        )
+        tooth_data.append({
+            'FDI': [str(fdi)],
+            'center': (x_center, y_center),
+            'box_size': (int(width), int(height)),
+            'left_crone': crown1,
+            'left_bone': bone1,
+            'left_root': root1,
+            'right_crone': crown2,
+            'right_bone': bone2,
+            'right_root': root2,
+            'bone_loss': loss
+        })
+
+    if merge:
+        tooth_data = merge_box(tooth_data)
+
+    return tooth_data
+
+def predict_panoramic(image_path, models, output_path):
+    tooth_data = predict_panoramic_data(image_path, models, merge=False)
+
+    lines = [
+        ','.join(str(value) for value in (
+            tooth['FDI'][0], *tooth['center'], *tooth['box_size'],
+            *tooth['left_crone'], *tooth['left_bone'], *tooth['left_root'],
+            *tooth['right_crone'], *tooth['right_bone'], *tooth['right_root'],
+            tooth['bone_loss']
+        ))
+        for tooth in tooth_data
+    ]
 
     output_path = Path(output_path)
     output_path.write_text('\n'.join(lines), encoding='utf-8')

@@ -13,18 +13,18 @@ from PySide6.QtWidgets import (
 
 from constants.label import Label
 from constants.mode import Mode
+from panoramic.predict import predict_panoramic_data
 from post_processing.panoramic import (
     draw_label,
     draw_panoramic,
     find_panoramic_image,
     get_panoramic,
-    load_panoramic,
 )
 from post_processing.relabel_fdi import relabel_fdi
+from utils.image import imread
 from visualize.ui.grids import LabelGrid
 from visualize.ui.images import DestinationImage, SourceImage, bgr_to_pixmap
 from visualize.ui.layouts import HorizontalLayout
-from visualize.viewer.pages.panoramic_page import PREDICTION_FILENAME
 
 
 class FDIControls(HorizontalLayout):
@@ -50,8 +50,9 @@ class FDIBottom(HorizontalLayout):
 class FDIPage(QWidget):
     next_requested = Signal(str)
 
-    def __init__(self, working_dir=Path('working')):
+    def __init__(self, panoramic_models, working_dir=Path('working')):
         super().__init__()
+        self.panoramic_models = panoramic_models
         self.working_dir = working_dir
 
         self.controls = FDIControls()
@@ -73,6 +74,7 @@ class FDIPage(QWidget):
         self.patient = None
         self.volume = None
         self.label_editors = None
+        self.missing_panoramic = False
 
     @property
     def is_ready(self):
@@ -88,6 +90,7 @@ class FDIPage(QWidget):
         self.patient = patient
         self.volume = None
         self.label_editors = None
+        self.missing_panoramic = False
 
         if not patient:
             return
@@ -96,12 +99,12 @@ class FDIPage(QWidget):
         image_path = patient_dir / f'{Mode.IMAGE}.npy'
         relabeled_path = patient_dir / f'{Mode.RELABELED}.npy'
         bone_path = patient_dir / f'{Mode.BONE_FILLED}.npy'
-        prediction_path = patient_dir / PREDICTION_FILENAME
-        if not (image_path.is_file() and relabeled_path.is_file() and bone_path.is_file() and prediction_path.is_file()):
+        if not (image_path.is_file() and relabeled_path.is_file() and bone_path.is_file()):
             return
 
         panoramic_image_path = find_panoramic_image(self.working_dir, patient)
         if panoramic_image_path is None:
+            self.missing_panoramic = True
             return
 
         image_volume = numpy.load(image_path)
@@ -117,7 +120,8 @@ class FDIPage(QWidget):
         segmentation_panoramic_mask = cv2.resize(segmentation_panoramic_mask, (0, 0), fx=rate, fy=rate, interpolation=cv2.INTER_NEAREST)
         segmentation_panoramic = draw_label(image_panoramic, segmentation_panoramic_mask)
 
-        keypoint_panoramic, tooth_data = load_panoramic(panoramic_image_path, prediction_path)
+        keypoint_panoramic = imread(panoramic_image_path)
+        tooth_data = predict_panoramic_data(panoramic_image_path, self.panoramic_models)
         keypoint_panoramic = draw_panoramic(keypoint_panoramic, tooth_data)
 
         target_height, target_width, _ = keypoint_panoramic.shape

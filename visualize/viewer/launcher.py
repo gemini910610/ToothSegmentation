@@ -11,7 +11,6 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from constants.mode import Mode
 from dicom.importer import DuplicatePatientError, import_dicom, import_panoramic
 from dicom.loader import read_patient_id
 from visualize.ui.layouts import HorizontalLayout
@@ -21,7 +20,6 @@ from visualize.viewer.pages.bone_page import BonePage
 from visualize.viewer.pages.exclude_page import ExcludePage
 from visualize.viewer.pages.fdi_page import FDIPage
 from visualize.viewer.pages.merge_page import MergePage
-from visualize.viewer.pages.panoramic_page import PanoramicPage
 from visualize.viewer.pages.predict_page import PredictPage
 from visualize.viewer.pages.split_page import SplitPage
 from visualize.viewer.pages.tooth_page import ToothPage
@@ -68,9 +66,8 @@ class MainWindow(QMainWindow):
         self.split_page = SplitPage(working_dir)
         self.merge_page = MergePage(working_dir)
         self.exclude_page = ExcludePage(working_dir)
-        self.panoramic_page = PanoramicPage(panoramic_models, working_dir)
-        self.fdi_page = FDIPage(working_dir)
-        self.bone_loss_page = BoneLossPage(cej_finder, working_dir)
+        self.fdi_page = FDIPage(panoramic_models, working_dir)
+        self.bone_loss_page = BoneLossPage(cej_finder, panoramic_models, working_dir)
         self.bone_page = BonePage(working_dir)
 
         self.pages = [
@@ -80,7 +77,6 @@ class MainWindow(QMainWindow):
             self.split_page,
             self.merge_page,
             self.exclude_page,
-            self.panoramic_page,
             self.fdi_page,
             self.bone_loss_page,
         ]
@@ -92,7 +88,6 @@ class MainWindow(QMainWindow):
         self.tabs.addTab(self.split_page, 'Split')
         self.tabs.addTab(self.merge_page, 'Merge')
         self.tabs.addTab(self.exclude_page, 'Exclude')
-        self.tabs.addTab(self.panoramic_page, 'Panoramic')
         self.tabs.addTab(self.fdi_page, 'FDI')
         self.tabs.addTab(self.bone_loss_page, 'Bone Loss')
 
@@ -113,8 +108,7 @@ class MainWindow(QMainWindow):
             self.tooth_page: self.split_page,
             self.split_page: self.merge_page,
             self.merge_page: self.exclude_page,
-            self.exclude_page: self.panoramic_page,
-            self.panoramic_page: self.fdi_page,
+            self.exclude_page: self.fdi_page,
             self.fdi_page: self.bone_loss_page,
         }
         for current_page, next_page in self.pipeline_next.items():
@@ -126,7 +120,7 @@ class MainWindow(QMainWindow):
             self.split_page: [self.tooth_page],
             self.merge_page: [self.split_page],
             self.exclude_page: [self.merge_page],
-            self.panoramic_page: [self.exclude_page],
+            self.fdi_page: [self.exclude_page],
             self.bone_loss_page: [self.fdi_page],
         }
 
@@ -150,10 +144,6 @@ class MainWindow(QMainWindow):
         patient_id = read_patient_id(dicom_dir)
         title = 'Select Panoramic Images' if patient_id is None else f'Select Panoramic Images ({patient_id})'
         image_paths, _ = QFileDialog.getOpenFileNames(self, title, filter='Images (*.png *.jpg *.jpeg *.bmp *.tif *.tiff)')
-        if not image_paths:
-            QMessageBox.warning(self, 'Import Failed', 'Please select at least one panoramic image')
-            return
-
         image_paths = [Path(path) for path in image_paths]
 
         try:
@@ -167,7 +157,8 @@ class MainWindow(QMainWindow):
             return
 
         patient_dir = self.working_dir / name
-        import_panoramic(image_paths, patient_dir)
+        if image_paths:
+            import_panoramic(image_paths, patient_dir)
 
         current_index = self.patient_selector.currentIndex()
         self.patient_selector.blockSignals(True)
@@ -175,11 +166,32 @@ class MainWindow(QMainWindow):
         self.patient_selector.setCurrentIndex(current_index)
         self.patient_selector.blockSignals(False)
 
-        message = (
-            f'DICOM converted to PNG: {patient_dir / "image"}\n'
-            f'Copied {len(image_paths)} panoramic image(s): {patient_dir / "panoramic"}'
-        )
+        message = f'DICOM converted to PNG: {patient_dir / "image"}'
+        if image_paths:
+            message += f'\nCopied {len(image_paths)} panoramic image(s): {patient_dir / "panoramic"}'
         QMessageBox.information(self, 'Import Complete', message)
+
+    def _prompt_import_panoramic(self):
+        message_box = QMessageBox(self)
+        message_box.setWindowTitle('FDI')
+        message_box.setText('No panoramic photo found for this patient. Import one before continuing to FDI.')
+        select_button = message_box.addButton('Select Panoramic Photo', QMessageBox.ButtonRole.ActionRole)
+        message_box.addButton(QMessageBox.StandardButton.Ok)
+        message_box.exec()
+
+        if message_box.clickedButton() is not select_button:
+            return False
+
+        title = f'Select Panoramic Images ({self.current_patient})'
+        image_paths, _ = QFileDialog.getOpenFileNames(self, title, filter='Images (*.png *.jpg *.jpeg *.bmp *.tif *.tiff)')
+        if not image_paths:
+            return False
+
+        image_paths = [Path(path) for path in image_paths]
+        patient_dir = self.working_dir / self.current_patient
+        import_panoramic(image_paths, patient_dir)
+
+        return True
 
     def _on_patient_changed(self, index):
         self.current_patient = self.patient_selector.currentText()
@@ -195,29 +207,22 @@ class MainWindow(QMainWindow):
         if page.is_ready:
             return
 
-        if page is self.fdi_page:
-            target = self._fdi_fallback_target()
-        else:
-            fallback_pages = self.pipeline_fallback.get(page)
-            if not fallback_pages:
+        if page is self.fdi_page and self.fdi_page.missing_panoramic:
+            if self._prompt_import_panoramic() and self._sync_page(page):
                 return
 
-            target = fallback_pages[-1]
-            for fallback_page in fallback_pages:
-                if not self._sync_page(fallback_page):
-                    target = fallback_page
-                    break
+        fallback_pages = self.pipeline_fallback.get(page)
+        if not fallback_pages:
+            return
+
+        target = fallback_pages[-1]
+        for fallback_page in fallback_pages:
+            if not self._sync_page(fallback_page):
+                target = fallback_page
+                break
 
         self._sync_page(target)
         self.tabs.setCurrentWidget(target)
-
-    def _fdi_fallback_target(self):
-        patient_dir = self.working_dir / self.current_patient
-        has_segmentation = (patient_dir / f'{Mode.RELABELED}.npy').is_file() and (patient_dir / f'{Mode.BONE_FILLED}.npy').is_file()
-        if not has_segmentation:
-            return self.exclude_page
-
-        return self.panoramic_page
 
     def _sync_page(self, page):
         if page.patient != self.current_patient or not page.is_ready:

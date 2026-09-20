@@ -10,6 +10,7 @@ from scipy import ndimage
 from constants.color import GLASBEY_PALETTE, Color
 from constants.label import Label
 from constants.mode import Mode
+from panoramic.predict import predict_panoramic_data
 from post_processing.bone_loss import (
     get_bone_surface,
     get_tooth_surface,
@@ -19,11 +20,7 @@ from post_processing.bone_loss import (
     split_volume,
     volume_bone_loss,
 )
-from post_processing.panoramic import (
-    crop_panoramic,
-    find_panoramic_image,
-    load_panoramic,
-)
+from post_processing.panoramic import crop_panoramic, find_panoramic_image
 from post_processing.tooth_slice import (
     align_crop_tooth,
     extract_single_tooth,
@@ -31,6 +28,7 @@ from post_processing.tooth_slice import (
     get_slices,
     normalize_slice,
 )
+from utils.image import imread
 from visualize.ui.buttons import RadioGroup
 from visualize.ui.grids import ImageCell, PointImageGrid
 from visualize.ui.images import AutoFitImage, bgr_to_pixmap
@@ -38,7 +36,6 @@ from visualize.ui.layouts import HorizontalLayout
 from visualize.ui.selectors import IconLabelSelector
 from visualize.ui.sliders import PercentSlider
 from visualize.ui.views import SyncView, VolumeViewer
-from visualize.viewer.pages.panoramic_page import PREDICTION_FILENAME
 
 
 class BoneLossControls(HorizontalLayout):
@@ -126,9 +123,10 @@ class BoneLossSummary(QWidget):
             self.keypoint_bone_loss_label.setText(f'2D Bone Loss: {joined}%')
 
 class BoneLossPage(QWidget):
-    def __init__(self, cej_finder, working_dir=Path('working')):
+    def __init__(self, cej_finder, panoramic_models, working_dir=Path('working')):
         super().__init__()
         self.cej_finder = cej_finder
+        self.panoramic_models = panoramic_models
         self.working_dir = working_dir
 
         self.controls = BoneLossControls()
@@ -207,9 +205,9 @@ class BoneLossPage(QWidget):
         image_volume = numpy.load(image_path)
 
         panoramic_image_path = find_panoramic_image(self.working_dir, patient)
-        prediction_path = patient_dir / PREDICTION_FILENAME
-        if panoramic_image_path is not None and prediction_path.is_file():
-            panoramic_image, tooth_data = load_panoramic(panoramic_image_path, prediction_path)
+        if panoramic_image_path is not None:
+            panoramic_image = imread(panoramic_image_path)
+            tooth_data = predict_panoramic_data(panoramic_image_path, self.panoramic_models)
             self.panoramic_image = cv2.cvtColor(panoramic_image, cv2.COLOR_GRAY2RGB)
             for tooth in tooth_data:
                 for fdi in tooth['FDI']:

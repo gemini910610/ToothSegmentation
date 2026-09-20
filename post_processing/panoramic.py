@@ -203,7 +203,7 @@ def _IoU(data_a, data_b):
     union = a_area + b_area - intersection
     return intersection / union
 
-def _merge_box(tooth_data, threshold=0.9):
+def merge_box(tooth_data, threshold=0.9):
     box_count = len(tooth_data)
     overlaps = {
         index: []
@@ -286,7 +286,7 @@ def load_panoramic(image_path, prediction_path, merge=True):
             'bone_loss': int(bone_loss)
         })
     if merge:
-        tooth_data = _merge_box(tooth_data)
+        tooth_data = merge_box(tooth_data)
 
     return image, tooth_data
 
