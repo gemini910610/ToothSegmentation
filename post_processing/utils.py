@@ -1,6 +1,7 @@
 from pathlib import Path
 
 import numpy
+from scipy import ndimage
 
 from utils.console import track
 
@@ -29,3 +30,15 @@ def iterate_datasets(experiment_name, datasets):
         dataset_dir = Path('outputs') / experiment_name / dataset
         for patient in track(dataset_dir.iterdir(), desc=dataset):
             yield dataset, patient.name
+
+def get_tooth_surface(tooth_area):
+    erosion = ndimage.binary_erosion(tooth_area)
+    tooth_surface = tooth_area & ~erosion
+
+    return tooth_surface
+
+def get_bone_surface(tooth_area, bone_area):
+    bone_dilation = ndimage.binary_dilation(bone_area)
+    bone_surface = tooth_area & bone_dilation
+
+    return bone_surface

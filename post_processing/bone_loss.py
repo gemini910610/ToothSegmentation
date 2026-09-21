@@ -1,6 +1,7 @@
 import numpy
-from scipy import ndimage
 from scipy.interpolate import RBFInterpolator
+
+from post_processing.utils import get_bone_surface, get_tooth_surface
 
 
 def split_volume(points, filtered_tooth_area, transform_meta, use_surface=False, aligned=False):
@@ -66,18 +67,6 @@ def _get_bone_loss(cej, bone):
     bone_loss = round(bone_loss * 100)
 
     return bone_loss
-
-def get_tooth_surface(tooth_area):
-    erosion = ndimage.binary_erosion(tooth_area)
-    tooth_surface = tooth_area & ~erosion
-
-    return tooth_surface
-
-def get_bone_surface(tooth_area, bone_area):
-    bone_dilation = ndimage.binary_dilation(bone_area)
-    bone_surface = tooth_area & bone_dilation
-
-    return bone_surface
 
 def slice_contour_bone_loss(tooth_surface, bone_surface, point, is_upper):
     _, left_y, _, right_y = point

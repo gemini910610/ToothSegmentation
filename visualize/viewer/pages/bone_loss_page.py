@@ -12,8 +12,6 @@ from constants.label import Label
 from constants.mode import Mode
 from panoramic.predict import predict_panoramic_data
 from post_processing.bone_loss import (
-    get_bone_surface,
-    get_tooth_surface,
     restore_coordinates,
     slice_area_bone_loss,
     slice_contour_bone_loss,
@@ -28,6 +26,7 @@ from post_processing.tooth_slice import (
     get_slices,
     normalize_slice,
 )
+from post_processing.utils import get_bone_surface, get_tooth_surface
 from utils.image import imread
 from visualize.ui.buttons import RadioGroup
 from visualize.ui.grids import ImageCell, PointImageGrid
@@ -330,7 +329,7 @@ class BoneLossPage(QWidget):
         filtered_segmentation[*root_volume.T] = 3
         render_settings = SyncView.get_settings()
         render_settings[Label.BONE]['opacity'] = self.bone_opacity_slider.value()
-        render_settings[3] = SyncView.color_setting(name='surface', color=(255, 0, 0), opacity=1)
+        render_settings[3] = SyncView.color_setting(name='surface', color=(220, 70, 70), opacity=1)
         self.volume_viewer.views[1].update_volume(filtered_segmentation, reset=False, render_settings=render_settings)
 
         self._on_slice_changed(self.slice_selector.checked_title())

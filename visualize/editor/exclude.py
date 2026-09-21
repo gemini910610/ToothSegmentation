@@ -5,6 +5,7 @@ from PySide6.QtWidgets import QPushButton
 
 from constants.label import Label
 from constants.mode import Mode
+from post_processing.auto_detect import detect_fake_labels, detect_unerupted_labels
 from visualize.ui.buttons import RadioGroup
 from visualize.ui.layouts import HorizontalLayout
 from visualize.ui.selectors import IconLabelSelector, PatientSelector
@@ -57,6 +58,13 @@ class ExcludeDataHandler(DataHandler):
         if not self.data[patient]:
             del self.data[patient]
 
+EXCLUDE_COLORS = {
+    'Unerupted Tooth': (220, 70, 70),
+    'Residual Root': (70, 220, 70),
+    'Fake Tooth': (70, 70, 220),
+    'Noise': (0, 0, 0),
+}
+
 class TopLayout(HorizontalLayout):
     def _init_widgets(self):
         return [
@@ -98,14 +106,35 @@ class MainWindow(BaseWindow):
         volumes = self.data_manager.load_data(index)
         tooth_volume = volumes[Mode.UNTRUNCATED]
         bone_volume = volumes[Mode.BONE_CONNECTED_COMPONENT]
+        bone_mask = bone_volume > 0
         self.volume = tooth_volume
 
         volume = numpy.where(tooth_volume >= Label.TRUNCATED, 0, tooth_volume)
-        volume = volume + (bone_volume > 0)
+        volume = volume + bone_mask
         self.volume_viewer.views[0].update_volume(volume, include_labels=True)
 
         labels = numpy.unique(self.volume)
         labels = labels[(labels > 0) & (labels < Label.TRUNCATED)]
+
+        patient = self.patient_selector.currentText()
+        with JsonHandler(Path('edit') / self.data_manager.experiment_name / 'exclude.json', ExcludeDataHandler) as handler:
+            unmarked_labels = [int(label) for label in labels if handler.find(patient, int(label)) is None]
+            for label in detect_unerupted_labels(tooth_volume, bone_mask, unmarked_labels):
+                handler.set_data(patient, 'Unerupted Tooth', label)
+
+            for label in detect_fake_labels(tooth_volume, bone_mask, unmarked_labels):
+                handler.set_data(patient, 'Fake Tooth', label)
+
+            for label in labels:
+                color = EXCLUDE_COLORS.get(handler.find(patient, int(label)))
+                if color is None:
+                    continue
+
+                actor = self.volume_viewer.views[0].actors.get(f'label {int(label)}')
+                if actor is not None:
+                    actor.prop.color = tuple(c / 255 for c in color)
+
+        self.volume_viewer.views[0].render()
 
         self.label_selector.update_items(labels)
 

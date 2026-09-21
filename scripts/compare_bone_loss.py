@@ -9,8 +9,6 @@ from constants.mode import Mode
 from keypoints.models import load_model
 from keypoints.predict import CEJFinder
 from post_processing.bone_loss import (
-    get_bone_surface,
-    get_tooth_surface,
     restore_coordinates,
     slice_area_bone_loss,
     slice_contour_bone_loss,
@@ -23,7 +21,7 @@ from post_processing.tooth_slice import (
     get_slices,
     normalize_slice,
 )
-from post_processing.utils import iterate_datasets
+from post_processing.utils import get_bone_surface, get_tooth_surface, iterate_datasets
 from tui.apps import DualExperimentFoldApp, parse_args
 from utils.config import load_config
 from utils.console import track

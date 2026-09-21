@@ -6,6 +6,7 @@ from PySide6.QtWidgets import QLabel, QPushButton, QVBoxLayout, QWidget
 
 from constants.label import Label
 from constants.mode import Mode
+from post_processing.auto_detect import detect_fake_labels, detect_unerupted_labels
 from post_processing.exclude_tooth import exclude_tooth
 from post_processing.fill_holes import fill_holes
 from post_processing.relabel import relabel_volume
@@ -15,6 +16,13 @@ from visualize.ui.selectors import IconLabelSelector
 from visualize.ui.views import VolumeViewer
 
 EXCLUDE_TYPES = ['Normal Tooth', 'Unerupted Tooth', 'Residual Root', 'Fake Tooth', 'Noise']
+
+EXCLUDE_COLORS = {
+    'Unerupted Tooth': (220, 70, 70),
+    'Residual Root': (70, 220, 70),
+    'Fake Tooth': (70, 70, 220),
+    'Noise': (0, 0, 0),
+}
 
 
 class ExcludeControls(HorizontalLayout):
@@ -84,13 +92,34 @@ class ExcludePage(QWidget):
 
         self.volume = numpy.load(untruncated_path)
         self.bone_volume = numpy.load(bone_path)
+        bone_mask = self.bone_volume > 0
 
         display = numpy.where(self.volume >= Label.TRUNCATED, 0, self.volume)
-        display = display + (self.bone_volume > 0)
+        display = display + bone_mask
         self.viewer.views[0].update_volume(display, include_labels=True)
 
         labels = numpy.unique(self.volume)
         labels = labels[(labels > 0) & (labels < Label.TRUNCATED)]
+
+        unmarked_labels = [int(label) for label in labels if self._find_exclude_type(int(label)) is None]
+        for label in detect_unerupted_labels(self.volume, bone_mask, unmarked_labels):
+            self.exclude_labels.setdefault('Unerupted Tooth', []).append(label)
+
+        for label in detect_fake_labels(self.volume, bone_mask, unmarked_labels):
+            self.exclude_labels.setdefault('Fake Tooth', []).append(label)
+
+        for label in labels:
+            color = EXCLUDE_COLORS.get(self._find_exclude_type(int(label)))
+            if color is None:
+                continue
+
+            actor = self.viewer.views[0].actors.get(f'label {int(label)}')
+            if actor is not None:
+                actor.prop.color = tuple(c / 255 for c in color)
+
+        self.viewer.views[0].render()
+
+        self._update_saved_label()
 
         self.label_selector.update_items(labels)
         self.label_selector.setCurrentIndex(0)
