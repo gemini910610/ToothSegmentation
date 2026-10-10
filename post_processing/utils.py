@@ -42,3 +42,10 @@ def get_bone_surface(tooth_area, bone_area):
     bone_surface = tooth_area & bone_dilation
 
     return bone_surface
+
+def next_available_label(used, start):
+    label = start
+    while label in used:
+        label += 1
+
+    return label

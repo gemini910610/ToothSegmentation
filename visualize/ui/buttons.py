@@ -27,5 +27,11 @@ class RadioGroup(QWidget):
                 button.setChecked(True)
                 return
 
+        checked_button = self.group.checkedButton()
+        if checked_button is not None:
+            self.group.setExclusive(False)
+            checked_button.setChecked(False)
+            self.group.setExclusive(True)
+
     def on_change(self, callback):
         self.group.buttonClicked.connect(lambda button: callback(button.text()))

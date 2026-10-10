@@ -20,15 +20,7 @@ class SyncView(QtInteractor):
         super().__init__()
         self.setFixedSize(*size)
 
-        self.is_picking = False
-        def callback(actor):
-            if not self.is_picking:
-                return
-
-            self.is_picking = False
-            self.picked.emit(actor)
-
-        self.enable_mesh_picking(callback, show=False, show_message=False, use_actor=True)
+        self.iren.picker = 'cell'
 
     @staticmethod
     def color_setting(*, color, **kwargs):
@@ -65,6 +57,10 @@ class SyncView(QtInteractor):
             if slices is None:
                 continue
 
+            setting = render_settings[label]
+            if setting.get('opacity') == 0:
+                continue
+
             slices = tuple(
                 slice(max(0, s.start - 1), min(shape, s.stop + 1))
                 for s, shape in zip(slices, volume.shape)
@@ -75,7 +71,6 @@ class SyncView(QtInteractor):
             data.point_data['values'] = roi.flatten(order='F')
             mesh = data.contour([0.5])
 
-            setting = render_settings[label]
             actor = self.add_mesh(mesh, smooth_shading=True, **setting)
             actor._label = label
 
@@ -98,17 +93,16 @@ class SyncView(QtInteractor):
 
         super().mousePressEvent(event)
 
-    def keyPressEvent(self, event):
-        if event.key() == Qt.Key.Key_P:
-            self.is_picking = True
+    def mouseDoubleClickEvent(self, event):
+        super().mouseDoubleClickEvent(event)
 
-        super().keyPressEvent(event)
-
-    def keyReleaseEvent(self, event):
-        if event.key() == Qt.Key.Key_P:
-            self.is_picking = False
-
-        super().keyReleaseEvent(event)
+        if event.button() == Qt.MouseButton.LeftButton:
+            x, y = self.iren.get_event_position()
+            renderer = self.iren.get_poked_renderer(x, y)
+            self.iren.picker.Pick(x, y, 0, renderer)
+            actor = self.iren.picker.GetActor()
+            if actor is not None:
+                self.picked.emit(actor)
 
     def contextMenuEvent(self, event):
         self.view_xz()

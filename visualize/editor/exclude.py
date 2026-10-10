@@ -5,7 +5,7 @@ from PySide6.QtWidgets import QPushButton
 
 from constants.label import Label
 from constants.mode import Mode
-from post_processing.auto_detect import detect_fake_labels, detect_unerupted_labels
+from post_processing.auto_detect import detect_exclude_labels
 from visualize.ui.buttons import RadioGroup
 from visualize.ui.layouts import HorizontalLayout
 from visualize.ui.selectors import IconLabelSelector, PatientSelector
@@ -119,11 +119,10 @@ class MainWindow(BaseWindow):
         patient = self.patient_selector.currentText()
         with JsonHandler(Path('edit') / self.data_manager.experiment_name / 'exclude.json', ExcludeDataHandler) as handler:
             unmarked_labels = [int(label) for label in labels if handler.find(patient, int(label)) is None]
-            for label in detect_unerupted_labels(tooth_volume, bone_mask, unmarked_labels):
-                handler.set_data(patient, 'Unerupted Tooth', label)
-
-            for label in detect_fake_labels(tooth_volume, bone_mask, unmarked_labels):
-                handler.set_data(patient, 'Fake Tooth', label)
+            exclude_labels = detect_exclude_labels(tooth_volume, bone_mask, unmarked_labels)
+            for exclude_type, detected_labels in exclude_labels.items():
+                for label in detected_labels:
+                    handler.set_data(patient, exclude_type, label)
 
             for label in labels:
                 color = EXCLUDE_COLORS.get(handler.find(patient, int(label)))

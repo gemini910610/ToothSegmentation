@@ -2,17 +2,10 @@ from pathlib import Path
 
 import cv2
 import numpy
-from PySide6.QtCore import QSize, Signal
-from PySide6.QtWidgets import (
-    QApplication,
-    QMessageBox,
-    QPushButton,
-    QVBoxLayout,
-    QWidget,
-)
+from PySide6.QtCore import QSize
+from PySide6.QtWidgets import QApplication, QMessageBox, QPushButton, QVBoxLayout
 
 from constants.label import Label
-from constants.mode import Mode
 from panoramic.predict import predict_panoramic_data
 from post_processing.panoramic import (
     draw_label,
@@ -25,13 +18,15 @@ from utils.image import imread
 from visualize.ui.grids import LabelGrid
 from visualize.ui.images import DestinationImage, SourceImage, bgr_to_pixmap
 from visualize.ui.layouts import HorizontalLayout
+from visualize.viewer.pages.page import Page
+from visualize.viewer.pipeline import BONE_FILENAME, IMAGE_FILENAME, TOOTH_FILENAME
 
 
 class FDIControls(HorizontalLayout):
     def _init_widgets(self):
         return [
             None,
-            QPushButton('Save and Next'),
+            QPushButton('Save'),
         ]
 
 class FDICentral(HorizontalLayout):
@@ -47,13 +42,10 @@ class FDIBottom(HorizontalLayout):
             LabelGrid(),
         ]
 
-class FDIPage(QWidget):
-    next_requested = Signal(str)
-
+class FDIPage(Page):
     def __init__(self, panoramic_models, working_dir=Path('working')):
-        super().__init__()
+        super().__init__(working_dir)
         self.panoramic_models = panoramic_models
-        self.working_dir = working_dir
 
         self.controls = FDIControls()
         self.central = FDICentral()
@@ -64,21 +56,15 @@ class FDIPage(QWidget):
         layout.addLayout(self.central)
         layout.addLayout(self.bottom)
 
-        self.next_button, = self.controls.widgets
+        self.save_button, = self.controls.widgets
         self.source_image, self.destination_image = self.central.widgets
         self.label_grid, = self.bottom.widgets
 
-        self.next_button.clicked.connect(self._on_next)
+        self.save_button.clicked.connect(self._on_save)
         self.destination_image.fdi_updated.connect(self._on_fdi_update)
 
-        self.patient = None
         self.volume = None
         self.label_editors = None
-        self.missing_panoramic = False
-
-    @property
-    def is_ready(self):
-        return self.volume is not None
 
     def sizeHint(self):
         size = super().sizeHint()
@@ -90,25 +76,24 @@ class FDIPage(QWidget):
         self.patient = patient
         self.volume = None
         self.label_editors = None
-        self.missing_panoramic = False
+        self.dirty = False
 
         if not patient:
             return
 
         patient_dir = self.working_dir / patient
-        image_path = patient_dir / f'{Mode.IMAGE}.npy'
-        relabeled_path = patient_dir / f'{Mode.RELABELED}.npy'
-        bone_path = patient_dir / f'{Mode.BONE_FILLED}.npy'
-        if not (image_path.is_file() and relabeled_path.is_file() and bone_path.is_file()):
+        image_path = patient_dir / IMAGE_FILENAME
+        tooth_path = patient_dir / TOOTH_FILENAME
+        bone_path = patient_dir / BONE_FILENAME
+        if not (image_path.is_file() and tooth_path.is_file() and bone_path.is_file()):
             return
 
         panoramic_image_path = find_panoramic_image(self.working_dir, patient)
         if panoramic_image_path is None:
-            self.missing_panoramic = True
             return
 
         image_volume = numpy.load(image_path)
-        self.volume = numpy.load(relabeled_path)
+        self.volume = numpy.load(tooth_path)
         bone_volume = numpy.load(bone_path)
 
         segmentation_volume = numpy.where(self.volume >= Label.TRUNCATED, 0, self.volume)
@@ -157,8 +142,8 @@ class FDIPage(QWidget):
 
         self.label_editors[label].setText(fdi)
 
-    def _on_next(self):
-        if self.volume is None or self.label_editors is None:
+    def _on_save(self):
+        if self.volume is None:
             return
 
         data = {}
@@ -197,7 +182,7 @@ class FDIPage(QWidget):
         fdi_mapping = {str(label): fdi for label, fdi in data.items()}
         volume = relabel_fdi(self.volume, fdi_mapping)
 
-        patient_dir = self.working_dir / self.patient
-        numpy.save(patient_dir / f'{Mode.FDI}.npy', volume)
+        numpy.save(self.working_dir / self.patient / TOOTH_FILENAME, volume)
 
-        self.next_requested.emit(self.patient)
+        self.set_patient(self.patient)
+        self.dirty = True

@@ -9,7 +9,6 @@ from scipy import ndimage
 
 from constants.color import GLASBEY_PALETTE, Color
 from constants.label import Label
-from constants.mode import Mode
 from panoramic.predict import predict_panoramic_data
 from post_processing.bone_loss import (
     restore_coordinates,
@@ -35,12 +34,15 @@ from visualize.ui.layouts import HorizontalLayout
 from visualize.ui.selectors import IconLabelSelector
 from visualize.ui.sliders import PercentSlider
 from visualize.ui.views import SyncView, VolumeViewer
+from visualize.viewer.pages.page import Page, is_noise_label
+from visualize.viewer.pipeline import BONE_FILENAME, IMAGE_FILENAME, TOOTH_FILENAME
 
 
 class BoneLossControls(HorizontalLayout):
     def _init_widgets(self):
         return [
             IconLabelSelector(),
+            QCheckBox('Display All Teeth'),
             None,
             PercentSlider(),
             None,
@@ -121,12 +123,11 @@ class BoneLossSummary(QWidget):
             joined = '/'.join(str(loss) for loss in keypoint_bone_losses)
             self.keypoint_bone_loss_label.setText(f'2D Bone Loss: {joined}%')
 
-class BoneLossPage(QWidget):
+class BoneLossPage(Page):
     def __init__(self, cej_finder, panoramic_models, working_dir=Path('working')):
-        super().__init__()
+        super().__init__(working_dir)
         self.cej_finder = cej_finder
         self.panoramic_models = panoramic_models
-        self.working_dir = working_dir
 
         self.controls = BoneLossControls()
         self.content = BoneLossContent()
@@ -135,17 +136,19 @@ class BoneLossPage(QWidget):
         layout.addLayout(self.controls)
         layout.addLayout(self.content)
 
-        self.label_selector, self.bone_opacity_slider, self.point_toggle, self.mask_toggle, self.slice_selector = self.controls.widgets
+        self.label_selector, self.all_teeth_toggle, self.bone_opacity_slider, self.point_toggle, self.mask_toggle, self.slice_selector = self.controls.widgets
         self.volume_viewer, self.image_grid, self.summary = self.content.widgets
 
         self.point_toggle.setChecked(True)
         self.mask_toggle.setChecked(True)
+        self.all_teeth_toggle.setChecked(True)
         self.slice_selector.select_first()
 
         self.label_selector.currentIndexChanged.connect(self._on_label_changed)
         self.bone_opacity_slider.on_release(self._on_bone_opacity_changed)
         self.point_toggle.stateChanged.connect(lambda: self._on_slice_changed(self.slice_selector.checked_title()))
         self.mask_toggle.stateChanged.connect(lambda: self._on_slice_changed(self.slice_selector.checked_title()))
+        self.all_teeth_toggle.stateChanged.connect(self._on_all_teeth_changed)
         self.slice_selector.on_change(self._on_slice_changed)
         self.volume_viewer.views[0].picked.connect(self._on_picked)
 
@@ -154,7 +157,6 @@ class BoneLossPage(QWidget):
         shortcut_right = QShortcut(Qt.Key.Key_Right, self)
         shortcut_right.activated.connect(lambda: self._on_label_step(1))
 
-        self.patient = None
         self.volume = None
         self.segmentation_volume = None
         self.bone_mask = None
@@ -167,6 +169,7 @@ class BoneLossPage(QWidget):
         self.area_masks = None
         self.panoramic_image = None
         self.tooth_data_by_fdi = {}
+        self.excluded_labels = []
 
     @property
     def is_ready(self):
@@ -193,13 +196,13 @@ class BoneLossPage(QWidget):
             return
 
         patient_dir = self.working_dir / patient
-        fdi_path = patient_dir / f'{Mode.FDI}.npy'
-        bone_path = patient_dir / f'{Mode.BONE_FILLED}.npy'
-        image_path = patient_dir / f'{Mode.IMAGE}.npy'
-        if not (fdi_path.is_file() and bone_path.is_file() and image_path.is_file()):
+        tooth_path = patient_dir / TOOTH_FILENAME
+        bone_path = patient_dir / BONE_FILENAME
+        image_path = patient_dir / IMAGE_FILENAME
+        if not (tooth_path.is_file() and bone_path.is_file() and image_path.is_file()):
             return
 
-        fdi_volume = numpy.load(fdi_path)
+        tooth_volume = numpy.load(tooth_path)
         bone_volume = numpy.load(bone_path)
         image_volume = numpy.load(image_path)
 
@@ -212,26 +215,30 @@ class BoneLossPage(QWidget):
                 for fdi in tooth['FDI']:
                     self.tooth_data_by_fdi.setdefault(int(fdi), []).append(tooth)
 
-        self.volume = fdi_volume
+        self.volume = tooth_volume
         self.bone_mask = bone_volume > 0
-        self.segmentation_volume = fdi_volume + self.bone_mask
+        self.segmentation_volume = tooth_volume + self.bone_mask
         self.bone_coordinates = numpy.argwhere(self.bone_mask)
         self.image_coefficients = ndimage.spline_filter(image_volume, order=3)
 
         labels = numpy.unique(self.segmentation_volume)
 
-        render_settings = {
-            1: {'name': 'bone', 'color': tuple(c / 255 for c in Color.BONE), 'opacity': self.bone_opacity_slider.value()},
-            **{
-                int(label): {
-                    'name': str(int(label)),
-                    'color': tuple(c / 255 for c in Color.TOOTH),
-                    'opacity': 1 if label < Label.TRUNCATED else 0
-                }
-                for label in labels
-                if label > 1
+        show_all = self.all_teeth_toggle.isChecked()
+        self.excluded_labels = []
+        render_settings = {1: {'name': 'bone', 'color': tuple(c / 255 for c in Color.BONE), 'opacity': self.bone_opacity_slider.value()}}
+        for label in labels:
+            if label <= 1:
+                continue
+
+            if label >= Label.TRUNCATED:
+                self.excluded_labels.append(int(label))
+
+            render_settings[int(label)] = {
+                'name': str(int(label)),
+                'color': tuple(c / 255 for c in Color.TOOTH) if label < Label.TRUNCATED else (0, 0, 0),
+                'opacity': self._excluded_tooth_opacity(label, show_all)
             }
-        }
+
         self.volume_viewer.views[0].update_volume(self.segmentation_volume, render_settings=render_settings)
 
         self.normal_vectors = find_normal_vectors(self.segmentation_volume)
@@ -340,6 +347,25 @@ class BoneLossPage(QWidget):
 
         for view in self.volume_viewer.views:
             view.actors['bone'].prop.opacity = opacity
+
+    def _excluded_tooth_opacity(self, label, show_all):
+        if label < Label.TRUNCATED:
+            return 1
+
+        if is_noise_label(label):
+            return 0
+
+        return 0.5 if show_all else 0
+
+    def _on_all_teeth_changed(self):
+        if self.segmentation_volume is None:
+            return
+
+        show_all = self.all_teeth_toggle.isChecked()
+        for label in self.excluded_labels:
+            actor = self.volume_viewer.views[0].actors.get(str(label))
+            if actor is not None:
+                actor.prop.opacity = self._excluded_tooth_opacity(label, show_all)
 
     def _on_slice_changed(self, title):
         if self.slices is None or self.area_masks is None or title is None:

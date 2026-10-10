@@ -1,10 +1,14 @@
-from post_processing.utils import ROIVolume
+import numpy
+
+from post_processing.utils import ROIVolume, next_available_label
 from post_processing.watershed import split_k_component
 
 
 def refine_split(source_volume, destination_volume, split_components):
     new_volume = destination_volume.copy()
+    used = {int(value) for value in numpy.unique(new_volume)}
 
+    new_labels = {}
     for label, count in split_components.items():
         label = int(label)
         mask = source_volume == label
@@ -13,16 +17,22 @@ def refine_split(source_volume, destination_volume, split_components):
         roi.volume = split_k_component(roi.volume, h=1, k=count)
         volume = roi.restore()
 
-        max_label = new_volume.max()
-        new_volume[mask] = volume[mask] + max_label
+        labels = []
+        for _ in range(count):
+            new_label = next_available_label(used, 11)
+            used.add(new_label)
+            labels.append(new_label)
 
-    return new_volume
+        lookup_table = numpy.zeros(count + 1, dtype=numpy.uint8)
+        lookup_table[1:] = labels
+        new_volume[mask] = lookup_table[volume[mask]]
+        new_labels[label] = labels
+
+    return new_volume, new_labels
 
 if __name__ == '__main__':
     import json
     from pathlib import Path
-
-    import numpy
 
     from constants.mode import Mode
     from post_processing.utils import iterate_datasets
@@ -42,7 +52,7 @@ if __name__ == '__main__':
         watershed_volume = numpy.load(watershed_path)
 
         data = f'{dataset}/{patient}'
-        volume = watershed_volume if data not in split_components else refine_split(cc_volume, watershed_volume, split_components[data])
+        volume = watershed_volume if data not in split_components else refine_split(cc_volume, watershed_volume, split_components[data])[0]
 
         output_path = cc_path.parent / f'{Mode.REFINE_SPLIT}.npy'
         numpy.save(output_path, volume)

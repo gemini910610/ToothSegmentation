@@ -1,143 +1,135 @@
 from pathlib import Path
 
 import numpy
-from PySide6.QtCore import Signal
-from PySide6.QtWidgets import QLabel, QPushButton, QVBoxLayout, QWidget
+from PySide6.QtWidgets import QPushButton, QVBoxLayout
 
-from constants.label import Label
-from constants.mode import Mode
-from post_processing.exclude_truncated import exclude_truncated
+from constants.color import GLASBEY_PALETTE, Color
 from post_processing.refine_merge import refine_merge
-from visualize.ui.checkboxes import IconCheckboxTable
 from visualize.ui.layouts import HorizontalLayout
 from visualize.ui.views import VolumeViewer
+from visualize.viewer.pages.page import VolumeViewerPage, is_noise_label
+from visualize.viewer.pipeline import (
+    BONE_FILENAME,
+    TOOTH_FILENAME,
+    apply_manual_edit,
+)
 
 
 class MergeControls(HorizontalLayout):
     def _init_widgets(self):
         return [
-            QPushButton('Preview'),
             QPushButton('Clear'),
-            QPushButton('Save'),
-            QLabel('Saved: (none)'),
             None,
-            QPushButton('Save and Next'),
+            QPushButton('Save'),
         ]
 
-class MergeContent(HorizontalLayout):
-    def _init_widgets(self):
-        return [
-            VolumeViewer(2, (512, 512)),
-            IconCheckboxTable(),
-        ]
-
-class MergePage(QWidget):
-    next_requested = Signal(str)
-
+class MergePage(VolumeViewerPage):
     def __init__(self, working_dir=Path('working')):
-        super().__init__()
-        self.working_dir = working_dir
+        super().__init__(working_dir)
 
         self.controls = MergeControls()
-        self.content = MergeContent()
-        self.viewer, self.label_table = self.content.widgets
-        self.viewer.set_titles(Mode.get_title(Mode.REFINE_SPLIT), 'Preview')
+        self.viewer = VolumeViewer(2, (512, 512))
+        self.viewer.set_titles('Tooth', 'Preview')
 
         layout = QVBoxLayout(self)
         layout.addLayout(self.controls)
-        layout.addLayout(self.content)
+        layout.addWidget(self.viewer)
 
-        self.preview_button, self.clear_button, self.save_button, self.saved_label, self.next_button = self.controls.widgets
+        self.clear_button, self.save_button = self.controls.widgets
 
-        self.preview_button.clicked.connect(self._on_preview)
         self.clear_button.clicked.connect(self._on_clear)
         self.save_button.clicked.connect(self._on_save)
-        self.next_button.clicked.connect(self._on_next)
         self.viewer.views[0].picked.connect(self._on_picked)
+        self.viewer.views[1].picked.connect(self._on_picked)
 
-        self.patient = None
+        self.bone_cc_volume = None
         self.volume = None
-        self.merge_components = []
-
-    @property
-    def is_ready(self):
-        return self.volume is not None
-
-    def closeEvent(self, event):
-        super().closeEvent(event)
-        self.viewer.close()
+        self.selected_labels = set()
 
     def set_patient(self, patient):
         self.patient = patient
+        self.bone_cc_volume = None
         self.volume = None
-        self.merge_components = []
-        self._update_saved_label()
-        self.viewer.views[0].clear_actors()
-        self.viewer.views[1].clear_actors()
+        self.selected_labels = set()
+        self.dirty = False
+        for view in self.viewer.views:
+            view.clear_actors()
 
         if not patient:
             return
 
-        volume_path = self.working_dir / patient / f'{Mode.REFINE_SPLIT}.npy'
-        if not volume_path.is_file():
+        patient_dir = self.working_dir / patient
+        tooth_path = patient_dir / TOOTH_FILENAME
+        bone_path = patient_dir / BONE_FILENAME
+        if not (tooth_path.is_file() and bone_path.is_file()):
             return
 
-        self.volume = numpy.load(volume_path)
-        self.viewer.views[0].update_volume(self.volume, include_labels=True)
+        self.volume = numpy.load(tooth_path)
+        self.bone_cc_volume = numpy.load(bone_path)
 
-        labels = numpy.unique(self.volume)
-        labels = labels[labels > 0]
+        self._refresh_display()
 
-        self.label_table.update_items(labels)
-
-        self._on_preview()
-
-    def _on_preview(self):
-        if self.volume is None:
+    def finalize(self):
+        if not self.dirty:
             return
 
-        labels = self.label_table.selected_labels()
-        volume = numpy.where(numpy.isin(self.volume, labels), Label.TOOTH, Label.BACKGROUND)
-        self.viewer.views[1].update_volume(volume, reset=False)
+        apply_manual_edit(self.working_dir / self.patient, self.bone_cc_volume, self.volume)
+        self.dirty = False
+
+    def _refresh_display(self, reset=True):
+        self.selected_labels = set()
+
+        render_settings = {}
+        preview_settings = {}
+        for label in range(2, int(self.volume.max()) + 1):
+            opacity = 0 if is_noise_label(label) else 1
+            render_settings[label] = {
+                'name': f'label {label}',
+                'color': tuple(c / 255 for c in GLASBEY_PALETTE[label]),
+                'opacity': opacity,
+            }
+            preview_settings[label] = {
+                'name': f'label {label}',
+                'color': tuple(c / 255 for c in Color.TOOTH),
+                'opacity': opacity,
+            }
+        self.viewer.views[0].update_volume(self.volume, include_labels=True, render_settings=render_settings, reset=reset)
+
+        self.viewer.views[1].update_volume(self.volume, include_labels=True, render_settings=preview_settings, reset=reset)
+        for actor in self.viewer.views[1].actors.values():
+            actor.prop.opacity = 0
+        self.viewer.views[1].render()
 
     def _on_clear(self):
         if self.volume is None:
             return
 
-        self.label_table.clear_selected()
-        self._on_preview()
+        for label in self.selected_labels:
+            self.viewer.views[1].actors[f'label {label}'].prop.opacity = 0
+
+        self.selected_labels.clear()
+        self.viewer.views[1].render()
 
     def _on_save(self):
-        labels = self.label_table.selected_labels()
+        labels = list(self.selected_labels)
         if len(labels) < 2:
             return
 
-        self.merge_components.append(sorted(labels))
-        self._update_saved_label()
+        self.volume = refine_merge(self.volume, [sorted(labels)])
+        self.dirty = True
 
-    def _update_saved_label(self):
-        if not self.merge_components:
-            self.saved_label.setText('Saved: (none)')
-            return
-
-        groups = ', '.join('+'.join(str(label) for label in group) for group in self.merge_components)
-        self.saved_label.setText(f'Saved: {groups}')
-
-    def _on_next(self):
-        if self.volume is None:
-            return
-
-        patient_dir = self.working_dir / self.patient
-        volume = self.volume
-        if self.merge_components:
-            volume = refine_merge(self.volume, self.merge_components)
-
-        untruncated_volume = exclude_truncated(volume)
-        numpy.save(patient_dir / f'{Mode.UNTRUNCATED}.npy', untruncated_volume)
-
-        self.next_requested.emit(self.patient)
+        self._refresh_display(reset=False)
 
     def _on_picked(self, actor):
         label = actor._label
-        checkbox = self.label_table.checkboxes[label]
-        checkbox.setChecked(True)
+
+        preview_actor = self.viewer.views[1].actors[f'label {label}']
+
+        if label in self.selected_labels:
+            self.selected_labels.remove(label)
+            preview_actor.prop.opacity = 0
+        else:
+            self.selected_labels.add(label)
+            preview_actor.prop.opacity = 1
+
+        self.viewer.views[1].render()

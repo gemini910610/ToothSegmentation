@@ -349,33 +349,23 @@ uv run -m scripts.correlation <segmentation_exp> <keypoints_exp> [--exclude slic
 ```
 uv run -m visualize.viewer.launcher
 ```
-The launch form collects **"segmentation experiment"**/**"segmentation fold"** and **"keypoints experiment"**/**"keypoints fold"** before opening the per-patient, tab-by-tab GUI (backed by `working/<segmentation_exp>_<keypoints_exp>/<patient>_<date>/`):
+The launch form collects **"segmentation experiment"**/**"segmentation fold"** and **"keypoints experiment"**/**"keypoints fold"** before opening the per-patient, tab-by-tab GUI (backed by `working/<segmentation_exp>_<keypoints_exp>/<patient>_<date>/`).
 
-1. **Import** — bring in a new patient's DICOM series and panoramic photo.
-2. **Predict** — run the segmentation model over the CBCT slices.
-3. **Bone** / **Tooth** — connected-component filtering (+ automatic watershed splitting for teeth).
-4. **Split** / **Merge** — manually correct any watershed under/over-splitting.
-5. **Exclude** — mark truncated/unerupted/residual-root/fake teeth, then fill holes and relabel.
-6. **Panoramic** — run the 2D panoramic baseline on the patient's panoramic photo.
-7. **FDI** — manually assign real FDI tooth numbers, cross-referencing the panoramic prediction.
-8. **Bone Loss** — per-tooth CEJ detection and contour/area bone-loss inspection.
+**Import** brings in a new patient's DICOM series; **Predict** then runs the full automated pipeline once (connected-component filtering, watershed splitting, truncation/auto-exclusion, hole filling, relabeling) and lands on **Bone Loss**. After that, every tab is an always-available editing tool that reads/writes the same two files directly — Save is an instant in-memory update, with the expensive recompute (auto-exclusion + relabeling) deferred until you switch tabs/patients or close the app:
+
+1. **Bone Loss** (default tab) — per-tooth CEJ detection and contour/area bone-loss inspection.
+2. **Exclude** — auto-flags teeth the model predicted but the current segmentation dropped, plus manual classification of any tooth as Normal/Unerupted/Residual Root/Fake Tooth/Noise.
+3. **Split** / **Merge** — manually correct watershed under/over-splitting.
+4. **FDI** — manually assign real FDI tooth numbers, cross-referencing the 2D panoramic baseline prediction; prompts for a panoramic photo on first visit if the patient doesn't have one yet.
 
 ```
 📁 working/<segmentation_exp>_<keypoints_exp>/<patient>_<date>
-├── 📂 image/*.png              # 1. Import — imported CBCT slices
-├── 📂 panoramic/*.jpg          # 1. Import — imported panoramic photo
-├── 📄 image.npy                # 2. Predict
-├── 📄 predict.npy              # 2. Predict
-├── 📄 tooth_cc.npy             # 3. Tooth
-├── 📄 bone_cc.npy              # 3. Bone
-├── 📄 watershed.npy            # 3. Tooth (automatic)
-├── 📄 refine_split.npy         # 4. Split
-├── 📄 untruncated.npy          # 5. Merge (+ truncation check)
-├── 📄 tooth_filled.npy         # 6. Exclude
-├── 📄 bone_filled.npy          # 6. Exclude
-├── 📄 relabeled.npy            # 6. Exclude
-├── 📄 panoramic_predict.txt    # 7. Panoramic
-└── 📄 fdi.npy                  # 8. FDI
+├── 📂 image/*.png
+├── 📂 panoramic/*.jpg
+├── 📄 image.npy
+├── 📄 predict.npy
+├── 📄 bone.npy
+└── 📄 tooth.npy
 ```
 
 Standalone read-only inspector — collects **"segmentation experiment"**, **"keypoints experiment"**, and **"datasets"**:
