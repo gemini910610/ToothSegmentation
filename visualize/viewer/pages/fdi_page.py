@@ -5,7 +5,6 @@ import numpy
 from PySide6.QtCore import QSize
 from PySide6.QtWidgets import QApplication, QMessageBox, QPushButton, QVBoxLayout
 
-from constants.label import Label
 from panoramic.predict import predict_panoramic_data
 from post_processing.panoramic import (
     draw_label,
@@ -13,13 +12,18 @@ from post_processing.panoramic import (
     find_panoramic_image,
     get_panoramic,
 )
-from post_processing.relabel_fdi import relabel_fdi
 from utils.image import imread
 from visualize.ui.grids import LabelGrid
 from visualize.ui.images import DestinationImage, SourceImage, bgr_to_pixmap
 from visualize.ui.layouts import HorizontalLayout
 from visualize.viewer.pages.page import Page
 from visualize.viewer.pipeline import BONE_FILENAME, IMAGE_FILENAME, TOOTH_FILENAME
+from visualize.viewer.tooth_data import (
+    is_excluded,
+    load_tooth_data,
+    save_tooth_data,
+    set_entry,
+)
 
 
 class FDIControls(HorizontalLayout):
@@ -65,6 +69,7 @@ class FDIPage(Page):
 
         self.volume = None
         self.label_editors = None
+        self.labels = {}
 
     def sizeHint(self):
         size = super().sizeHint()
@@ -76,6 +81,7 @@ class FDIPage(Page):
         self.patient = patient
         self.volume = None
         self.label_editors = None
+        self.labels = {}
         self.dirty = False
 
         if not patient:
@@ -95,8 +101,22 @@ class FDIPage(Page):
         image_volume = numpy.load(image_path)
         self.volume = numpy.load(tooth_path)
         bone_volume = numpy.load(bone_path)
+        tooth_data = load_tooth_data(patient_dir)
 
-        segmentation_volume = numpy.where(self.volume >= Label.TRUNCATED, 0, self.volume)
+        excluded_ids = {label for label, value in tooth_data.items() if is_excluded(value)}
+
+        lookup_table = numpy.arange(self.volume.max() + 1, dtype=numpy.uint8)
+        for label in numpy.unique(self.volume):
+            label = int(label)
+            if label <= 1 or label in excluded_ids:
+                continue
+
+            position = int(tooth_data.get(label, label))
+            lookup_table[label] = position
+            self.labels[position] = label
+
+        segmentation_volume = lookup_table[self.volume]
+        segmentation_volume[numpy.isin(self.volume, list(excluded_ids))] = 0
         segmentation_volume = segmentation_volume + (bone_volume > 0)
 
         jaw_labels, image_panoramic, segmentation_panoramic_mask = get_panoramic(image_volume, segmentation_volume)
@@ -106,8 +126,8 @@ class FDIPage(Page):
         segmentation_panoramic = draw_label(image_panoramic, segmentation_panoramic_mask)
 
         keypoint_panoramic = imread(panoramic_image_path)
-        tooth_data = predict_panoramic_data(panoramic_image_path, self.panoramic_models)
-        keypoint_panoramic = draw_panoramic(keypoint_panoramic, tooth_data)
+        tooth_datum = predict_panoramic_data(panoramic_image_path, self.panoramic_models)
+        keypoint_panoramic = draw_panoramic(keypoint_panoramic, tooth_datum)
 
         target_height, target_width, _ = keypoint_panoramic.shape
         height, width, _ = segmentation_panoramic.shape
@@ -122,7 +142,7 @@ class FDIPage(Page):
         self.source_image.update_image(pixmap, segmentation_panoramic_mask)
 
         pixmap = bgr_to_pixmap(keypoint_panoramic)
-        self.destination_image.update_image(pixmap, tooth_data)
+        self.destination_image.update_image(pixmap, tooth_datum)
 
         segmentation_labels = [[], [], [], []]
         for labels in jaw_labels:
@@ -130,7 +150,7 @@ class FDIPage(Page):
                 segmentation_labels[label // 10 - 1].append(label)
 
         keypoint_labels = [[], [], [], []]
-        for tooth in tooth_data:
+        for tooth in tooth_datum:
             fdi = int(tooth['FDI'][0])
             keypoint_labels[fdi // 10 - 1].append([int(fdi) for fdi in tooth['FDI']])
 
@@ -150,39 +170,32 @@ class FDIPage(Page):
         exists = set()
         empty_labels = []
         duplicated_fdis = []
-        for label, fdi_editor in self.label_editors.items():
+        for position, fdi_editor in self.label_editors.items():
             fdi = fdi_editor.text()
-            if fdi == '-':
-                data[label] = None
-                continue
-
             if fdi == '':
-                empty_labels.append(label)
-            elif fdi in exists:
-                duplicated_fdis.append(fdi)
-            data[label] = fdi
-            exists.add(fdi)
-
-        volume_labels = numpy.unique(self.volume)
-        volume_labels = volume_labels[(volume_labels > 1) & (volume_labels < Label.TRUNCATED)]
-        missing_labels = [int(label) for label in volume_labels if int(label) not in data]
+                empty_labels.append(position)
+            elif fdi != '-':
+                if fdi in exists:
+                    duplicated_fdis.append(fdi)
+                exists.add(fdi)
+            data[position] = fdi
 
         messages = []
         if empty_labels:
             messages.append(f'Empty Labels: {", ".join(str(label) for label in empty_labels)}')
         if duplicated_fdis:
             messages.append(f'Duplicated FDI: {", ".join(str(fdi) for fdi in duplicated_fdis)}')
-        if missing_labels:
-            messages.append(f'Unassigned Labels: {", ".join(str(label) for label in missing_labels)}')
 
         if messages:
             QMessageBox.warning(self, 'Warning', '\n'.join(messages))
             return
 
-        fdi_mapping = {str(label): fdi for label, fdi in data.items()}
-        volume = relabel_fdi(self.volume, fdi_mapping)
+        tooth_data = load_tooth_data(self.working_dir / self.patient)
+        for position, fdi in data.items():
+            label = self.labels[position]
+            set_entry(tooth_data, label, fdi)
 
-        numpy.save(self.working_dir / self.patient / TOOTH_FILENAME, volume)
+        save_tooth_data(self.working_dir / self.patient, tooth_data)
 
         self.set_patient(self.patient)
         self.dirty = True

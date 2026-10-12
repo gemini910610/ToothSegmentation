@@ -12,11 +12,14 @@ from visualize.ui.buttons import RadioGroup
 from visualize.ui.layouts import HorizontalLayout
 from visualize.ui.selectors import IconLabelSelector
 from visualize.ui.views import VolumeViewer
-from visualize.viewer.pages.page import FILTERED_LABEL, NOISE_LABEL, VolumeViewerPage
-from visualize.viewer.pipeline import (
-    BONE_FILENAME,
-    PREDICT_FILENAME,
-    TOOTH_FILENAME,
+from visualize.viewer.pages.page import VolumeViewerPage
+from visualize.viewer.pipeline import BONE_FILENAME, PREDICT_FILENAME, TOOTH_FILENAME
+from visualize.viewer.tooth_data import (
+    is_excluded,
+    load_tooth_data,
+    prune_stale_ids,
+    save_tooth_data,
+    set_entry,
 )
 
 NOISE_THRESHOLD = 1000
@@ -30,26 +33,6 @@ EXCLUDE_COLORS = {
     'Fake Tooth': (70, 70, 220),
     'Noise': (0, 0, 0),
 }
-
-EXCLUDE_RANGES = {
-    'Unerupted Tooth': Label.UNERUPTED,
-    'Residual Root': Label.RESIDUAL_ROOT,
-    'Fake Tooth': Label.FAKE,
-}
-
-
-def _exclude_type_for_label(label):
-    if label >= FILTERED_LABEL:
-        return None
-    if label >= NOISE_LABEL:
-        return 'Noise'
-    if label >= Label.FAKE:
-        return 'Fake Tooth'
-    if label >= Label.RESIDUAL_ROOT:
-        return 'Residual Root'
-    if label >= Label.UNERUPTED:
-        return 'Unerupted Tooth'
-    return 'Normal Tooth'
 
 class ExcludeControls(HorizontalLayout):
     def _init_widgets(self):
@@ -80,11 +63,13 @@ class ExcludePage(VolumeViewerPage):
 
         self.bone_cc_volume = None
         self.volume = None
+        self.tooth_data = {}
 
     def set_patient(self, patient):
         self.patient = patient
         self.bone_cc_volume = None
         self.volume = None
+        self.tooth_data = {}
         self.dirty = False
         for view in self.viewer.views:
             view.clear_actors()
@@ -102,6 +87,7 @@ class ExcludePage(VolumeViewerPage):
         tooth_volume = numpy.load(tooth_path)
         bone_cc_volume = numpy.load(bone_path)
         predict_volume = numpy.load(predict_path)
+        tooth_data = load_tooth_data(patient_dir)
 
         excluded_mask = (predict_volume == Label.TOOTH) & (tooth_volume == 0)
         if excluded_mask.any():
@@ -112,26 +98,47 @@ class ExcludePage(VolumeViewerPage):
             if noise_mask.any():
                 noise_source_labels = numpy.unique(components[noise_mask])
 
-                lookup_table = numpy.arange(components.max() + 1, dtype=numpy.uint8)
-                lookup_table[noise_source_labels] = numpy.arange(FILTERED_LABEL, FILTERED_LABEL + len(noise_source_labels), dtype=numpy.uint8)
+                used = {int(value) for value in numpy.unique(tooth_volume)}
+                new_labels = []
+                for _ in noise_source_labels:
+                    new_label = next_available_label(used, 2)
+                    used.add(new_label)
+                    new_labels.append(new_label)
+
+                lookup_table = numpy.zeros(components.max() + 1, dtype=numpy.uint8)
+                lookup_table[noise_source_labels] = new_labels
 
                 tooth_volume = tooth_volume.copy()
                 tooth_volume[noise_mask] = lookup_table[components[noise_mask]]
 
+                for new_label in new_labels:
+                    tooth_data[new_label] = 'Filtered'
+
                 numpy.save(tooth_path, tooth_volume)
+                save_tooth_data(patient_dir, tooth_data)
 
         self.volume = tooth_volume
         self.bone_cc_volume = bone_cc_volume
+        self.tooth_data = tooth_data
 
         self._refresh_display()
 
-    def finalize(self):
+    def finalize(self, recompute=True):
         if not self.dirty:
             return
 
-        relabeled_volume = relabel_volume(self.volume, self.bone_cc_volume)
-        numpy.save(self.working_dir / self.patient / TOOTH_FILENAME, relabeled_volume)
+        if recompute:
+            excluded_ids = {label for label, value in self.tooth_data.items() if is_excluded(value)}
+            _, positions = relabel_volume(self.volume, self.bone_cc_volume, excluded_ids=excluded_ids)
+            self.tooth_data.update(positions)
+            prune_stale_ids(self.tooth_data, {int(label) for label in numpy.unique(self.volume)})
+
+        save_tooth_data(self.working_dir / self.patient, self.tooth_data)
         self.dirty = False
+
+    def _display_exclude_type(self, label):
+        exclude_type = self.tooth_data.get(label, 'Normal Tooth')
+        return None if exclude_type == 'Filtered' else exclude_type
 
     def _refresh_display(self):
         self.viewer.views[0].update_volume(self.volume, include_labels=True)
@@ -140,7 +147,7 @@ class ExcludePage(VolumeViewerPage):
         labels = labels[labels > 0]
 
         for label in labels:
-            exclude_type = _exclude_type_for_label(int(label))
+            exclude_type = self._display_exclude_type(int(label))
             color = EXCLUDE_COLORS.get(exclude_type)
 
             actor = self.viewer.views[0].actors.get(f'label {int(label)}')
@@ -168,7 +175,7 @@ class ExcludePage(VolumeViewerPage):
         volume = volume * Label.TOOTH
         self.viewer.views[1].update_volume(volume, reset=False)
 
-        self.exclude_selector.select_title(_exclude_type_for_label(label))
+        self.exclude_selector.select_title(self._display_exclude_type(label))
 
     def _on_save(self):
         if self.volume is None:
@@ -182,23 +189,12 @@ class ExcludePage(VolumeViewerPage):
         if exclude_type is None:
             return
 
-        used = {int(value) for value in numpy.unique(self.volume)}
-        if exclude_type == 'Normal Tooth':
-            new_label = next_available_label(used, 2)
-        elif exclude_type == 'Noise':
-            new_label = next_available_label(used, NOISE_LABEL)
-        else:
-            new_label = next_available_label(used, EXCLUDE_RANGES[exclude_type])
-
-        lookup_table = numpy.arange(self.volume.max() + 1, dtype=numpy.uint8)
-
-        lookup_table[label] = new_label
-        self.volume = lookup_table[self.volume]
+        set_entry(self.tooth_data, label, exclude_type)
         self.dirty = True
 
         actor = self.viewer.views[0].actors.get(f'label {label}')
         if actor is not None:
             color = EXCLUDE_COLORS.get(exclude_type)
-            actor.prop.color = tuple(c / 255 for c in color) if color is not None else tuple(c / 255 for c in GLASBEY_PALETTE[new_label])
+            actor.prop.color = tuple(c / 255 for c in color) if color is not None else tuple(c / 255 for c in GLASBEY_PALETTE[label])
             actor.prop.opacity = NOISE_OPACITY if exclude_type == 'Noise' else 1
             self.viewer.views[0].render()

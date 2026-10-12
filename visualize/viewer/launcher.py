@@ -1,5 +1,6 @@
 from pathlib import Path
 
+import cc3d
 import numpy
 from PySide6.QtCore import QSize, QTimer
 from PySide6.QtWidgets import (
@@ -15,7 +16,6 @@ from PySide6.QtWidgets import (
 from constants.label import Label
 from dicom.importer import DuplicatePatientError, import_dicom, import_panoramic
 from post_processing.connected_component import filter_connected_component
-from post_processing.exclude_truncated import exclude_truncated
 from post_processing.fill_holes import fill_holes
 from post_processing.panoramic import find_panoramic_image
 from post_processing.relabel import relabel_volume
@@ -36,6 +36,7 @@ from visualize.viewer.pipeline import (
     TOOTH_FILENAME,
     auto_exclude,
 )
+from visualize.viewer.tooth_data import save_tooth_data
 
 BONE_THRESHOLD = 45000
 TOOTH_THRESHOLD = 8200
@@ -50,6 +51,8 @@ class AutoPipeline:
         return 8
 
     def __iter__(self):
+        save_tooth_data(self.patient_dir, {})
+
         image_dir = self.patient_dir / 'image'
         image_volume, predict_volume = predict_patient(self.model, image_dir, self.config)
         numpy.save(self.patient_dir / IMAGE_FILENAME, image_volume)
@@ -65,18 +68,24 @@ class AutoPipeline:
         watershed_volume = split_component(tooth_cc_volume)
         yield
 
-        untruncated_volume = exclude_truncated(watershed_volume)
+        truncated_labels = numpy.union1d(watershed_volume[:, :, :3], watershed_volume[:, :, -3:])
+        truncated_labels = [int(label) for label in truncated_labels if label > 0]
+        watershed_volume = cc3d.dust(watershed_volume, 1000, connectivity=6, precomputed_ccl=True)
         yield
 
-        cleaned_volume = auto_exclude(untruncated_volume, bone_cc_volume)
+        remaining_labels = {int(label) for label in numpy.unique(watershed_volume)}
+        tooth_data = {label: 'Truncated' for label in truncated_labels if label in remaining_labels}
+        tooth_data.update(auto_exclude(watershed_volume, bone_cc_volume, excluded_ids=set(tooth_data)))
         yield
 
-        tooth_filled, bone_filled = fill_holes(cleaned_volume, bone_cc_volume)
+        tooth_filled, bone_filled = fill_holes(watershed_volume, bone_cc_volume)
         numpy.save(self.patient_dir / BONE_FILENAME, bone_filled)
         yield
 
-        relabeled_volume = relabel_volume(tooth_filled, bone_filled)
-        numpy.save(self.patient_dir / TOOTH_FILENAME, relabeled_volume)
+        _, positions = relabel_volume(tooth_filled, bone_filled, excluded_ids=set(tooth_data))
+        tooth_data.update(positions)
+        save_tooth_data(self.patient_dir, tooth_data)
+        numpy.save(self.patient_dir / TOOTH_FILENAME, tooth_filled)
         yield
 
 class HeaderLayout(HorizontalLayout):
@@ -221,7 +230,8 @@ class MainWindow(QMainWindow):
             return
 
         was_dirty = self._previous_page.dirty
-        self._previous_page.finalize()
+        recompute = current not in (self.split_page, self.merge_page)
+        self._previous_page.finalize(recompute=recompute)
         if was_dirty:
             for page in self.pages:
                 page.patient = None

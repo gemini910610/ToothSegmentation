@@ -1,3 +1,4 @@
+from collections import defaultdict
 from pathlib import Path
 
 import cv2
@@ -34,8 +35,9 @@ from visualize.ui.layouts import HorizontalLayout
 from visualize.ui.selectors import IconLabelSelector
 from visualize.ui.sliders import PercentSlider
 from visualize.ui.views import SyncView, VolumeViewer
-from visualize.viewer.pages.page import Page, is_noise_label
+from visualize.viewer.pages.page import Page
 from visualize.viewer.pipeline import BONE_FILENAME, IMAGE_FILENAME, TOOTH_FILENAME
+from visualize.viewer.tooth_data import is_excluded, load_tooth_data
 
 
 class BoneLossControls(HorizontalLayout):
@@ -168,7 +170,7 @@ class BoneLossPage(Page):
         self.points = None
         self.area_masks = None
         self.panoramic_image = None
-        self.tooth_data_by_fdi = {}
+        self.tooth_datum = defaultdict(list)
         self.excluded_labels = []
 
     @property
@@ -188,7 +190,8 @@ class BoneLossPage(Page):
         self.points = None
         self.area_masks = None
         self.panoramic_image = None
-        self.tooth_data_by_fdi = {}
+        self.tooth_datum = defaultdict(list)
+        self.exclude_types = {}
         self.volume_viewer.views[0].clear_actors()
         self.volume_viewer.views[1].clear_actors()
 
@@ -205,19 +208,36 @@ class BoneLossPage(Page):
         tooth_volume = numpy.load(tooth_path)
         bone_volume = numpy.load(bone_path)
         image_volume = numpy.load(image_path)
+        tooth_data = load_tooth_data(patient_dir)
 
         panoramic_image_path = find_panoramic_image(self.working_dir, patient)
         if panoramic_image_path is not None:
             panoramic_image = imread(panoramic_image_path)
-            tooth_data = predict_panoramic_data(panoramic_image_path, self.panoramic_models)
+            keypoint_tooth_data = predict_panoramic_data(panoramic_image_path, self.panoramic_models)
             self.panoramic_image = cv2.cvtColor(panoramic_image, cv2.COLOR_GRAY2RGB)
-            for tooth in tooth_data:
+            for tooth in keypoint_tooth_data:
                 for fdi in tooth['FDI']:
-                    self.tooth_data_by_fdi.setdefault(int(fdi), []).append(tooth)
+                    self.tooth_datum[int(fdi)].append(tooth)
 
-        self.volume = tooth_volume
+        lookup_table = numpy.arange(tooth_volume.max() + 1, dtype=numpy.uint8)
+        self.exclude_types = {}
+        next_excluded_label = 50
+        for label in numpy.unique(tooth_volume):
+            label = int(label)
+            if label <= 1:
+                continue
+
+            value = tooth_data.get(label)
+            if value is not None and is_excluded(value):
+                lookup_table[label] = next_excluded_label
+                self.exclude_types[next_excluded_label] = value
+                next_excluded_label += 1
+            else:
+                lookup_table[label] = int(value) if value is not None else label
+
+        self.volume = lookup_table[tooth_volume]
         self.bone_mask = bone_volume > 0
-        self.segmentation_volume = tooth_volume + self.bone_mask
+        self.segmentation_volume = self.volume + self.bone_mask
         self.bone_coordinates = numpy.argwhere(self.bone_mask)
         self.image_coefficients = ndimage.spline_filter(image_volume, order=3)
 
@@ -230,13 +250,14 @@ class BoneLossPage(Page):
             if label <= 1:
                 continue
 
-            if label >= Label.TRUNCATED:
+            exclude_type = self.exclude_types.get(int(label))
+            if exclude_type is not None:
                 self.excluded_labels.append(int(label))
 
             render_settings[int(label)] = {
                 'name': str(int(label)),
-                'color': tuple(c / 255 for c in Color.TOOTH) if label < Label.TRUNCATED else (0, 0, 0),
-                'opacity': self._excluded_tooth_opacity(label, show_all)
+                'color': tuple(c / 255 for c in Color.TOOTH) if exclude_type is None else (0, 0, 0),
+                'opacity': self._excluded_tooth_opacity(int(label), show_all)
             }
 
         self.volume_viewer.views[0].update_volume(self.segmentation_volume, render_settings=render_settings)
@@ -245,7 +266,7 @@ class BoneLossPage(Page):
 
         self.volume_viewer.boxes[0].setTitle(patient)
 
-        labels = labels[(labels > 1) & (labels < Label.TRUNCATED)] # exclude background, bone, removed teeth and missing FDI teeth
+        labels = numpy.array([label for label in labels if label > 1 and int(label) not in self.exclude_types])
 
         self.label_selector.update_items(labels)
 
@@ -319,7 +340,7 @@ class BoneLossPage(Page):
 
         tooth_volume_bone_loss = volume_bone_loss(filtered_tooth_volume, filtered_bone_volume, aligned_points, is_upper, transform_meta)
 
-        teeth = self.tooth_data_by_fdi.get(label, [])
+        teeth = self.tooth_datum.get(label, [])
         keypoint_bone_losses = [tooth['bone_loss'] for tooth in teeth]
         crop_pixmaps = [] if self.panoramic_image is None else [bgr_to_pixmap(crop_panoramic(self.panoramic_image, tooth)) for tooth in teeth]
 
@@ -349,11 +370,15 @@ class BoneLossPage(Page):
             view.actors['bone'].prop.opacity = opacity
 
     def _excluded_tooth_opacity(self, label, show_all):
-        if label < Label.TRUNCATED:
+        exclude_type = self.exclude_types.get(label)
+        if exclude_type is None:
             return 1
 
-        if is_noise_label(label):
+        if exclude_type == 'Noise':
             return 0
+
+        if exclude_type == 'Filtered':
+            return 0.5
 
         return 0.5 if show_all else 0
 

@@ -2,13 +2,6 @@ from pathlib import Path
 
 from PySide6.QtWidgets import QWidget
 
-NOISE_LABEL = 150
-FILTERED_LABEL = 170
-
-
-def is_noise_label(label):
-    return NOISE_LABEL <= label < FILTERED_LABEL
-
 
 class Page(QWidget):
     def __init__(self, working_dir=Path('working')):
@@ -17,7 +10,7 @@ class Page(QWidget):
         self.patient = None
         self.dirty = False
 
-    def finalize(self):
+    def finalize(self, recompute=True):
         pass
 
 class VolumeViewerPage(Page):

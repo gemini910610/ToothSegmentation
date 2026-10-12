@@ -47,6 +47,21 @@ class SyncView(QtInteractor):
             }
         }
 
+    def _build_actor(self, volume, label, setting, slices):
+        slices = tuple(
+            slice(max(0, s.start - 1), min(shape, s.stop + 1))
+            for s, shape in zip(slices, volume.shape)
+        )
+        roi = (volume[slices] == label).astype(numpy.uint8)
+
+        data = ImageData(dimensions=roi.shape, origin=(s.start for s in slices))
+        data.point_data['values'] = roi.flatten(order='F')
+        mesh = data.contour([0.5])
+
+        actor = self.add_mesh(mesh, smooth_shading=True, **setting)
+        actor._label = label
+        return actor
+
     def update_volume(self, volume, include_labels=False, reset=True, render_settings=None):
         self.clear_actors()
         if render_settings is None:
@@ -61,18 +76,7 @@ class SyncView(QtInteractor):
             if setting.get('opacity') == 0:
                 continue
 
-            slices = tuple(
-                slice(max(0, s.start - 1), min(shape, s.stop + 1))
-                for s, shape in zip(slices, volume.shape)
-            )
-            roi = (volume[slices] == label).astype(numpy.uint8)
-
-            data = ImageData(dimensions=roi.shape, origin=(s.start for s in slices))
-            data.point_data['values'] = roi.flatten(order='F')
-            mesh = data.contour([0.5])
-
-            actor = self.add_mesh(mesh, smooth_shading=True, **setting)
-            actor._label = label
+            self._build_actor(volume, label, setting, slices)
 
         if 'tooth' in self.actors:
             self.actors['tooth'].SetPickable(False)
@@ -82,6 +86,13 @@ class SyncView(QtInteractor):
         if reset:
             self.view_xz()
             self.reset_camera()
+
+    def add_label(self, volume, label, **setting):
+        slices = ndimage.find_objects((volume == label).astype(numpy.uint8))[0]
+        if slices is None:
+            return None
+
+        return self._build_actor(volume, label, setting, slices)
 
     def mousePressEvent(self, event):
         if event.modifiers() & Qt.KeyboardModifier.AltModifier and event.button() == Qt.MouseButton.LeftButton:

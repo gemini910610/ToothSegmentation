@@ -10,17 +10,9 @@ from post_processing.watershed import split_k_component
 from visualize.ui.layouts import HorizontalLayout
 from visualize.ui.selectors import IconLabelSelector
 from visualize.ui.views import VolumeViewer
-from visualize.viewer.pages.page import (
-    FILTERED_LABEL,
-    NOISE_LABEL,
-    VolumeViewerPage,
-    is_noise_label,
-)
-from visualize.viewer.pipeline import (
-    BONE_FILENAME,
-    TOOTH_FILENAME,
-    apply_manual_edit,
-)
+from visualize.viewer.pages.page import VolumeViewerPage
+from visualize.viewer.pipeline import BONE_FILENAME, TOOTH_FILENAME, apply_manual_edit
+from visualize.viewer.tooth_data import load_tooth_data
 
 
 class SplitControls(HorizontalLayout):
@@ -55,12 +47,14 @@ class SplitPage(VolumeViewerPage):
         self.bone_cc_volume = None
         self.volume = None
         self.label_volume = None
+        self.tooth_data = {}
 
     def set_patient(self, patient):
         self.patient = patient
         self.bone_cc_volume = None
         self.volume = None
         self.label_volume = None
+        self.tooth_data = {}
         self.dirty = False
         for view in self.viewer.views:
             view.clear_actors()
@@ -76,20 +70,21 @@ class SplitPage(VolumeViewerPage):
 
         self.volume = numpy.load(tooth_path)
         self.bone_cc_volume = numpy.load(bone_path)
+        self.tooth_data = load_tooth_data(patient_dir)
 
         self._refresh_display()
 
-    def finalize(self):
+    def finalize(self, recompute=True):
         if not self.dirty:
             return
 
-        apply_manual_edit(self.working_dir / self.patient, self.bone_cc_volume, self.volume)
+        apply_manual_edit(self.working_dir / self.patient, self.bone_cc_volume, self.volume, recompute=recompute)
         self.dirty = False
 
     def _refresh_display(self, reset=True, select_label=None):
         render_settings = {}
         for label in range(2, int(self.volume.max()) + 1):
-            opacity = 0 if is_noise_label(label) else 1
+            opacity = 0 if self.tooth_data.get(label) == 'Noise' else 1
             render_settings[label] = {
                 'name': f'label {label}',
                 'color': tuple(c / 255 for c in GLASBEY_PALETTE[label]),
@@ -98,7 +93,7 @@ class SplitPage(VolumeViewerPage):
         self.viewer.views[0].update_volume(self.volume, include_labels=True, render_settings=render_settings, reset=reset)
 
         labels = numpy.unique(self.volume)
-        labels = labels[(labels > 0) & ((labels < NOISE_LABEL) | (labels >= FILTERED_LABEL))]
+        labels = numpy.array([label for label in labels if label > 0 and self.tooth_data.get(int(label)) != 'Noise'])
 
         self.label_selector.update_items(labels)
         index = 0 if select_label is None else self.label_selector.findData(select_label)
@@ -140,6 +135,7 @@ class SplitPage(VolumeViewerPage):
 
         count = self.count_input.value()
         self.volume, new_labels = refine_split(self.volume, self.volume, {label: count})
+        self.tooth_data.pop(label, None)
         self.dirty = True
 
         self._refresh_display(reset=False, select_label=new_labels[label][0])

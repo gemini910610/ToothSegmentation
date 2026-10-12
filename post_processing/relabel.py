@@ -128,10 +128,13 @@ def _get_quadrant(is_lower, is_left):
 
     return 4
 
-def relabel_volume(tooth_volume, bone_volume):
+def relabel_volume(tooth_volume, bone_volume, excluded_ids=None):
     tooth_volume = tooth_volume.copy()
 
-    exclude_mask = tooth_volume >= Label.TRUNCATED
+    if excluded_ids is None:
+        exclude_mask = tooth_volume >= Label.TRUNCATED
+    else:
+        exclude_mask = numpy.isin(tooth_volume, list(excluded_ids))
     exclude_tooth = tooth_volume[exclude_mask]
     tooth_volume[exclude_mask] = 0
     upper_tooth, lower_tooth = split_teeth_jaw(tooth_volume, bone_volume)
@@ -150,6 +153,7 @@ def relabel_volume(tooth_volume, bone_volume):
                 quadrants[quadrant].append(tooth)
 
     volume = numpy.zeros_like(tooth_volume, dtype=numpy.uint8)
+    positions = {}
     center = (volume.shape[0] / 2, volume.shape[1] / 2)
     for quadrant, tooth_list in quadrants.items():
         if not tooth_list:
@@ -172,11 +176,13 @@ def relabel_volume(tooth_volume, bone_volume):
         for index, tooth in enumerate(tooth_list, 1):
             if tooth['label'] is None:
                 continue
-            volume[tooth['slices']][tooth['roi']] = quadrant * 10 + index
+            position = quadrant * 10 + index
+            volume[tooth['slices']][tooth['roi']] = position
+            positions[tooth['label']] = str(position)
 
     volume[exclude_mask] = exclude_tooth
 
-    return volume
+    return volume, positions
 
 if __name__ == '__main__':
     from pathlib import Path
@@ -195,7 +201,7 @@ if __name__ == '__main__':
         bone_path = tooth_path.parent / f'{Mode.BONE_FILLED}.npy'
         bone_volume = numpy.load(bone_path)
 
-        volume = relabel_volume(tooth_volume, bone_volume)
+        volume, _ = relabel_volume(tooth_volume, bone_volume)
 
         output_path = tooth_path.parent / f'{Mode.RELABELED}.npy'
         numpy.save(output_path, volume)
