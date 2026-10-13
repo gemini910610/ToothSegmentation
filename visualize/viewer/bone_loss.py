@@ -14,6 +14,7 @@ from post_processing.bone_loss import (
     slice_contour_bone_loss,
     split_volume,
 )
+from post_processing.tooth_data import resolve_volume
 from post_processing.tooth_slice import (
     align_crop_tooth,
     extract_single_tooth,
@@ -100,12 +101,14 @@ class MainWindow(BaseWindow):
 
     def _on_patient_changed(self, index):
         volumes = self.data_manager.load_data(index)
-        fdi_volume = volumes[Mode.FDI]
+        tooth_volume = volumes[Mode.TOOTH_FILLED]
         bone_volume = volumes[Mode.BONE_FILLED]
         image_volume = volumes[Mode.IMAGE]
 
+        patient_dir = self.data_manager.patient_dir(index)
+
         self.bone_mask = bone_volume > 0
-        self.segmentation_volume = fdi_volume + self.bone_mask
+        self.segmentation_volume = resolve_volume(patient_dir, tooth_volume) + self.bone_mask
         self.bone_coordinates = numpy.argwhere(self.bone_mask)
         self.image_coefficients = ndimage.spline_filter(image_volume, order=3)
 
@@ -117,7 +120,7 @@ class MainWindow(BaseWindow):
                 int(label): {
                     'name': str(int(label)),
                     'color': tuple(c / 255 for c in Color.TOOTH),
-                    'opacity': 1 if label < Label.TRUNCATED else 0
+                    'opacity': 1
                 }
                 for label in labels
                 if label > 1
@@ -130,7 +133,7 @@ class MainWindow(BaseWindow):
         patient = self.patient_selector.currentText()
         self.volume_viewer.boxes[0].setTitle(patient)
 
-        labels = labels[(labels > 1) & (labels < Label.TRUNCATED)] # exclude background, bone, removed teeth and missing FDI teeth
+        labels = labels[labels > 1] # exclude background and bone
 
         self.label_selector.update_items(labels)
 
@@ -249,6 +252,7 @@ if __name__ == '__main__':
 
     from keypoints.models import load_model as load_keypoints_model
     from keypoints.predict import CEJFinder
+    from post_processing.stage import has_completed
     from post_processing.utils import iterate_datasets
     from tui.apps import DualExperimentFoldApp
     from utils.config import load_config
@@ -270,7 +274,7 @@ if __name__ == '__main__':
     patients = [
         f'{dataset}/{patient}'
         for dataset, patient in iterate_datasets(segmentation_experiment_name, datasets)
-        if (Path('outputs') / segmentation_experiment_name / dataset / patient / f'{Mode.FDI}.npy').is_file()
+        if has_completed(Path('outputs') / segmentation_experiment_name / dataset / patient, Mode.FDI)
     ]
-    data_manager = DataManager(segmentation_experiment_name, patients, [Mode.FDI, Mode.BONE_FILLED, Mode.IMAGE])
+    data_manager = DataManager(segmentation_experiment_name, patients, [Mode.TOOTH_FILLED, Mode.BONE_FILLED, Mode.IMAGE])
     run_app(MainWindow, data_manager, cej_finder)

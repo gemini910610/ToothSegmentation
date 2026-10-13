@@ -42,6 +42,7 @@ if __name__ == '__main__':
     from pathlib import Path
 
     from constants.mode import Mode
+    from post_processing.stage import advance_stage
     from post_processing.utils import iterate_datasets
     from tui.apps import parse_segmentation_args
 
@@ -50,14 +51,15 @@ if __name__ == '__main__':
     datasets = args['datasets']
 
     for dataset, patient in iterate_datasets(segmentation_experiment_name, datasets):
-        tooth_path = Path('outputs') / segmentation_experiment_name / dataset / patient / f'{Mode.CLEANED}.npy'
+        patient_dir = Path('outputs') / segmentation_experiment_name / dataset / patient
+        tooth_path = patient_dir / f'{Mode.UNTRUNCATED}.npy'
         tooth_volume = numpy.load(tooth_path)
-        bone_path = tooth_path.parent / f'{Mode.BONE_CONNECTED_COMPONENT}.npy'
+        bone_path = patient_dir / f'{Mode.BONE_CONNECTED_COMPONENT}.npy'
         bone_volume = numpy.load(bone_path)
 
         tooth_volume, bone_volume = fill_holes(tooth_volume, bone_volume)
 
-        output_path = tooth_path.parent / f'{Mode.TOOTH_FILLED}.npy'
-        numpy.save(output_path, tooth_volume)
-        output_path = bone_path.parent / f'{Mode.BONE_FILLED}.npy'
-        numpy.save(output_path, bone_volume)
+        numpy.save(patient_dir / f'{Mode.TOOTH_FILLED}.npy', tooth_volume)
+        numpy.save(patient_dir / f'{Mode.BONE_FILLED}.npy', bone_volume)
+
+        advance_stage(patient_dir, Mode.TOOTH_FILLED)

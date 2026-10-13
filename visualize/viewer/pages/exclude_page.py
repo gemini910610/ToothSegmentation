@@ -6,7 +6,14 @@ from PySide6.QtWidgets import QPushButton, QVBoxLayout
 
 from constants.color import GLASBEY_PALETTE
 from constants.label import Label
-from post_processing.relabel import relabel_volume
+from post_processing.relabel import compute_tooth_positions
+from post_processing.tooth_data import (
+    is_excluded,
+    load_tooth_data,
+    prune_stale_ids,
+    save_tooth_data,
+    set_entry,
+)
 from post_processing.utils import next_available_label
 from visualize.ui.buttons import RadioGroup
 from visualize.ui.layouts import HorizontalLayout
@@ -14,13 +21,6 @@ from visualize.ui.selectors import IconLabelSelector
 from visualize.ui.views import VolumeViewer
 from visualize.viewer.pages.page import VolumeViewerPage
 from visualize.viewer.pipeline import BONE_FILENAME, PREDICT_FILENAME, TOOTH_FILENAME
-from visualize.viewer.tooth_data import (
-    is_excluded,
-    load_tooth_data,
-    prune_stale_ids,
-    save_tooth_data,
-    set_entry,
-)
 
 NOISE_THRESHOLD = 1000
 NOISE_OPACITY = 0.2
@@ -129,7 +129,7 @@ class ExcludePage(VolumeViewerPage):
 
         if recompute:
             excluded_ids = {label for label, value in self.tooth_data.items() if is_excluded(value)}
-            _, positions = relabel_volume(self.volume, self.bone_cc_volume, excluded_ids=excluded_ids)
+            positions = compute_tooth_positions(self.volume, self.bone_cc_volume, excluded_ids=excluded_ids)
             self.tooth_data.update(positions)
             prune_stale_ids(self.tooth_data, {int(label) for label in numpy.unique(self.volume)})
 

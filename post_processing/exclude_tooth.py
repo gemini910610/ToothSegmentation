@@ -1,33 +1,23 @@
-import numpy
-
-from constants.label import Label
-
-
-def exclude_tooth(volume, exclude_labels):
-    exclude_types = {
-        'Unerupted Tooth': Label.UNERUPTED,
-        'Residual Root': Label.RESIDUAL_ROOT,
-        'Fake Tooth': Label.FAKE
+def exclude_tooth(exclude_labels):
+    return {
+        label: exclude_type
+        for exclude_type, labels in exclude_labels.items()
+        for label in labels
     }
-
-    lookup_table = numpy.arange(volume.max() + 1, dtype=numpy.uint8)
-    for exclude_type, labels in exclude_labels.items():
-        if exclude_type == 'Noise':
-            lookup_table[labels] = Label.BACKGROUND
-            continue
-
-        start_label = exclude_types[exclude_type]
-        lookup_table[labels] = numpy.arange(start_label, start_label + len(labels), dtype=numpy.uint8)
-
-    volume = lookup_table[volume]
-
-    return volume
 
 if __name__ == '__main__':
     import json
     from pathlib import Path
 
+    import numpy
+
     from constants.mode import Mode
+    from post_processing.stage import advance_stage
+    from post_processing.tooth_data import (
+        load_tooth_data,
+        prune_stale_ids,
+        save_tooth_data,
+    )
     from post_processing.utils import iterate_datasets
     from tui.apps import parse_segmentation_args
 
@@ -38,13 +28,20 @@ if __name__ == '__main__':
     with (Path('edit') / segmentation_experiment_name / 'exclude.json').open() as file:
         exclude_labels = json.load(file)
 
+    managed_types = {'Unerupted Tooth', 'Residual Root', 'Fake Tooth', 'Noise'}
+
     for dataset, patient in iterate_datasets(segmentation_experiment_name, datasets):
-        volume_path = Path('outputs') / segmentation_experiment_name / dataset / patient / f'{Mode.UNTRUNCATED}.npy'
-        volume = numpy.load(volume_path)
+        patient_dir = Path('outputs') / segmentation_experiment_name / dataset / patient
+        volume_path = patient_dir / f'{Mode.UNTRUNCATED}.npy'
+
+        tooth_data = load_tooth_data(patient_dir)
+        tooth_data = {label: value for label, value in tooth_data.items() if value not in managed_types}
 
         data = f'{dataset}/{patient}'
         if data in exclude_labels:
-            volume = exclude_tooth(volume, exclude_labels[data])
+            tooth_data.update(exclude_tooth(exclude_labels[data]))
 
-        output_path = volume_path.parent / f'{Mode.CLEANED}.npy'
-        numpy.save(output_path, volume)
+        prune_stale_ids(tooth_data, {int(label) for label in numpy.unique(numpy.load(volume_path))})
+        save_tooth_data(patient_dir, tooth_data)
+
+        advance_stage(patient_dir, Mode.CLEANED)

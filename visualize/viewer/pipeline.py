@@ -1,8 +1,8 @@
 import numpy
 
 from post_processing.auto_detect import detect_exclude_labels
-from post_processing.relabel import relabel_volume
-from visualize.viewer.tooth_data import (
+from post_processing.relabel import compute_tooth_positions
+from post_processing.tooth_data import (
     is_excluded,
     load_tooth_data,
     prune_stale_ids,
@@ -36,7 +36,7 @@ def apply_manual_edit(patient_dir, bone_cc_volume, tooth_volume, recompute=True)
         tooth_data.update(auto_exclude(tooth_volume, bone_cc_volume, excluded_ids))
 
         excluded_ids = {label for label, value in tooth_data.items() if is_excluded(value)}
-        _, positions = relabel_volume(tooth_volume, bone_cc_volume, excluded_ids=excluded_ids)
+        positions = compute_tooth_positions(tooth_volume, bone_cc_volume, excluded_ids=excluded_ids)
         tooth_data.update(positions)
 
     prune_stale_ids(tooth_data, {int(label) for label in numpy.unique(tooth_volume)})

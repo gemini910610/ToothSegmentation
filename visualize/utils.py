@@ -55,9 +55,11 @@ class DataManager:
         self.modes = modes
         self.data_dir = Path('outputs')
 
+    def patient_dir(self, index):
+        return self.data_dir / self.experiment_name / self.patients[index]
+
     def load_data(self, index):
-        patient = self.patients[index]
-        data_dir = self.data_dir / self.experiment_name / patient
+        data_dir = self.patient_dir(index)
 
         return {
             mode: numpy.load(data_dir / f'{mode}.npy')

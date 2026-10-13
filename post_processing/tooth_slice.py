@@ -136,7 +136,7 @@ def normalize_slice(segmentation_slice, image_slice):
 
 def find_normal_vectors(segmentation_volume):
     tooth_volume = segmentation_volume.copy()
-    tooth_volume[(segmentation_volume < 2) | ((segmentation_volume >= Label.UNERUPTED) & (segmentation_volume < Label.MISSING_FDI))] = 0
+    tooth_volume[segmentation_volume < 2] = 0
     bone_volume = segmentation_volume == 1
 
     upper_tooth, lower_tooth = split_teeth_jaw(tooth_volume, bone_volume)
@@ -169,6 +169,8 @@ if __name__ == '__main__':
     from pathlib import Path
 
     from constants.mode import Mode
+    from post_processing.stage import has_completed
+    from post_processing.tooth_data import resolve_volume
     from post_processing.utils import iterate_datasets
     from tui.apps import parse_segmentation_args
     from utils.console import track
@@ -184,26 +186,24 @@ if __name__ == '__main__':
     patients = [
         (dataset, patient)
         for dataset, patient in iterate_datasets(segmentation_experiment_name, datasets)
-        if (Path('outputs') / segmentation_experiment_name / dataset / patient / f'{Mode.FDI}.npy').is_file()
+        if has_completed(Path('outputs') / segmentation_experiment_name / dataset / patient, Mode.FDI)
     ]
 
     for dataset, patient in track(patients):
-        fdi_volume_path = Path('outputs') / segmentation_experiment_name / dataset / patient / f'{Mode.FDI}.npy'
-        fdi_volume = numpy.load(fdi_volume_path)
-        bone_volume_path = fdi_volume_path.parent / f'{Mode.BONE_FILLED}.npy'
-        bone_volume = numpy.load(bone_volume_path)
-        image_volume_path = fdi_volume_path.parent / f'{Mode.IMAGE}.npy'
-        image_volume = numpy.load(image_volume_path)
+        patient_dir = Path('outputs') / segmentation_experiment_name / dataset / patient
+        tooth_volume = numpy.load(patient_dir / f'{Mode.TOOTH_FILLED}.npy')
+        bone_volume = numpy.load(patient_dir / f'{Mode.BONE_FILLED}.npy')
+        image_volume = numpy.load(patient_dir / f'{Mode.IMAGE}.npy')
 
         bone_mask = bone_volume > 0
-        segmentation_volume = fdi_volume + bone_mask
+        segmentation_volume = resolve_volume(patient_dir, tooth_volume) + bone_mask
         bone_coordinates = numpy.argwhere(bone_mask)
         image_coefficients = ndimage.spline_filter(image_volume, order=3)
 
         normal_vectors = find_normal_vectors(segmentation_volume)
 
         labels = numpy.unique(segmentation_volume)
-        labels = labels[(labels > 1) & (labels < Label.TRUNCATED)] # exclude background, bone and removed teeth
+        labels = labels[labels > 1] # exclude background and bone (excluded teeth already resolve to background)
 
         for label in track(labels, desc=f'{dataset}/{patient}'):
             slice_dir = output_dir / dataset / patient / str(label)

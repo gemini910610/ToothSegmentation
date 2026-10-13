@@ -1,3 +1,5 @@
+import numpy
+
 from visualize.utils import JsonHandler
 
 
@@ -22,3 +24,13 @@ def prune_stale_ids(data, valid_ids):
 
 def is_excluded(value):
     return not value.isdigit()
+
+def resolve_volume(patient_dir, tooth_volume):
+    tooth_data = load_tooth_data(patient_dir)
+
+    lookup_table = numpy.zeros(tooth_volume.max() + 1, dtype=numpy.uint8)
+    for label, value in tooth_data.items():
+        if not is_excluded(value):
+            lookup_table[label] = int(value)
+
+    return lookup_table[tooth_volume]

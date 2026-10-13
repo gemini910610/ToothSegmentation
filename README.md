@@ -251,13 +251,15 @@ uv run -m scripts.segment <segmentation_exp> <dataset...> [--segmentation-fold F
 | 2 | `uv run -m post_processing.watershed <segmentation_exp> <dataset...>` | — | `watershed.npy` |
 | 3 | `uv run -m post_processing.refine_split <segmentation_exp> <dataset...>` | `uv run -m visualize.editor.split <segmentation_exp> <dataset...>` → `edit/<segmentation_exp>/split.json` | `refine_split.npy` |
 | 4 | `uv run -m post_processing.refine_merge <segmentation_exp> <dataset...>` | `uv run -m visualize.editor.merge <segmentation_exp> <dataset...>` → `edit/<segmentation_exp>/merge.json` | `refine_merge.npy` |
-| 5 | `uv run -m post_processing.exclude_truncated <segmentation_exp> <dataset...>` | — | `untruncated.npy` |
-| 6 | `uv run -m post_processing.exclude_tooth <segmentation_exp> <dataset...>` | `uv run -m visualize.editor.exclude <segmentation_exp> <dataset...>` → `edit/<segmentation_exp>/exclude.json` | `cleaned.npy` |
+| 5 | `uv run -m post_processing.exclude_truncated <segmentation_exp> <dataset...>` | — | `untruncated.npy` + `data.json` (`Truncated`) |
+| 6 | `uv run -m post_processing.exclude_tooth <segmentation_exp> <dataset...>` | `uv run -m visualize.editor.exclude <segmentation_exp> <dataset...>` → `edit/<segmentation_exp>/exclude.json` | `data.json` (`Unerupted Tooth` / `Residual Root` / `Fake Tooth` / `Noise`) |
 | 7 | `uv run -m post_processing.fill_holes <segmentation_exp> <dataset...>` | — | `tooth_filled.npy` / `bone_filled.npy` |
-| 8 | `uv run -m post_processing.relabel <segmentation_exp> <dataset...>` | — | `relabeled.npy` |
-| 9 | `uv run -m post_processing.relabel_fdi <segmentation_exp> <dataset...>` | `uv run -m visualize.editor.fdi <segmentation_exp> <dataset...>` → `edit/<segmentation_exp>/fdi.json` | `fdi.npy` |
+| 8 | `uv run -m post_processing.relabel <segmentation_exp> <dataset...>` | — | `data.json` (quadrant position) |
+| 9 | `uv run -m post_processing.relabel_fdi <segmentation_exp> <dataset...>` | `uv run -m visualize.editor.fdi <segmentation_exp> <dataset...>` → `edit/<segmentation_exp>/fdi.json` | `data.json` (confirmed FDI / `Missing FDI`) |
 
 * `--threshold` (`connected_component`): voxel-count cutoff for the connected-component filter.
+* `data.json`: keyed by instance id, value is a position/FDI number or an exclude-type string (`Unerupted Tooth`/`Residual Root`/`Fake Tooth`/`Noise`/`Truncated`/`Missing FDI`); no key = Normal Tooth.
+* `stage.json`: completed-stage markers; rerunning an earlier stage truncates later ones.
 
 ```
 📁 outputs/<segmentation_exp>/<dataset>/<patient>
@@ -269,11 +271,10 @@ uv run -m scripts.segment <segmentation_exp> <dataset...> [--segmentation-fold F
 ├── 📄 refine_split.npy    # 3. refine_split
 ├── 📄 refine_merge.npy    # 4. refine_merge
 ├── 📄 untruncated.npy     # 5. exclude_truncated
-├── 📄 cleaned.npy         # 6. exclude_tooth
 ├── 📄 tooth_filled.npy    # 7. fill_holes
 ├── 📄 bone_filled.npy     # 7. fill_holes
-├── 📄 relabeled.npy       # 8. relabel
-└── 📄 fdi.npy             # 9. relabel_fdi
+├── 📄 data.json           # 5-9. per-tooth classification/position/FDI, keyed by stable instance id
+└── 📄 stage.json          # completed-stage markers
 ```
 ```
 📁 edit/<segmentation_exp>
@@ -330,7 +331,7 @@ uv run -m panoramic.predict <dataset...>
 uv run -m scripts.compare_bone_loss <segmentation_exp> <keypoints_exp> <dataset...> [--keypoints-fold FOLD]
 ```
 * `--keypoints-fold`: fold of the keypoints model to load.
-* Runs over patients with `fdi.npy` (post-processing completed).
+* Runs over patients whose `stage.json` shows the FDI stage completed.
 
 ```
 📁 outputs/BoneLoss
@@ -351,7 +352,7 @@ uv run -m visualize.viewer.launcher
 ```
 The launch form collects **"segmentation experiment"**/**"segmentation fold"** and **"keypoints experiment"**/**"keypoints fold"** before opening the per-patient, tab-by-tab GUI (backed by `working/<segmentation_exp>_<keypoints_exp>/<patient>_<date>/`).
 
-**Import** brings in a new patient's DICOM series; **Predict** then runs the full automated pipeline once (connected-component filtering, watershed splitting, truncation/auto-exclusion, hole filling, relabeling) and lands on **Bone Loss**. After that, every tab is an always-available editing tool that reads/writes the same two files directly — Save is an instant in-memory update, with the expensive recompute (auto-exclusion + relabeling) deferred until you switch tabs/patients or close the app:
+**Import** brings in a new patient's DICOM series; **Predict** then runs the full automated pipeline once (connected-component filtering, watershed splitting, truncation/auto-exclusion, hole filling, initial position guess) and lands on **Bone Loss**. After that, every tab is an always-available editing tool that reads/writes `tooth.npy` (stable instance ids) and `data.json` (same side-table as the batch pipeline) directly — Save is an instant in-memory update, with the expensive recompute (auto-exclusion + position guessing) deferred until you switch tabs/patients or close the app:
 
 1. **Bone Loss** (default tab) — per-tooth CEJ detection and contour/area bone-loss inspection.
 2. **Exclude** — auto-flags teeth the model predicted but the current segmentation dropped, plus manual classification of any tooth as Normal/Unerupted/Residual Root/Fake Tooth/Noise.
@@ -365,7 +366,8 @@ The launch form collects **"segmentation experiment"**/**"segmentation fold"** a
 ├── 📄 image.npy
 ├── 📄 predict.npy
 ├── 📄 bone.npy
-└── 📄 tooth.npy
+├── 📄 tooth.npy
+└── 📄 data.json
 ```
 
 Standalone read-only inspector — collects **"segmentation experiment"**, **"keypoints experiment"**, and **"datasets"**:

@@ -1,10 +1,8 @@
 from pathlib import Path
 
 import cv2
-import numpy
 from PySide6.QtWidgets import QApplication, QMessageBox, QPushButton
 
-from constants.label import Label
 from constants.mode import Mode
 from post_processing.panoramic import (
     draw_label,
@@ -13,6 +11,7 @@ from post_processing.panoramic import (
     get_panoramic,
     load_panoramic,
 )
+from post_processing.tooth_data import resolve_volume
 from visualize.ui.grids import LabelGrid
 from visualize.ui.images import DestinationImage, SourceImage, bgr_to_pixmap
 from visualize.ui.layouts import HorizontalLayout
@@ -77,10 +76,12 @@ class MainWindow(BaseWindow):
 
         volumes = self.data_manager.load_data(index)
         image_volume = volumes[Mode.IMAGE]
-        relabeled_volume = volumes[Mode.RELABELED]
+        tooth_volume = volumes[Mode.TOOTH_FILLED]
         bone_volume = volumes[Mode.BONE_FILLED]
 
-        segmentation_volume = numpy.where(relabeled_volume >= Label.TRUNCATED, 0, relabeled_volume)
+        patient_dir = self.data_manager.patient_dir(index)
+
+        segmentation_volume = resolve_volume(patient_dir, tooth_volume)
         segmentation_volume = segmentation_volume + (bone_volume > 0)
 
         jaw_labels, image_panoramic, segmentation_panoramic_mask = get_panoramic(image_volume, segmentation_volume)
@@ -189,5 +190,5 @@ if __name__ == '__main__':
             panoramic_paths[f'{dataset}/{patient}'] = paths
 
     patients = list(panoramic_paths.keys())
-    data_manager = DataManager(segmentation_experiment_name, patients, [Mode.IMAGE, Mode.RELABELED, Mode.BONE_FILLED])
+    data_manager = DataManager(segmentation_experiment_name, patients, [Mode.IMAGE, Mode.TOOTH_FILLED, Mode.BONE_FILLED])
     run_app(MainWindow, data_manager, panoramic_paths)

@@ -4,7 +4,7 @@ from pathlib import Path
 
 from constants.mode import Mode
 from post_processing.panoramic import find_panoramic_paths
-from tui.apps import BaseApp, has_npy
+from tui.apps import BaseApp, mode_predicate
 from tui.selectors import OptionSelector
 
 STAGES = [
@@ -39,7 +39,7 @@ def _has_panoramic_prediction():
 
 def _available_stages():
     outputs_dir = Path('outputs')
-    stages = [name for name, mode in STAGES if has_npy(mode, depth=3)(outputs_dir)]
+    stages = [name for name, mode in STAGES if mode_predicate(mode, depth=3)(outputs_dir)]
     if _has_panoramic_prediction():
         stages.append('panoramic')
 

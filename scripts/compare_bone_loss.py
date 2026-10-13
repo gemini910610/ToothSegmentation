@@ -14,6 +14,8 @@ from post_processing.bone_loss import (
     slice_contour_bone_loss,
     volume_bone_loss,
 )
+from post_processing.stage import has_completed
+from post_processing.tooth_data import resolve_volume
 from post_processing.tooth_slice import (
     align_crop_tooth,
     extract_single_tooth,
@@ -50,24 +52,24 @@ writer = ExcelWriter(Path('outputs') / 'BoneLoss' / f'{segmentation_experiment_n
 patients = [
     (dataset, patient)
     for dataset, patient in iterate_datasets(segmentation_experiment_name, datasets)
-    if (Path('outputs') / segmentation_experiment_name / dataset / patient / f'{Mode.FDI}.npy').is_file()
+    if has_completed(Path('outputs') / segmentation_experiment_name / dataset / patient, Mode.FDI)
 ]
 
 for dataset, patient in track(patients):
     patient_dir = Path('outputs') / segmentation_experiment_name / dataset / patient
-    fdi_volume = numpy.load(patient_dir / f'{Mode.FDI}.npy')
+    tooth_volume = numpy.load(patient_dir / f'{Mode.TOOTH_FILLED}.npy')
     bone_volume = numpy.load(patient_dir / f'{Mode.BONE_FILLED}.npy')
     image_volume = numpy.load(patient_dir / f'{Mode.IMAGE}.npy')
 
     bone_mask = bone_volume > 0
-    segmentation_volume = fdi_volume + bone_mask
+    segmentation_volume = resolve_volume(patient_dir, tooth_volume) + bone_mask
     bone_coordinates = numpy.argwhere(bone_mask)
     image_coefficients = ndimage.spline_filter(image_volume, order=3)
 
     normal_vectors = find_normal_vectors(segmentation_volume)
 
     labels = numpy.unique(segmentation_volume)
-    labels = labels[(labels > 1) & (labels < Label.TRUNCATED)] # exclude background, bone and removed teeth
+    labels = labels[labels > 1] # exclude background and bone (excluded teeth already resolve to background)
 
     tooth_infos = []
     patient_segmentation_slices = []

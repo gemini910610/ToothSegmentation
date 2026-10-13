@@ -5,6 +5,7 @@ from PySide6.QtWidgets import QPushButton, QSpinBox, QVBoxLayout
 
 from constants.color import GLASBEY_PALETTE
 from post_processing.refine_split import refine_split
+from post_processing.tooth_data import load_tooth_data
 from post_processing.utils import ROIVolume
 from post_processing.watershed import split_k_component
 from visualize.ui.layouts import HorizontalLayout
@@ -12,7 +13,6 @@ from visualize.ui.selectors import IconLabelSelector
 from visualize.ui.views import VolumeViewer
 from visualize.viewer.pages.page import VolumeViewerPage
 from visualize.viewer.pipeline import BONE_FILENAME, TOOTH_FILENAME, apply_manual_edit
-from visualize.viewer.tooth_data import load_tooth_data
 
 
 class SplitControls(HorizontalLayout):

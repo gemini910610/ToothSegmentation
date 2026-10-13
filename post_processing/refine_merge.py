@@ -15,6 +15,7 @@ if __name__ == '__main__':
     from pathlib import Path
 
     from constants.mode import Mode
+    from post_processing.stage import advance_stage
     from post_processing.utils import iterate_datasets
     from tui.apps import parse_segmentation_args
 
@@ -26,12 +27,13 @@ if __name__ == '__main__':
         merge_components = json.load(file)
 
     for dataset, patient in iterate_datasets(segmentation_experiment_name, datasets):
-        volume_path = Path('outputs') / segmentation_experiment_name / dataset / patient / f'{Mode.REFINE_SPLIT}.npy'
-        volume = numpy.load(volume_path)
+        patient_dir = Path('outputs') / segmentation_experiment_name / dataset / patient
+        volume = numpy.load(patient_dir / f'{Mode.REFINE_SPLIT}.npy')
 
         data = f'{dataset}/{patient}'
         if data in merge_components:
             volume = refine_merge(volume, merge_components[data])
 
-        output_path = volume_path.parent / f'{Mode.REFINE_MERGE}.npy'
-        numpy.save(output_path, volume)
+        numpy.save(patient_dir / f'{Mode.REFINE_MERGE}.npy', volume)
+
+        advance_stage(patient_dir, Mode.REFINE_MERGE)

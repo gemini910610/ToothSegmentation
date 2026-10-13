@@ -2,8 +2,6 @@ import numpy
 from scipy import ndimage
 from scipy.interpolate import make_splprep
 
-from constants.label import Label
-
 
 def split_teeth_jaw(tooth_volume, bone_volume):
     upper_tooth = []
@@ -128,15 +126,10 @@ def _get_quadrant(is_lower, is_left):
 
     return 4
 
-def relabel_volume(tooth_volume, bone_volume, excluded_ids=None):
+def compute_tooth_positions(tooth_volume, bone_volume, excluded_ids):
     tooth_volume = tooth_volume.copy()
+    tooth_volume[numpy.isin(tooth_volume, list(excluded_ids))] = 0
 
-    if excluded_ids is None:
-        exclude_mask = tooth_volume >= Label.TRUNCATED
-    else:
-        exclude_mask = numpy.isin(tooth_volume, list(excluded_ids))
-    exclude_tooth = tooth_volume[exclude_mask]
-    tooth_volume[exclude_mask] = 0
     upper_tooth, lower_tooth = split_teeth_jaw(tooth_volume, bone_volume)
 
     quadrants = {1: [], 2: [], 3: [], 4: []}
@@ -152,9 +145,8 @@ def relabel_volume(tooth_volume, bone_volume, excluded_ids=None):
                 quadrant = _get_quadrant(is_lower, is_left)
                 quadrants[quadrant].append(tooth)
 
-    volume = numpy.zeros_like(tooth_volume, dtype=numpy.uint8)
     positions = {}
-    center = (volume.shape[0] / 2, volume.shape[1] / 2)
+    center = (tooth_volume.shape[0] / 2, tooth_volume.shape[1] / 2)
     for quadrant, tooth_list in quadrants.items():
         if not tooth_list:
             continue
@@ -176,18 +168,21 @@ def relabel_volume(tooth_volume, bone_volume, excluded_ids=None):
         for index, tooth in enumerate(tooth_list, 1):
             if tooth['label'] is None:
                 continue
-            position = quadrant * 10 + index
-            volume[tooth['slices']][tooth['roi']] = position
-            positions[tooth['label']] = str(position)
+            positions[tooth['label']] = str(quadrant * 10 + index)
 
-    volume[exclude_mask] = exclude_tooth
-
-    return volume, positions
+    return positions
 
 if __name__ == '__main__':
     from pathlib import Path
 
     from constants.mode import Mode
+    from post_processing.stage import advance_stage
+    from post_processing.tooth_data import (
+        is_excluded,
+        load_tooth_data,
+        prune_stale_ids,
+        save_tooth_data,
+    )
     from post_processing.utils import iterate_datasets
     from tui.apps import parse_segmentation_args
 
@@ -196,12 +191,16 @@ if __name__ == '__main__':
     datasets = args['datasets']
 
     for dataset, patient in iterate_datasets(segmentation_experiment_name, datasets):
-        tooth_path = Path('outputs') / segmentation_experiment_name / dataset / patient / f'{Mode.TOOTH_FILLED}.npy'
-        tooth_volume = numpy.load(tooth_path)
-        bone_path = tooth_path.parent / f'{Mode.BONE_FILLED}.npy'
-        bone_volume = numpy.load(bone_path)
+        patient_dir = Path('outputs') / segmentation_experiment_name / dataset / patient
+        tooth_volume = numpy.load(patient_dir / f'{Mode.TOOTH_FILLED}.npy')
+        bone_volume = numpy.load(patient_dir / f'{Mode.BONE_FILLED}.npy')
 
-        volume, _ = relabel_volume(tooth_volume, bone_volume)
+        tooth_data = load_tooth_data(patient_dir)
+        excluded_ids = {label for label, value in tooth_data.items() if is_excluded(value)}
 
-        output_path = tooth_path.parent / f'{Mode.RELABELED}.npy'
-        numpy.save(output_path, volume)
+        positions = compute_tooth_positions(tooth_volume, bone_volume, excluded_ids=excluded_ids)
+        tooth_data.update(positions)
+        prune_stale_ids(tooth_data, {int(label) for label in numpy.unique(tooth_volume)})
+        save_tooth_data(patient_dir, tooth_data)
+
+        advance_stage(patient_dir, Mode.RELABELED)

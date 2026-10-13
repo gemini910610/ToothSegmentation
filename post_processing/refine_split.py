@@ -35,6 +35,7 @@ if __name__ == '__main__':
     from pathlib import Path
 
     from constants.mode import Mode
+    from post_processing.stage import advance_stage
     from post_processing.utils import iterate_datasets
     from tui.apps import parse_segmentation_args
 
@@ -46,13 +47,13 @@ if __name__ == '__main__':
         split_components = json.load(file)
 
     for dataset, patient in iterate_datasets(segmentation_experiment_name, datasets):
-        cc_path = Path('outputs') / segmentation_experiment_name / dataset / patient / f'{Mode.TOOTH_CONNECTED_COMPONENT}.npy'
-        cc_volume = numpy.load(cc_path)
-        watershed_path = cc_path.parent / f'{Mode.WATERSHED}.npy'
-        watershed_volume = numpy.load(watershed_path)
+        patient_dir = Path('outputs') / segmentation_experiment_name / dataset / patient
+        cc_volume = numpy.load(patient_dir / f'{Mode.TOOTH_CONNECTED_COMPONENT}.npy')
+        watershed_volume = numpy.load(patient_dir / f'{Mode.WATERSHED}.npy')
 
         data = f'{dataset}/{patient}'
         volume = watershed_volume if data not in split_components else refine_split(cc_volume, watershed_volume, split_components[data])[0]
 
-        output_path = cc_path.parent / f'{Mode.REFINE_SPLIT}.npy'
-        numpy.save(output_path, volume)
+        numpy.save(patient_dir / f'{Mode.REFINE_SPLIT}.npy', volume)
+
+        advance_stage(patient_dir, Mode.REFINE_SPLIT)

@@ -18,7 +18,8 @@ from dicom.importer import DuplicatePatientError, import_dicom, import_panoramic
 from post_processing.connected_component import filter_connected_component
 from post_processing.fill_holes import fill_holes
 from post_processing.panoramic import find_panoramic_image
-from post_processing.relabel import relabel_volume
+from post_processing.relabel import compute_tooth_positions
+from post_processing.tooth_data import save_tooth_data
 from post_processing.watershed import split_component
 from segmentation.predict import predict_patient
 from utils.console import track
@@ -36,7 +37,6 @@ from visualize.viewer.pipeline import (
     TOOTH_FILENAME,
     auto_exclude,
 )
-from visualize.viewer.tooth_data import save_tooth_data
 
 BONE_THRESHOLD = 45000
 TOOTH_THRESHOLD = 8200
@@ -82,7 +82,7 @@ class AutoPipeline:
         numpy.save(self.patient_dir / BONE_FILENAME, bone_filled)
         yield
 
-        _, positions = relabel_volume(tooth_filled, bone_filled, excluded_ids=set(tooth_data))
+        positions = compute_tooth_positions(tooth_filled, bone_filled, excluded_ids=set(tooth_data))
         tooth_data.update(positions)
         save_tooth_data(self.patient_dir, tooth_data)
         numpy.save(self.patient_dir / TOOTH_FILENAME, tooth_filled)

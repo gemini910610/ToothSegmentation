@@ -7,7 +7,6 @@ from scipy import ndimage
 from scipy.interpolate import make_splprep
 
 from constants.color import GLASBEY_PALETTE
-from constants.label import Label
 from post_processing.relabel import split_teeth_jaw
 from utils.image import imread, imwrite
 
@@ -115,7 +114,7 @@ def _sample_panoramic(image_volume, segmentation_volume, tooth_list):
 
 def get_panoramic(image_volume, segmentation_volume):
     tooth_volume = segmentation_volume.copy()
-    tooth_volume[(segmentation_volume < 2) | (segmentation_volume >= Label.UNERUPTED)] = 0
+    tooth_volume[segmentation_volume < 2] = 0
     bone_volume = segmentation_volume == 1
 
     jaw_labels = []
@@ -123,8 +122,6 @@ def get_panoramic(image_volume, segmentation_volume):
     jaw_segmentation_panoramic = []
 
     upper_tooth, lower_tooth = split_teeth_jaw(tooth_volume, bone_volume)
-    upper_tooth = [tooth for tooth in upper_tooth if tooth['label'] < Label.TRUNCATED]
-    lower_tooth = [tooth for tooth in lower_tooth if tooth['label'] < Label.TRUNCATED]
 
     for tooth_list in (upper_tooth, lower_tooth):
         if not tooth_list:

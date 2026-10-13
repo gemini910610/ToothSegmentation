@@ -6,6 +6,7 @@ from PySide6.QtWidgets import QPushButton
 from constants.label import Label
 from constants.mode import Mode
 from post_processing.auto_detect import detect_exclude_labels
+from post_processing.tooth_data import load_tooth_data
 from visualize.ui.buttons import RadioGroup
 from visualize.ui.layouts import HorizontalLayout
 from visualize.ui.selectors import IconLabelSelector, PatientSelector
@@ -109,12 +110,16 @@ class MainWindow(BaseWindow):
         bone_mask = bone_volume > 0
         self.volume = tooth_volume
 
-        volume = numpy.where(tooth_volume >= Label.TRUNCATED, 0, tooth_volume)
+        patient_dir = self.data_manager.patient_dir(index)
+        tooth_data = load_tooth_data(patient_dir)
+        truncated_ids = [label for label, value in tooth_data.items() if value == 'Truncated']
+
+        volume = numpy.where(numpy.isin(tooth_volume, truncated_ids), 0, tooth_volume)
         volume = volume + bone_mask
         self.volume_viewer.views[0].update_volume(volume, include_labels=True)
 
         labels = numpy.unique(self.volume)
-        labels = labels[(labels > 0) & (labels < Label.TRUNCATED)]
+        labels = labels[(labels > 0) & ~numpy.isin(labels, truncated_ids)]
 
         patient = self.patient_selector.currentText()
         with JsonHandler(Path('edit') / self.data_manager.experiment_name / 'exclude.json', ExcludeDataHandler) as handler:
@@ -169,7 +174,7 @@ class MainWindow(BaseWindow):
         with JsonHandler(Path('edit') / self.data_manager.experiment_name / 'exclude.json', ExcludeDataHandler) as handler:
             if exclude_type == 'Normal Tooth':
                 handler.remove_data(patient, label)
-            else: # Unerupted Tooth, Residual Root, Fake Tooth, Noise
+            else:
                 handler.set_data(patient, exclude_type, label)
 
     def _on_picked(self, actor):

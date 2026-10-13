@@ -12,18 +12,18 @@ from post_processing.panoramic import (
     find_panoramic_image,
     get_panoramic,
 )
+from post_processing.tooth_data import (
+    is_excluded,
+    load_tooth_data,
+    save_tooth_data,
+    set_entry,
+)
 from utils.image import imread
 from visualize.ui.grids import LabelGrid
 from visualize.ui.images import DestinationImage, SourceImage, bgr_to_pixmap
 from visualize.ui.layouts import HorizontalLayout
 from visualize.viewer.pages.page import Page
 from visualize.viewer.pipeline import BONE_FILENAME, IMAGE_FILENAME, TOOTH_FILENAME
-from visualize.viewer.tooth_data import (
-    is_excluded,
-    load_tooth_data,
-    save_tooth_data,
-    set_entry,
-)
 
 
 class FDIControls(HorizontalLayout):
@@ -166,7 +166,7 @@ class FDIPage(Page):
         if self.volume is None:
             return
 
-        data = {}
+        tooth_data = load_tooth_data(self.working_dir / self.patient)
         exists = set()
         empty_labels = []
         duplicated_fdis = []
@@ -178,7 +178,9 @@ class FDIPage(Page):
                 if fdi in exists:
                     duplicated_fdis.append(fdi)
                 exists.add(fdi)
-            data[position] = fdi
+
+            label = self.labels[position]
+            set_entry(tooth_data, label, 'Missing FDI' if fdi == '-' else fdi)
 
         messages = []
         if empty_labels:
@@ -189,11 +191,6 @@ class FDIPage(Page):
         if messages:
             QMessageBox.warning(self, 'Warning', '\n'.join(messages))
             return
-
-        tooth_data = load_tooth_data(self.working_dir / self.patient)
-        for position, fdi in data.items():
-            label = self.labels[position]
-            set_entry(tooth_data, label, fdi)
 
         save_tooth_data(self.working_dir / self.patient, tooth_data)
 

@@ -19,6 +19,7 @@ from post_processing.bone_loss import (
     volume_bone_loss,
 )
 from post_processing.panoramic import crop_panoramic, find_panoramic_image
+from post_processing.tooth_data import is_excluded, load_tooth_data
 from post_processing.tooth_slice import (
     align_crop_tooth,
     extract_single_tooth,
@@ -37,7 +38,6 @@ from visualize.ui.sliders import PercentSlider
 from visualize.ui.views import SyncView, VolumeViewer
 from visualize.viewer.pages.page import Page
 from visualize.viewer.pipeline import BONE_FILENAME, IMAGE_FILENAME, TOOTH_FILENAME
-from visualize.viewer.tooth_data import is_excluded, load_tooth_data
 
 
 class BoneLossControls(HorizontalLayout):

@@ -6,6 +6,7 @@ from textual import work
 from textual.app import App
 
 from constants.mode import Mode
+from post_processing.stage import load_stages
 from tui.buttons import ActionButtons, BaseButton
 from tui.containers import BaseContainer, BaseGrid, BaseHorizontal
 from tui.decorators import HorizontalRule
@@ -63,6 +64,19 @@ def has_npy(mode, depth):
 
     return predicate
 
+def has_stage(mode, depth):
+    def predicate(folder):
+        pattern = '/'.join(['*'] * depth + ['stage.json'])
+        return any(mode in load_stages(path.parent) for path in folder.glob(pattern))
+
+    return predicate
+
+def mode_predicate(mode, depth):
+    if mode in {Mode.CLEANED, Mode.RELABELED, Mode.FDI}:
+        return has_stage(mode, depth)
+
+    return has_npy(mode, depth)
+
 class BaseApp(App):
     def __init__(self, required_mode=None):
         super().__init__()
@@ -84,7 +98,7 @@ class BaseApp(App):
             )
 
     def _selectors(self):
-        predicate = None if self.required_mode is None else has_npy(self.required_mode, depth=2)
+        predicate = None if self.required_mode is None else mode_predicate(self.required_mode, depth=2)
         self.experiment_selector = DirectorySelector(Path('outputs'), 'experiment', self._on_experiment_change, predicate=predicate)
         self.dataset_selector = DirectoryMultiSelector(title='datasets')
         return [self.experiment_selector, self.dataset_selector]
@@ -102,7 +116,7 @@ class BaseApp(App):
         self.screen.styles.align = ('center', 'middle')
 
     def _on_experiment_change(self, experiment_name):
-        predicate = None if self.required_mode is None else has_npy(self.required_mode, depth=1)
+        predicate = None if self.required_mode is None else mode_predicate(self.required_mode, depth=1)
         self.dataset_selector.update(Path('outputs') / experiment_name, predicate=predicate)
 
     def _on_cancel(self):
@@ -123,7 +137,7 @@ class SliceApp(BaseApp):
 
 class DualExperimentFoldApp(BaseApp):
     def _selectors(self):
-        predicate = None if self.required_mode is None else has_npy(self.required_mode, depth=2)
+        predicate = None if self.required_mode is None else mode_predicate(self.required_mode, depth=2)
         self.segmentation_experiment_selector = DirectorySelector(Path('outputs'), 'segmentation experiment', self._on_experiment_change, predicate=predicate)
         self.keypoints_experiment_selector = DirectorySelector(Path('logs'), 'keypoints experiment', predicate=has_toml('keypoints'))
         self.dataset_selector = DirectoryMultiSelector(title='datasets')
@@ -312,7 +326,7 @@ class TaskFoldApp(BaseApp):
 
 class DualExperimentOptionSwitchApp(BaseApp):
     def _selectors(self):
-        predicate = None if self.required_mode is None else has_npy(self.required_mode, depth=2)
+        predicate = None if self.required_mode is None else mode_predicate(self.required_mode, depth=2)
         self.segmentation_experiment_selector = DirectorySelector(Path('outputs'), 'segmentation experiment', predicate=predicate)
         self.keypoints_experiment_selector = DirectorySelector(Path('logs'), 'keypoints experiment', predicate=has_toml('keypoints'))
         return [self.segmentation_experiment_selector, self.keypoints_experiment_selector]

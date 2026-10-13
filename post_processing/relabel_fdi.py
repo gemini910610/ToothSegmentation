@@ -1,31 +1,27 @@
-import numpy
-
-from constants.label import Label
+from post_processing.tooth_data import is_excluded, set_entry
 
 
-def relabel_fdi(volume, fdi_mapping):
-    lookup_table = numpy.arange(volume.max() + 1, dtype=numpy.uint8)
+def relabel_fdi(tooth_data, fdi_mapping):
+    positions = {value: label for label, value in tooth_data.items() if not is_excluded(value)}
 
-    missing_label = Label.MISSING_FDI
-    labels = numpy.unique(volume)
-    labels = labels[(labels > 1) & (labels < Label.TRUNCATED)]
-    for label in labels:
-        fdi = fdi_mapping[str(label)]
-        if fdi is None:
-            lookup_table[label] = missing_label
-            missing_label += 1
-        else:
-            lookup_table[label] = int(fdi)
-
-    volume = lookup_table[volume]
-
-    return volume
+    for position, fdi in fdi_mapping.items():
+        label = positions.get(position)
+        if label is not None:
+            set_entry(tooth_data, label, 'Missing FDI' if fdi is None else fdi)
 
 if __name__ == '__main__':
     import json
     from pathlib import Path
 
+    import numpy
+
     from constants.mode import Mode
+    from post_processing.stage import advance_stage
+    from post_processing.tooth_data import (
+        load_tooth_data,
+        prune_stale_ids,
+        save_tooth_data,
+    )
     from post_processing.utils import iterate_datasets
     from tui.apps import parse_segmentation_args
 
@@ -43,10 +39,12 @@ if __name__ == '__main__':
     ]
 
     for dataset, patient in patients:
-        volume_path = Path('outputs') / segmentation_experiment_name / dataset / patient / f'{Mode.RELABELED}.npy'
-        volume = numpy.load(volume_path)
+        patient_dir = Path('outputs') / segmentation_experiment_name / dataset / patient
+        tooth_volume = numpy.load(patient_dir / f'{Mode.TOOTH_FILLED}.npy')
 
-        volume = relabel_fdi(volume, fdi_mapping[f'{dataset}/{patient}'])
+        tooth_data = load_tooth_data(patient_dir)
+        relabel_fdi(tooth_data, fdi_mapping[f'{dataset}/{patient}'])
+        prune_stale_ids(tooth_data, {int(label) for label in numpy.unique(tooth_volume)})
+        save_tooth_data(patient_dir, tooth_data)
 
-        output_path = volume_path.parent / f'{Mode.FDI}.npy'
-        numpy.save(output_path, volume)
+        advance_stage(patient_dir, Mode.FDI)

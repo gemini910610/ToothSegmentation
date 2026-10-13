@@ -5,11 +5,11 @@ from PySide6.QtWidgets import QPushButton, QVBoxLayout
 
 from constants.color import GLASBEY_PALETTE, Color
 from post_processing.refine_merge import refine_merge
+from post_processing.tooth_data import load_tooth_data
 from visualize.ui.layouts import HorizontalLayout
 from visualize.ui.views import VolumeViewer
 from visualize.viewer.pages.page import VolumeViewerPage
 from visualize.viewer.pipeline import BONE_FILENAME, TOOTH_FILENAME, apply_manual_edit
-from visualize.viewer.tooth_data import load_tooth_data
 
 
 class MergeControls(HorizontalLayout):

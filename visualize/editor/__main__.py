@@ -3,7 +3,7 @@ import sys
 from pathlib import Path
 
 from constants.mode import Mode
-from tui.apps import BaseApp, has_npy
+from tui.apps import BaseApp, mode_predicate
 from tui.selectors import OptionSelector
 
 EDITORS = [
@@ -17,7 +17,7 @@ EDITORS = [
 
 def _available_editors():
     outputs_dir = Path('outputs')
-    return [name for name, mode in EDITORS if has_npy(mode, depth=3)(outputs_dir)]
+    return [name for name, mode in EDITORS if mode_predicate(mode, depth=3)(outputs_dir)]
 
 class EditorApp(BaseApp):
     def __init__(self, available):

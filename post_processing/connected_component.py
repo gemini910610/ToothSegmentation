@@ -76,6 +76,7 @@ if __name__ == '__main__':
 
     from constants.label import Label
     from constants.mode import Mode
+    from post_processing.stage import advance_stage
     from post_processing.utils import iterate_datasets
     from tui.apps import SwitchThresholdApp, parse_args
 
@@ -94,12 +95,15 @@ if __name__ == '__main__':
 
     target = Label.TOOTH if target_name == 'tooth' else Label.BONE
 
+    mode = Mode.TOOTH_CONNECTED_COMPONENT if target == Label.TOOTH else Mode.BONE_CONNECTED_COMPONENT
+
     for dataset, patient in iterate_datasets(segmentation_experiment_name, datasets):
-        volume_path = Path('outputs') / segmentation_experiment_name / dataset / patient / f'{Mode.PREDICT}.npy'
-        volume = numpy.load(volume_path)
+        patient_dir = Path('outputs') / segmentation_experiment_name / dataset / patient
+        volume = numpy.load(patient_dir / f'{Mode.PREDICT}.npy')
 
         volume = volume == target
         volume = filter_connected_component(volume, target == Label.BONE, voxel_threshold)
 
-        output_path = volume_path.parent / f'{Mode.TOOTH_CONNECTED_COMPONENT if target == Label.TOOTH else Mode.BONE_CONNECTED_COMPONENT}.npy'
-        numpy.save(output_path, volume)
+        numpy.save(patient_dir / f'{mode}.npy', volume)
+
+        advance_stage(patient_dir, mode)
