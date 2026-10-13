@@ -1,0 +1,49 @@
+[project]
+name = "toothsegmentation"
+version = "0.1.0"
+requires-python = "==3.13.7"
+dependencies = [
+    "albumentations>=2.0.8",
+    "colorcet>=3.2.1",
+    "connected-components-3d>=4.1.0",
+    "dotenv>=0.9.9",
+    "fastremap>=1.20.0",
+    "omegaconf>=2.3.1",
+    "opencv-python>=5.0.0.93",
+    "openpyxl>=3.1.5",
+    "pandas>=3.0.5",
+    "paramiko>=5.0.0",
+    "pydicom>=3.0.2",
+    "pyside6>=6.11.2",
+    "pyvista>=0.48.4",
+    "pyvistaqt>=0.13.0",
+    "scikit-image>=0.26.0",
+    "scikit-learn>=1.9.0",
+    "simpleitk>=2.5.6",
+    "tensorboard>=2.21.0",
+    "textual>=8.2.8",
+    "torch>=2.13.0",
+    "torchmetrics>=1.9.0",
+    "torchvision>=0.28.0",
+]
+
+
+[tool.uv]
+link-mode = "copy"
+python-preference = "system"
+override-dependencies = [
+    "opencv-python-headless; sys_platform == 'never'",
+]
+
+[tool.uv.sources]
+torch = [
+    { index = "torch-cu130" },
+]
+torchvision = [
+    { index = "torch-cu130" },
+]
+
+[[tool.uv.index]]
+name = "torch-cu130"
+url = "https://download.pytorch.org/whl/cu130"
+explicit = true

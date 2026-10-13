@@ -25,10 +25,18 @@
 Requires Python 3.13+ and [uv](https://docs.astral.sh/uv/).
 
 ```
+cp pyproject.example.toml pyproject.toml
+```
+Edit to match your machine:
+```toml
+requires-python = "==3.13.7"                      # your installed Python version
+...
+[[tool.uv.index]]
+url = "https://download.pytorch.org/whl/cu130"    # your CUDA version
+```
+```
 uv sync
 ```
-
-`torch`/`torchvision` are pulled as CUDA 12.6 wheels via a dedicated `uv` index — see `pyproject.toml`.
 
 The panoramic X-ray baseline model needs its weight files placed under `panoramic/weights/`:
 ```
